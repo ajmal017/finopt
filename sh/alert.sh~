@@ -1,3 +1,5 @@
-export PYTHONPATH=/home/larry-13.04/workspace/finopt:$PYTHONPATH
-python ./alert_bot.py ../config/app.cfg
+#!/bin/bash
+ROOT=$FINOPT_HOME
+export PYTHONPATH=$FINOPT_HOME/src:$PYTHONPATH
+python $FINOPT_HOMEs/src/comms/alert_bot.py $FINOPT_HOME/config/app.cfg
 

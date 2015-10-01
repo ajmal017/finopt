@@ -61,6 +61,7 @@ class AlertMsgBot(sleekxmpp.ClientXMPP):
         logging.info('Connect to redis on server->%s:%s db->%s  qname->%s:%s' % (host, port, db, qprefix, qname))
         jid = config.get("alert_bot", "msg_bot.jid").strip('"').strip("'")
         password = config.get("alert_bot", "msg_bot.pass").strip('"').strip("'")
+
         sleekxmpp.ClientXMPP.__init__(self, jid, password)
         
         self.recipients = eval(config.get("alert_bot", "msg_bot.recipients").strip('"').strip("'"))
@@ -100,12 +101,12 @@ class AlertMsgBot(sleekxmpp.ClientXMPP):
     def process_alerts(self):
         self.quit = False
         while self.quit <> True:
-
             if not self.rsq.empty():
                 msg = self.rsq.get()
                 logging.debug('process_alerts: received msg: {%s}' % msg)
                 self.send_msg(msg)
             sleep(1)
+
         # Using wait=True ensures that the send queue will be
         # emptied before ending the session.
         self.disconnect(wait=True)
@@ -118,6 +119,7 @@ class AlertMsgBot(sleekxmpp.ClientXMPP):
                 self.send_message(r, msg, mtype='chat')            
         finally:
             self.tlock.release()  
+        
         
 #
 # alert helper doesn't care whether the xmpp server 

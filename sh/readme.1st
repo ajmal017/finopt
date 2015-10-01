@@ -1,0 +1,10 @@
+1. set up the environment variable
+	- open ~/.bashrc
+	- export FINOPT_HOME=/home/<user>/worker/finopt
+	- close the terminal and open again, check the
+	  environment variable is set correctly
+
+
+2. open each sh file, amend the path settings accordingly
+
+	

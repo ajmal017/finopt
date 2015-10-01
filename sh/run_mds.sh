@@ -1,4 +1,5 @@
 #!/bin/bash
-ROOT=/home/larry-13.04/workspace/finopt
-export PYTHONPATH=$ROOT/src
-python $ROOT/src/cep/ib_mds.py $ROOT/src/config/app.cfg
+ROOT=$FINOPT_HOME
+export PYTHONPATH=$FINOPT_HOME:$PYTHONPATH
+python $FINOPT_HOME/cep/ib_mds.py $FINOPT_HOME/config/app.cfg
+
