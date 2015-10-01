@@ -1,0 +1,121 @@
+
+
+
+<html>
+  <head>
+    <script type="text/javascript" src="https://www.google.com/jsapi"></script>
+    <script type="text/javascript">
+      google.load("visualization", "1", {packages:["corechart"]});
+      google.setOnLoadCallback(drawChart);
+      function drawChart() {
+/*        var data = new google.visualization.DataTable();
+
+        data.addColumn('number', 'x');
+        data.addColumn('number', 'values');
+        data.addColumn({id:'i2', type:'number', role:'interval'});
+        data.addColumn({id:'i2', type:'number', role:'interval'});
+	data.addColumn('number', 'values');
+        data.addColumn({id:'i2', type:'number', role:'interval'});
+
+        data.addColumn({id:'i2', type:'number', role:'interval'});
+*/
+
+  
+     
+/*
+[{label:'strikes', type:'number'},
+{label:'P',  type:'number'},
+{label:'p1', id:'i2', type:'number', role:'interval'},
+{label:'p2', id:'i2', type:'number', role:'interval'},
+{label:'C', type:'number'},
+{label:'c1', id:'i2', type:'number', role:'interval'},
+{label:'C2', id:'i2', type:'number', role:'interval'}],
+*/
+        
+        var data2 = google.visualization.arrayToDataTable([
+[{label:"strikes",type:"number"},
+{label: 'P-20150929', type:'number'},                
+{label: 'Pb-20150929', id:'i2', type:'number', role:'interval'},                
+{label: 'Pa-20150929', id:'i2', type:'number', role:'interval'},                
+{label: 'C-20150929', type:'number', },                
+{label: 'Cb-20150929', id:'i2', type:'number', role:'interval'},               
+ {label: 'Ca-20150929', id:'i2',type:'number', role:'interval'},],
+[14000,null,null,null,null,null,null,],
+[14800,7.0,2.0,7.0,null,null,null,],
+[16000,null,null,null,null,null,null,],
+[17000,null,null,null,null,null,null,],
+[17400,24.0,23.0,25.0,null,null,null,],
+[18800,58.5,58.0,59.0,null,null,null,],
+[19800,129.0,128.0,130.0,null,null,null,],
+[20000,151.0,150.0,152.0,null,null,null,],
+[20200,177.5,176.0,179.0,null,null,null,],
+[20400,209.5,208.0,211.0,null,null,null,],
+[20600,247.0,246.0,248.0,1183.5,1163.0,1204.0,],
+[20800,291.5,290.0,293.0,null,null,null,],
+[21000,343.5,342.0,345.0,888.5,876.0,901.0,],
+[21200,405.0,403.0,407.0,753.0,741.0,765.0,],
+[21400,480.0,478.0,482.0,626.5,618.0,635.0,],
+[21600,568.0,562.0,574.0,512.0,507.0,517.0,],
+[21800,669.5,661.0,678.0,412.5,410.0,415.0,],
+[22000,783.5,773.0,794.0,325.5,324.0,327.0,],
+[22200,null,null,null,251.5,250.0,253.0,],
+[22400,null,null,null,192.0,191.0,193.0,],
+[22600,null,null,null,145.5,144.0,147.0,],
+[22800,null,null,null,109.0,108.0,110.0,],
+[23000,null,null,null,80.5,80.0,81.0,],
+[23200,null,null,null,61.0,60.0,62.0,],
+[23400,null,null,null,45.5,45.0,46.0,],
+[23600,null,null,null,35.5,34.0,37.0,],
+[24800,null,null,null,null,null,null,],
+
+
+        ]);
+  
+        // The intervals data as narrow lines (useful for showing raw source data)
+
+    var options = {
+        title:'Bar/area interval chart',
+        curveType:'function',
+        intervals: { 'color':'series-color' },
+        interval: {
+            'i0': { 'color': '#4374E0', 'style':'bars', 'barWidth':0, 'lineWidth':4, 'pointSize':10, 'fillOpacity':1 },
+            'i1': { 'color': '#E49307', 'style':'bars', 'barWidth':0, 'lineWidth':4, 'pointSize':10, 'fillOpacity':1 },
+            'i2': { 'style':'area', 'curveType':'function', 'fillOpacity':0.3 }},
+        legend: 'bottom',pointShape: 'diamond',
+          trendlines: {
+            0: {
+              type: 'polynomial',
+              showR2: true,
+              visibleInLegend: true,
+	      
+		},
+            1: {
+              type: 'polynomial',
+              showR2: true,
+              visibleInLegend: true
+
+            },
+            2: {
+              type: 'polynomial',
+              showR2: true,
+              visibleInLegend: true
+
+            },
+            3: {
+              type: 'polynomial',
+              showR2: true,
+              visibleInLegend: true
+
+            }}
+    };
+
+  
+        var chart_lines = new google.visualization.ScatterChart(document.getElementById('chart_lines'));
+        chart_lines.draw(data, options);
+      }
+    </script>
+  </head>
+  <body>
+    <div id="chart_lines" style="width: 1000px; height: 700px;"></div>
+  </body>
+</html>

@@ -1,0 +1,83 @@
+<html>
+<head>
+<script type="text/javascript" src="http://cdnjs.cloudflare.com/ajax/libs/mathjs/2.1.1/math.min.js"></script>
+</head>
+
+<body>
+<script>
+var arr = [
+["strike",'P-20150828', 'C-20150828', 'P-20150929', 'C-20150929', ],[22200,0.270734444617,null,0.242985993558,null,],
+[22400,0.261369747691,null,0.232819715697,null,],
+[22600,0.251353651656,null,0.229132454791,null,],
+[22800,0.240969008475,0.351931555061,0.222927272429,0.220815668249,],
+[23000,0.229758525876,0.294410248151,0.218427691847,0.21626161508,],
+[23200,0.218659410879,0.275603698734,0.214404276766,0.21213093704,],
+[23400,0.207342374962,0.259170160748,0.210688875964,0.207158189383,],
+[23600,0.196168395475,0.244469681637,0.206833626108,0.204443543823,],
+[23800,0.184644378967,0.231450694292,0.204179966414,0.201382080537,],
+[24000,0.174256124286,0.221704626722,0.201361637122,0.198566710377,],
+[24200,0.161696861066,0.212393470141,0.198921365043,0.196384712922,],
+[24400,0.149106579291,0.204694281965,0.195749304976,0.19451759503,],
+[24600,0.129313564031,0.200488199952,0.195305382378,0.193065925499,],
+[24800,0.168825553718,0.198375969376,0.194509793447,0.192016547868,],
+[25000,null,0.197782230105,0.193721247084,0.191536559383,],
+[25200,null,0.199567025945,null,0.191317851418,],
+[25400,null,0.204887179548,null,0.19164870535,],
+[25600,null,0.211290483457,null,0.192816068081,],
+[25800,null,0.217868766488,null,0.194131464843,],
+];
+
+
+
+function minMax(myStringArray){
+    var arrayLength = myStringArray.length;
+    
+    var s = '';
+    var min, max;
+    min = 99999;
+    max = -1;
+    var allNums = new Array();
+    var k = 0
+    for (var i = 1; i < arrayLength; i++) {
+        for (j = 1; j < myStringArray[i].length; j++){
+
+
+                
+                if (myStringArray[i][j] == null) continue;
+                if (myStringArray[i][j] > max)
+                    max = myStringArray[i][j];
+                if (myStringArray[i][j] < min)
+                    min = myStringArray[i][j];
+				            
+				allNums[k++] = myStringArray[i][j];
+				
+        }   
+     
+        //s = s + myStringArray[i][0];
+    }
+	alert(math.median(allNums));
+	//document.querySelector('#s').value = math.median(allNums).toString();
+
+    return { "min" : min , "max": max };
+}
+
+
+
+
+var result = minMax(arr);
+alert( "Min Max " + result.min.toString() + " " + 
+    result.max.toString() + ((result.min + result.max)/2).toString());
+
+
+
+
+
+
+</script>
+
+<output id='out'></output>
+<br>
+<output id='s'></output>
+</body>
+
+</html>

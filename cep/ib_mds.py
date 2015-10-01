@@ -67,7 +67,7 @@ class IbKafkaProducer():
         rc = self.con.connect()
         if rc:
             self.ib_conn_status = 'OK'
-        logging.info('******* Starting IbKafkaProducer)
+        logging.info('******* Starting IbKafkaProducer')
         logging.info('IbKafkaProducer: connection status to IB is %d' % rc)
         logging.info('IbKafkaProducer: connecting to kafka host: %s...' % kafka_host)
         logging.info('IbKafkaProducer: message mode is async')
@@ -132,18 +132,19 @@ class IbKafkaProducer():
             self.con = ibConnection(host, port, appid)
             self.con.registerAll(self.on_ib_message)
             rc = None
-            while not rc:
+            while not rc and not self.quit:
                 logging.error('IbKafkaProducer: attempt reconnection!')
                 rc = self.con.connect()
                 logging.info('IbKafkaProducer: connection status to IB is %d (0-broken 1-good)' % rc)
                 sleep(2)
             
-            # resubscribe tickers again!
-            self.load_tickers()                
-            a = AlertHelper(self.config)
-            a.post_msg('ib_mds recovered from broken ib conn, re-subscribe tickers...')            
-            logging.debug('on_ib_conn_broken: completed restoration. releasing lock...')
-            self.ib_conn_status = 'OK'
+            if not self.quit:
+                # resubscribe tickers again!
+                self.load_tickers()                
+                a = AlertHelper(self.config)
+                a.post_msg('ib_mds recovered from broken ib conn, re-subscribe tickers...')            
+                logging.debug('on_ib_conn_broken: completed restoration. releasing lock...')
+                self.ib_conn_status = 'OK'
             
         finally:
             self.tlock.release()          

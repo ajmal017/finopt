@@ -1,0 +1,96 @@
+<html>
+  <head>
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/2.1.3/jquery.min.js"></script>
+    <script type="text/javascript" src="https://www.google.com/jsapi"></script>
+    <script type="text/javascript">
+      google.load("visualization", "1.1", {packages:["bar"]});
+      google.load('visualization', '1', {'packages':['table']});
+//      google.load("visualization", "1.1", {packages:["corechart"]});
+      google.setOnLoadCallback(drawChart);
+      function drawChart() {
+        var data = google.visualization.arrayToDataTable([
+          ['Strike Price', 'P', 'C', ],
+{{{dataPCpos}}}
+        ]);
+
+	var dataTbl = google.visualization.arrayToDataTable([
+{{{dataTablePos}}}
+
+        ]);
+
+
+        var options = {
+          width: 900,
+          chart: {
+            title: 'Option Postion Distribution. PUT:CALL Ratio [{{{PRvsCR}}}}]',
+            subtitle: 'for the month of {{{option_months}}}',
+          },
+ 
+        };
+
+        var chart = new google.charts.Bar(document.getElementById('barchart_material'));
+        chart.draw(data, options);
+
+
+
+
+	// chart table display implied volatilities in a nicely formatted table	
+       var chartTbl = new google.visualization.Table(document.getElementById('chartTbl_div'));
+
+
+       var portTbl = new google.visualization.Table(document.getElementById('portTblDiv'));
+
+	var formatter = new google.visualization.NumberFormat({pattern:'0.00'});
+	for (var i = 2; i < 9; i++)
+		formatter.format(dataTbl, i); 
+        var options2 = {
+          displayAnnotations: true,
+	  showRowNumber: true, width: '100%', height: '100%', allowHtml: true,
+        };
+	chartTbl.draw(dataTbl, options2);
+
+	$('input[id="b_reload"]').click();
+
+      }
+
+
+//        $(document).ready(function () {
+		$('input[id="b_reload"]').click(function () {
+//		   var formatter = new google.visualization.NumberFormat({pattern:'0.00'});
+//		   for (var i = 0; i < 9; i++)
+//				formatter.format(portTbl, i); 
+		   var options3 = {
+			displayAnnotations: true,
+			showRowNumber: true, width: '100%', height: '100%', allowHtml: true,
+			};	    
+		    $.ajax({
+			type: 'Post',
+			url: '/ws_position_summary',
+			success: function (data) {
+alert(data);
+				var jdata = JSON.parse('{"rows": [{"v": 0.047488620928674306}, {"v": -34.1918070686455}, {"v": 35.01931221132403}, {"v": -69.21111927996955}, {"v": 0.0}, {"v": 4350.744926215475}, {"v": -297.6744472363985}, {"v": 4648.419373451876}, {"v": 89903.71832036527}, {"v": "20150915231057"}, {"v": "OK"}], "cols": [{"type": "number", "label": "delta_1percent"}, {"type": "number", "label": "delta_all"}, {"type": "number", "label": "delta_c"}, {"type": "number", "label": "delta_p"}, {"type": "number", "label": "theta_1percent"}, {"type": "number", "label": "theta_all"}, {"type": "number", "label": "theta_c"}, {"type": "number", "label": "theta_p"}, {"type": "number", "label": "unreal_pl"}, {"type": "string", "label": "last_updated"}, {"type": "string", "label": "status"}]}');
+
+				$('#temp').text(jdata);
+				var d  = new google.visualization.DataTable(jdata);
+				portTbl.draw(d, options3);
+			}
+		    });
+		})
+//	});
+
+    </script>
+
+
+  </head>
+  <body>
+    <div id="barchart_material" style="width: 900px; height: 500px;"></div>
+    <div id='chartTbl_div' style='width: 900px; height: 500px;'></div>
+    <div id="portTbl">
+        <input type="button" id="b_reload" value="Reload" />
+    </div>
+    <div id='portTblDiv' style='width: 900px; height: 500px;'></div>
+<div id='temp'></div>
+
+  </body>
+</html>
+

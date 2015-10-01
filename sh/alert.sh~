@@ -1,0 +1,3 @@
+export PYTHONPATH=/home/larry-13.04/workspace/finopt:$PYTHONPATH
+python ./alert_bot.py ../config/app.cfg
+

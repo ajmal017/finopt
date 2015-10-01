@@ -1,0 +1,255 @@
+<html>
+  <head>
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/2.1.3/jquery.min.js"></script>
+  <title> Trading Options Monitor </title>
+    <script type="text/javascript" src="https://www.google.com/jsapi"></script>
+    <script type="text/javascript" src="http://cdnjs.cloudflare.com/ajax/libs/mathjs/2.1.1/math.min.js"></script>
+    <script type="text/javascript">
+      google.load("visualization", "1", {packages:["corechart"]});
+      google.load('visualization', '1', {'packages':['table']});
+      google.setOnLoadCallback(drawChart);
+      function drawChart() {
+	// data contains implied vols for a series of this and next month options
+	// the {{{stuff}}} is substituted by the backend python script with the actual data values 
+	var dataArray = [{{{data}}}];
+        var data = google.visualization.arrayToDataTable(dataArray);
+
+	// data2 contains premiums for a series of this and next month options 
+        var data2 = google.visualization.arrayToDataTable([
+{{{dataPremium}}}
+
+        ]);
+	
+
+        var options = {
+	title: "HSI PUT/CALL volatility",
+          hAxis: {minValue: 18000, maxValue: 22500},
+          vAxis: {minValue: 0.15, maxValue: 0.4},
+          chartArea: {width:'80%'},
+	  pointShape: 'diamond',
+          trendlines: {
+            0: {
+              type: 'polynomial',
+              showR2: true,
+              visibleInLegend: true,
+	      
+		},
+            1: {
+              type: 'polynomial',
+              showR2: true,
+              visibleInLegend: true
+
+            },
+            2: {
+              type: 'polynomial',
+              showR2: true,
+              visibleInLegend: true
+
+            },
+            3: {
+              type: 'polynomial',
+              showR2: true,
+              visibleInLegend: true
+
+            }
+          }
+        };
+
+
+	// helper routine to search for the min and max values in the data array
+	// the function skips row 1 which is a header row, 
+	// it skips the first column which is the strike price
+	function minMax(myStringArray){
+	    var arrayLength = myStringArray.length;
+	    var s = '';
+	    var min, max;
+	    min = 99999;
+	    max = -1;
+	    var allNums = new Array();
+	    var k = 0;
+	    for (var i = 1; i < arrayLength; i++) {
+		for (j = 1; j < myStringArray[i].length; j++){
+		        if (myStringArray[i][j] == null) continue;
+		        if (myStringArray[i][j] > max)
+		            max = myStringArray[i][j];
+		        if (myStringArray[i][j] < min)
+		            min = myStringArray[i][j];
+			allNums[k++] = myStringArray[i][j];	
+		}   
+		//s = s + myStringArray[i][0];
+		
+	    }
+	    return { "min" : min , "max": max, "median": math.median(allNums) };
+	}
+
+
+        var chartLinear = new google.visualization.ScatterChart(document.getElementById('chartLinear'));
+        chartLinear.draw(data, options);
+
+        options.trendlines[0].type = 'polynomial';
+        options.trendlines[1].type = 'polynomial';
+
+
+	// chart table display implied volatilities in a nicely formatted table	
+       var chartTbl = new google.visualization.Table(document.getElementById('chartTbl_div'));
+
+	// determine the min max and median of the implied vols
+	var data_range = minMax(dataArray);
+	var formatter = new google.visualization.BarFormat({base: data_range.median,
+                                                             min: data_range.min, 
+                                                             max: data_range.max, width: 120});
+	document.getElementById('vol_divider').value = (data_range.median / data_range.max) * 100;
+	document.getElementById('vol_divider_value').value = data_range.median;
+	var formatter2 = new google.visualization.NumberFormat({pattern:'0.####'});
+	for (i=1; i < 5; i++){
+		formatter2.format(data, i);
+		formatter.format(data, i); // Apply formatter to second column
+	}
+        var options2 = {
+          displayAnnotations: true,
+	  showRowNumber: true, width: '100%', height: '100%', allowHtml: true,
+        };
+	chartTbl.draw(data, options2);
+
+
+        var chartPremium = new google.visualization.ScatterChart(document.getElementById('chartPremium'));
+	options.title = 'PUT/CALL Premium';
+        chartPremium.draw(data2, options);
+	
+
+
+         document.getElementById('format-select').onchange = function() {
+
+           options['pointShape'] = this.value;
+
+           chartLinear.draw(data, options);
+
+         };
+
+        document.getElementById('vol_divider').onchange = function() {
+	   var x = this.value / 100 * (data_range.max - data_range.min) + data_range.min;
+	   document.getElementById('vol_divider_value').value = x;
+           //formatter = new google.visualization.BarFormat({base: x,min:0, max:0.5, width: 120});
+	   formatter = new google.visualization.BarFormat({base: x,
+                                                             min: data_range.min, 
+                                                             max: data_range.max, width: 120});
+   	   for (i=1; i < 5; i++){
+		formatter.format(data, i); // Apply formatter to second column
+	   }
+           chartTbl.draw(data, options2);
+         };
+
+
+        document.getElementById('haxis_range').onchange = function() {
+	   document.getElementById('haxis_from_value').value = this.value;
+	   options.hAxis.minValue = this.value;
+	   chartPremium.draw(data2, options);
+	   chartLinear.draw(data, options);
+
+         };
+      
+// The select handler. Call the chart's getSelection() method
+  function selectHandler() {
+    var selectedItem = chartLinear.getSelection()[0];
+    if (selectedItem) {
+      var value = data.getValue(selectedItem.row, selectedItem.column);
+      alert('The user selected ' + value);
+    }
+  }
+
+  // Listen for the 'select' event, and call my function selectHandler() when
+  // the user selects something on the chart.
+  google.visualization.events.addListener(chartLinear, 'select', selectHandler);
+
+      }
+
+
+    </script>
+    <script>
+    $(document).ready(function () {
+        $('input[id="b_refresh"]').click(function () {
+            
+            $.ajax({
+                type: 'Post',
+                url: '/ws_market_data?r_ckey=HSI-20150929-FUT-&fid=4',
+                success: function (data) {
+			document.getElementById('undly_last_px').value = data;
+                }
+            });
+            $.ajax({
+                type: 'Post',
+                url: '/getSHquote?qs=0000001,1399001,1399300',
+                success: function (data) {
+
+			var json_data = JSON.parse(data);
+
+			if (!String.prototype.format) {
+			  String.prototype.format = function() {
+			    var args = arguments;
+			    return this.replace(/{(\d+)}/g, function(match, number) { 
+			      return typeof args[number] != 'undefined'
+				? args[number]
+				: match
+			      ;
+			    });
+			  };
+			}
+
+
+			var s = "|  {0}: {1} [{2}%]  |  {3}: {4} [{5}%] |  {6}: {7} [{8}%]".format(
+							json_data['0000001']['name'],
+							json_data['0000001']['price'],
+							(json_data['0000001']['percent']*100).toFixed(2) ,
+							json_data['1399001']['name'],
+							json_data['1399001']['price'],
+							(json_data['1399001']['percent']*100).toFixed(2) ,
+							json_data['1399300']['name'],
+							json_data['1399300']['price'],
+							(json_data['1399300']['percent']*100).toFixed(2) );
+			
+			document.getElementById('ssidx_px').value = s;
+                }
+            });
+
+
+
+        })
+    })
+    </script>
+
+  </head>
+  <body>
+        <div id="d_undly_last_px">
+            <input type="button" id="b_refresh" value="Refresh Price" />
+	    <output id=undly_last_px></output>
+	    <output id=ssidx_px></output>
+        </div>
+    <div id="chartLinear" style="height: 350px; width: 850px"></div>
+    <div id="chartPremium" style="height: 350px; width: 850px"></div>
+<li>
+<label for=haxis_from>H-Axis Range Starts At:</label>
+<input type=range id=haxis_range min=10000 value=20000 max=25000 step=500>
+<output id=haxis_from_value></output>
+</li>
+<h2> Implied volatilities for this and next month HSI options</h2>
+    <div id='chartTbl_div' style='width: 900px; height: 500px;'></div>
+    <select id="format-select">
+      <option value="">none</option>
+      <option value="Diamond" selected>Diamond</option>
+      <option value="triangle">triangle</option>
+      <option value="square">square</option>
+      <option value="diamond">diamond</option>
+      <option value="star">star</option>
+      <option value="polygon">polygon</option>
+    </select>
+    <div id="number_format_chart">
+<li>
+<label for=vol_divider>Volatility Divider</label>
+<input type=range id=vol_divider min=0 value=50 max=100 step=5>
+<output id=vol_divider_value></output>
+</li>
+
+
+
+  </body>
+</html>
