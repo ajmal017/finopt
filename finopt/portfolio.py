@@ -15,6 +15,8 @@ import opt_serve
 import cherrypy
 import redis
 
+
+
 #from options_data import ContractHelper
 import options_data
 # Tick Value      Description
@@ -391,7 +393,10 @@ class PortfolioManager():
                 pos_summary['theta_' + right] += pmap['6006']
                 pos_summary['theta_all'] += pmap['6006']
                 pos_summary['unreal_pl'] += pmap['6008']
-                pos_summary['delta_1percent'] += (pos_summary['delta_all'] / (pmap['6002'] * pmap['6007']))
+
+                
+                
+                #pos_summary['delta_1percent'] += (pos_summary['delta_all'] / (pmap['6002'] * pmap['6007']))
                 # delta_1% = pos_ / (pos * multiplier)
                 
                 

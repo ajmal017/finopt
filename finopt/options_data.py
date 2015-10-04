@@ -853,20 +853,67 @@ class DataMap():
 
     def refresh_portfolio(self, sec):
         p = portfolio.PortfolioManager(self.config)
+        
         p.retrieve_position()
 #20150914
         #p.recal_port()
+
+        
+#        undly_months_prices = eval(self.config.get("market", "option.underlying.month_price").strip('"').strip("'"))
+        
         cnt = 0
         while 1:
             now = int(time.strftime('%H%M'))
             if (now >= int(DataMap.mkt_sessions['morning'][0]) and now <= int(DataMap.mkt_sessions['morning'][1]) \
                 or  now >= int(DataMap.mkt_sessions['afternoon'][0]) and now <= int(DataMap.mkt_sessions['afternoon'][1])):             
-                    s = p.recal_port()
-                    #print s
+                
+                
+#20151002
+#                     logging.debug('refresh_portfolio: force retrieve all positions from IB!!')
+
+# force retrive again on every run
+#                     p.retrieve_position()
+                    
+                    
+# subscribe new contracts traded
+#                     toks = map(lambda x: x.split('-'), p.get_pos_contracts())
+#             
+#                     for t in toks:
+#                         contractTuple = (t[0], 'FUT', 'HKFE', 'HKD', '', 0, '')
+#                         
+#                         #add_subscription(self, contractTuple, month, X, right):
+#                         rc = map(lambda x: (omd.add_subscription(x[0], x[1], x[2], x[3])),\
+#                                              [(contractTuple, m[0], t[2], 'P') for m in undly_months_prices] +\
+#                                              [(contractTuple, m[0], t[2], 'C') for m in undly_months_prices])        
+#                 
+                     s = p.recal_port()
+                     print s
                     
             sleep(sec)
 
+# copy list of subscribed contracts from the console in options_data
+# save them into a text file
+# call this function to generate subscription txt that 
+# can be processed by ib_mds.py
+def create_subscription_file(src, dest):
+    
+    # improper file content will cause
+    # this function to fail
+    f = open(src)
+    lns = f.readlines()
 
+    a= filter(lambda x: x[0] <> '\n', map(lambda x: x.split(','), lns))
+    contracts = map(lambda x: x.split('-'), [c[1] for c in a])
+    options = filter(lambda x: x[2] <> 'FUT', contracts)
+    futures = filter(lambda x: x[2] == 'FUT', contracts)
+    print contracts
+    #HSI,FUT,HKFE,HKD,20151029,0,
+    futm= map(lambda x: "%s,%s,%s,%s,%s,%s,%s" % (x[0], 'FUT', 'HKFE', 'HKD', x[1], '0', ''), futures)
+    outm= map(lambda x: "%s,%s,%s,%s,%s,%s,%s" % (x[0], 'OPT', 'HKFE', 'HKD', x[1], x[2], x[3]), options)
+    f1 = open(dest, 'w')
+    f1.write(''.join('%s\n'% c for c in outm))
+    f1.write(''.join('%s\n'% c for c in futm))
+    f1.close()
 
 def console(config, omd):
     undly_months_prices = eval(config.get("market", "option.underlying.month_price").strip('"').strip("'"))
@@ -874,7 +921,8 @@ def console(config, omd):
     while not done:
 #        try:
         print "Available commands are: l - list all subscribed contracts, i - force recal impl vol, s <H/M> <X> - H for HSI M for MHI manual subscription of HKFE options"
-        print "                        p - print portfolio summary"
+        print "                        p - print portfolio summary,   r - rescan portfolio and update subscription list"
+        print "                        c [src] [dest] - dump subscribed contracts to an external file"
         print "                       <id> - list subscribed contract by id, q - terminate program"
         cmd = raw_input(">>")
         input = cmd.split(' ')
@@ -884,7 +932,7 @@ def console(config, omd):
             #DataMap().printMap()
             DataMap().printMapCSV()
             DataMap().createOptionsPanelData()
-        elif input[0] == 'i':
+        elif input[0] == 'i':           
             DataMap().createImplVolChartData()
         elif input[0] == 's':
             symbol = 'HSI' if input[1].upper() == 'H' else 'MHI'
@@ -897,12 +945,19 @@ def console(config, omd):
                                  [(contractTuple, m[0], X, 'C') for m in undly_months_prices])
             print 'subscribed items: %s' % rc
         elif input[0] == 'p':
-            port_key  = '%s_%s' % (config.get("redis", "redis.datastore.key.port_prefix").strip('"').strip("'"), \
-                            config.get("redis", "redis.datastore.key.port_summary").strip('"').strip("'"))
+#             port_key  = '%s_%s' % (config.get("redis", "redis.datastore.key.port_prefix").strip('"').strip("'"), \
+#                             config.get("redis", "redis.datastore.key.port_summary").strip('"').strip("'"))
+            port_key  = config.get("redis", "redis.datastore.key.port_summary").strip('"').strip("'")
 
             print 'position summary'
+
             print '\n'.join('%s:\t\t%s' % (k,v) for k,v in sorted(json.loads(DataMap.rs.get(port_key)).iteritems()))
             print '-----end position summary\nl'
+        elif input[0] == 'r':
+            add_portfolio_subscription(config, omd)
+        elif input[0] == 'c':
+            create_subscription_file(input[1], input[2])
+            
         elif isinstance(input[0], int): 
             DataMap().printContractByID(input[0])
         else:
@@ -957,15 +1012,17 @@ if __name__ == '__main__':
     DataMap().init_redis(config)
     mdm = MarketDataManager(config)  
     mdm.connect()
-    o = OptionsMarketDataManager(config, mdm)
+    omd = OptionsMarketDataManager(config, mdm)
 #     contractTuple = ('HSI', 'FUT', 'HKFE', 'HKD', '', 0, '')
 #     o.option_range(contractTuple, [['20150828', 22817.0], ['20150929', 22715.0]], 200, 0.08)
 
-    add_portfolio_subscription(config, o)
+    add_portfolio_subscription(config, omd)
 
     thread.start_new_thread(DataMap().refreshRedisImplVol, (60,))
-    thread.start_new_thread(DataMap().refresh_portfolio, (5,))
-    console(config, o)
+#    thread.start_new_thread(DataMap().refresh_portfolio, (5,))
+
+    thread.start_new_thread(DataMap().refresh_portfolio, (5, ))
+    console(config, omd)
   
 
        

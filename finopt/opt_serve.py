@@ -15,6 +15,7 @@ import json
 import optcal
 import ConfigParser
 import portfolio
+from comms.alert_bot import AlertHelper
 
 
 class QServer(object):
@@ -156,7 +157,7 @@ class QServer(object):
         return html_tmpl
 
 
-
+    
 
     @cherrypy.expose
     def opt_implv_ex(self):
@@ -342,6 +343,7 @@ class QServer(object):
         #s = "%s" % p.get_tbl_pos_csv()
         #print s
         s = s.replace(',[', '').replace(']', '<br>')
+        
         print s
         return s[1:len(s)-3]
     
@@ -362,7 +364,13 @@ class QServer(object):
         
         s = s[:len(s)-2]
         print s
-        return s      
+        return s
+    
+    
+    @cherrypy.expose
+    def ws_msg_bot(self, msg):
+        a = AlertHelper(self.config)
+        a.post_msg(msg)      
          
 if __name__ == '__main__':
             
