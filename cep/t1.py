@@ -25,7 +25,7 @@ path = '/home/larry/l1304/workspace/finopt/data/mds_files/large_up_1002/ibkdump-
 def process_msg(file):
 
     try:
-        md = sc.textFile(file)    
+        md = sc.textFile(file)
         mdl = md.map(lambda lines: (lines.split('|'))).map(lambda x: json.loads(x[1]))\
                 .filter(lambda x: (x['typeName'] == 'tickPrice' and x['contract'] == "HSI-20151029-0--FUT-HKD-102"))\
                 .map(lambda x: x['price'])
