@@ -33,7 +33,7 @@ class Consumer(threading.Thread):
 
 def main():
     threads = [
-        #Producer(),
+        Producer(),
         Consumer()
     ]
 

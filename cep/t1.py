@@ -9,7 +9,8 @@ import numpy
 import time, datetime
 from os import listdir
 from os.path import isfile, join
-
+from optparse import OptionParser
+import sys
 path = '/home/larry/l1304/workspace/finopt/data/mds_files/large_up_1002/ibkdump-20151002105314.txt'
 path = '/home/larry/l1304/workspace/finopt/data/mds_files/large_up_1002/ibkdump-20151002110412.txt'
 
@@ -78,9 +79,25 @@ def process_msg_by_key(file):
     
 
 if __name__ == '__main__':
+    
+    parser = OptionParser()
+#     parser.add_option("-r", "--replay",
+#                       dest="replay_dir",
+#                       help="replay recorded mds files stored in the specified directory")
+                      
+    
+    options, arguments = parser.parse_args()
+
+    #print options, arguments
+    
+    if len(sys.argv) < 2:
+        print("Usage: %s [options] <dir>" % sys.argv[0])
+        exit(-1)    
+    
+    
     sc = SparkContext(appName= 't1')    
     #dir_loc = '/home/larry/l1304/workspace/finopt/data/mds_files/large_up_1002'
-    dir_loc = '/home/larry/l1304/workspace/finopt/data/mds_files'
+    dir_loc = arguments[0]
     files = sorted([ join(dir_loc,f) for f in listdir(dir_loc) if isfile(join(dir_loc,f)) ])
 
     a = [(process_msg_by_key(f)) for f in files]
