@@ -14,6 +14,7 @@ import optcal
 import opt_serve
 import cherrypy
 import redis
+from comms.epc import EPCPub
 
 
 
@@ -55,6 +56,7 @@ class PortfolioManager():
     rs_port_keys = {}
     ib_port_msg = []
     tlock = None
+    epc = None
     
     def __init__(self, config):
         self.config = config
@@ -66,7 +68,10 @@ class PortfolioManager():
         self.rs_port_keys['port_conid_set'] = config.get("redis", "redis.datastore.key.port_conid_set").strip('"').strip("'")
         self.rs_port_keys['port_prefix'] = config.get("redis", "redis.datastore.key.port_prefix").strip('"').strip("'")        
         self.rs_port_keys['port_summary'] = config.get("redis", "redis.datastore.key.port_summary").strip('"').strip("'")
-        
+        self.epc = eval(config.get("portfolio", "portfolio.epc").strip('"').strip("'"))
+        # instantiate a epc object if the config says so
+        if self.epc['stream_to_Kafka']:
+            self.epc['epc'] = EPCPub(config) 
         
         r_host = config.get("redis", "redis.server").strip('"').strip("'")
         r_port = config.get("redis", "redis.port")
@@ -434,9 +439,19 @@ class PortfolioManager():
         pos_summary['entries_skipped'] = l_skipped_pos
         pos_summary['status'] = 'OK' if len(l_skipped_pos) == 0 else 'NOT_OK'
         #self.r_set(self.rs_port_keys['port_summary'], json.dumps(pos_summary) )
-        self.r_conn.set(self.rs_port_keys['port_summary'], json.dumps(pos_summary) )
+        t_pos_summary = json.dumps(pos_summary)
+        self.r_conn.set(self.rs_port_keys['port_summary'], t_pos_summary )
+  
+        #print pos_summary
+        #print l_gmap      
+        # broadcast 
+        if self.epc['epc']:
+            
+            self.epc['epc'].post_portfolio_summary(pos_summary)
+            self.epc['epc'].post_portfolio_items(l_gmap)
+        
 
-        logging.info(pos_summary)
+        #logging.info(pos_summary)
         
         logging.warn('-------------- Entries for which the greeks are not computed!! %s' %\
                         ','.join(' %s' % k for k in l_skipped_pos))
@@ -555,3 +570,4 @@ if __name__ == '__main__':
     
          
     
+

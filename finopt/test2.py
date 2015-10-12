@@ -1,10 +1,11 @@
 import redis, json
-from finopt.cep.redisQueue import RedisQueue
+from comms import redisQueue
 from numpy import *
 import pylab
 import ystockquote
 from datetime import datetime
 from scipy import stats
+from os.path import isfile, join
 
 def f1():
     pall = set(rs.keys(pattern='PT_*'))
@@ -173,8 +174,75 @@ def extrapolate2(ric):
     return (ric, score)
 
 
+def stdan(path, tday):
+    #f = open('/home/larry/l1304/workspace/finopt/data/mds_files/std/std20151005.txt')
+    pylab.switch_backend('agg') # switch to agg backend that support writing in non-main threads    
+    f = open(join(path, '%s.txt' % tday))
+    l = f.readlines()
+    m = map(lambda x: (x.split(',')), l)
+    q = filter(lambda y: y[0] in ['HSI-20151029-0--FUT-HKD-102'] and y[1] > '2015-10-06 08:55:34' , m)
+    n = filter(lambda y: float(y[3]) > 21500.0, q)
+    
+    p = map(lambda y: float(y[2]) if float(y[2]) < 15.0 else 0.0, n)
+    
+    yy = map(lambda y: float(y[3]), n)
+    xx = map(lambda x: datetime.strptime(x[1], '%Y-%m-%d %H:%M:%S.%f'), n)
+    
+    print len(p), len(yy)
+    pylab.figure(figsize=(20,10))
+    pylab.figure(1)
+    pylab.subplot(211)
+    pylab.plot(xx,yy, 'g-' )
+    pylab.subplot(212)
+    pylab.plot(xx,p, 'ro')
+    #pylab.axis(['20150930', '20151001', 20000, 22000])
+    
+    pylab.show()
+    pylab.savefig('%s/std-%s.png' % (path, tday))
+    pylab.close()
+    
+    
+def stdan2(path, tday):
+    #f = open('/home/larry/l1304/workspace/finopt/data/mds_files/std/std20151005.txt')
+    #pylab.switch_backend('agg') # switch to agg backend that support writing in non-main threads    
+    f = open(join(path, '%s.txt' % tday))
+    l = f.readlines()
+    m = map(lambda x: (x.split(',')), l)
 
+    pylab.figure(figsize=(20,10))
+    l_legend = []
+    for strike in range(22000, 23000, 200):
+        right = 'C'    
+        q = filter(lambda y: y[0] in ['HSI-20151029-%s-%s-OPT-HKD-102' % (strike, right)] and y[1] > '2015-10-07 08:55:34' , m)
+        #n = filter(lambda y: float(y[3]) > 21500.0, q)
+    
+        p = map(lambda y: float(y[2]) if float(y[2]) < 20.0 else 0.0, q) #n)
         
+        yy = map(lambda y: float(y[3]), q) #n)
+        xx = map(lambda x: datetime.strptime(x[1], '%Y-%m-%d %H:%M:%S.%f'), q) #n)
+        
+        print len(p), len(yy)
+        
+        pylab.figure(1)
+        pylab.subplot(211)
+        p1, = pylab.plot(xx,yy, label = '%s%s' % (strike, right)) #, 'g-' )
+        
+        pylab.subplot(212)
+        p2, = pylab.plot(xx,p, 'o', label = '%s%s' % (strike, right)) #, 'ro')
+        
+        
+        l_legend.append(p1)
+        l_legend.append(p2)
+        #pylab.axis(['20150930', '20151001', 20000, 22000])
+        
+        
+        #pylab.savefig('%s/std-%s.png' % (path, tday))
+        #pylab.close()
+    print l_legend
+    pylab.legend(handles = l_legend )            
+    pylab.show()
+    
+    
 def mark6():
     
     
@@ -262,7 +330,9 @@ if __name__ == '__main__':
 #    mark6()
 
 #    analyze()
-    
+
+
+    stdan2('/home/larry/l1304/workspace/finopt/data/mds_files/std/', 'std-20151007')
     
     
 

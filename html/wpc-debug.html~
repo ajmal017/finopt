@@ -1,0 +1,97 @@
+<html>
+  <head>
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/2.1.3/jquery.min.js"></script>
+    <script type="text/javascript" src="https://www.google.com/jsapi"></script>
+    <script type="text/javascript">
+      google.load("visualization", "1.1", {packages:["bar"]});
+      google.load('visualization', '1', {packages:['table']});
+//      google.load("visualization", "1.1", {packages:["corechart"]});
+      google.setOnLoadCallback(drawChart);
+      function drawChart() {
+        var data = google.visualization.arrayToDataTable([
+          ['Strike Price', 'P', 'C', ],
+[166.000000,-3.0,0],[170.000000,-2.0,0],[180.000000,-1.0,0],[184.000000,-1.0,0],[198.000000,-3.0,0],[202.000000,-2.0,0],[204.000000,-1.0,0],[208.000000,0.0,0],[210.000000,0,1.0],[210.000000,1.4,0],[218.000000,0,1.0],[222.000000,0,2.0],[224.000000,0,-3.0],[228.000000,0,-3.0],[232.000000,0,-4.0],[242.000000,0,-1.4],
+        ]);
+
+	var dataTbl = google.visualization.arrayToDataTable([
+["symbol","right","avgcost","spotpx","pos","delta","theta","pos_delta","pos_theta","unreal_pl","last_updated"],["HSI-20151029-22200-C","C",19030.000000,381.017579,2.000000,0.437840,-10.815704,43.784026,-1081.570398,41.757911,"20151007111401"],["HSI-20151029-21800-C","C",26230.000000,589.984203,1.000000,0.564297,-11.286094,28.214835,-564.304724,3269.210161,"20151007111401"],["MHI-20151029-21000-P","P",7424.972473,190.018020,7.000000,-0.228807,-9.536717,-16.016499,-667.570202,-38673.545917,"20151007111401"],["HSI-20151029-20800-P","P",0.000000,155.972182,0.000000,-0.192131,-8.849944,-0.000000,-0.000000,0.000000,"20151007111401"],["HSI-20151029-18000-P","P",720.000000,11.999173,-1.000000,-0.015764,-1.857590,0.788211,92.879512,120.041361,"20151007111401"],["HSI-20151029-17000-P","P",4520.000000,5.999704,-2.000000,-0.007562,-1.105674,0.756240,110.567375,8440.029579,"20151007111402"],["HSI-20151029-24200-C","C",1470.000000,19.999537,-1.000000,0.041259,-2.448742,-2.062959,122.437121,470.023160,"20151007111401"],["HSI-20151029-18400-P","P",970.000000,17.999820,-1.000000,-0.023581,-2.495253,1.179028,124.762643,70.008998,"20151007111401"],["HSI-20151029-20200-P","P",4370.000000,86.997312,-2.000000,-0.112454,-6.714653,11.245382,671.465307,40.268774,"20151007111402"],["HSI-20151029-22800-C","C",2586.666667,170.029743,-3.000000,0.250094,-8.446428,-37.514111,1266.964138,-17744.461378,"20151007111401"],["HSI-20151029-19800-P","P",3103.333333,58.995870,-3.000000,-0.077557,-5.404070,11.633482,810.610571,460.619438,"20151007111401"],["HSI-20151029-16600-P","P",3553.333333,4.000011,-3.000000,-0.005123,-0.800896,0.768488,120.134341,10059.998398,"20151007111401"],["MHI-20151029-21000-C","C",9023.000000,1160.037453,5.000000,0.767841,-9.738065,38.392063,-486.903239,12886.872633,"20151007111401"],["HSI-20151029-20400-P","P",4970.000000,103.984277,-1.000000,-0.133053,-7.353567,6.652636,367.678353,-229.213835,"20151007111401"],["HSI-20151029-22400-C","C",4336.666667,284.957300,-3.000000,0.362798,-10.093177,-54.419729,1513.976559,-29733.594967,"20151007111401"],["MHI-20151029-24200-C","C",173.000000,7.004789,-2.000000,0.018215,-1.094362,-0.364294,21.887240,205.904221,"20151007111401"],["HSI-20151029-23200-C","C",2445.000000,91.985154,-4.000000,0.155384,-6.290783,-31.076857,1258.156612,-8617.030711,"20151007111401"],
+
+        ]);
+
+
+        var options = {
+          width: 900,
+          chart: {
+            title: 'Option Postion Distribution. PUT:CALL Ratio [-11.60 : -7.40]',
+            subtitle: 'for the month of 20151029, ',
+          },
+ 
+        };
+
+        var chart = new google.charts.Bar(document.getElementById('barchart_material'));
+        chart.draw(data, options);
+
+
+
+
+	// chart table display implied volatilities in a nicely formatted table	
+//       var chartTbl = new google.visualization.Table(document.getElementById('chartTbl_div'));
+
+
+  //     var portTbl = new google.visualization.Table(document.getElementById('portTblDiv'));
+
+	var formatter = new google.visualization.NumberFormat({pattern:'0.00'});
+	for (var i = 2; i < 9; i++)
+		formatter.format(dataTbl, i); 
+        var options2 = {
+          displayAnnotations: true,
+	  showRowNumber: true, width: '100%', height: '100%', allowHtml: true,
+        };
+//	chartTbl.draw(dataTbl, options2);
+
+	$('input[id="b_reload"]').click();
+
+      }
+
+
+//        $(document).ready(function () {
+		$('input[id="b_reload"]').click(function () {
+//		   var formatter = new google.visualization.NumberFormat({pattern:'0.00'});
+//		   for (var i = 0; i < 9; i++)
+//				formatter.format(portTbl, i); 
+		   var options3 = {
+			displayAnnotations: true,
+			showRowNumber: true, width: '100%', height: '100%', allowHtml: true,
+			};	    
+		    $.ajax({
+			type: 'Post',
+			url: '/ws_position_summary',
+			success: function (data) {
+alert(data);
+				var jdata = JSON.parse('{"rows": [{"v": 0.047488620928674306}, {"v": -34.1918070686455}, {"v": 35.01931221132403}, {"v": -69.21111927996955}, {"v": 0.0}, {"v": 4350.744926215475}, {"v": -297.6744472363985}, {"v": 4648.419373451876}, {"v": 89903.71832036527}, {"v": "20150915231057"}, {"v": "OK"}], "cols": [{"type": "number", "label": "delta_1percent"}, {"type": "number", "label": "delta_all"}, {"type": "number", "label": "delta_c"}, {"type": "number", "label": "delta_p"}, {"type": "number", "label": "theta_1percent"}, {"type": "number", "label": "theta_all"}, {"type": "number", "label": "theta_c"}, {"type": "number", "label": "theta_p"}, {"type": "number", "label": "unreal_pl"}, {"type": "string", "label": "last_updated"}, {"type": "string", "label": "status"}]}');
+
+				$('#temp').text(jdata);
+				var d  = new google.visualization.DataTable(jdata);
+				portTbl.draw(d, options3);
+			}
+		    });
+		})
+//	});
+
+    </script>
+
+
+  </head>
+  <body>
+    <div id="barchart_material" style="width: 900px; height: 500px;"></div>
+    <div id='chartTbl_div' style='width: 900px; height: 500px;'></div>
+    <div id="portTbl">
+        <input type="button" id="b_reload" value="Reload" />
+    </div>
+    <div id='portTblDiv' style='width: 900px; height: 500px;'></div>
+<div id='temp'></div>
+
+  </body>
+</html>
+
+

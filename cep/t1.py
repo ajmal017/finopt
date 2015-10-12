@@ -54,28 +54,43 @@ def process_msg_by_key(file):
                 
         #mds = mdl.filter(lambda x: (x['typeName'] == 'tickSize'  and x['contract'] in ["HSI-20151029-0--FUT-HKD-102"]))\
         mds = mdl.filter(lambda x: (x['typeName'] == 'tickSize'))\
-                .map(lambda x: (x['contract'], (x['ts'], x['size']) )).groupByKey()                
+                .map(lambda x: (x['contract'], x['size'] ) )\
+                .reduceByKey(lambda x, y: (x + y))              
         
         sdp = mdp.map(lambda x: (x[0],\
-                                 (datetime.datetime.fromtimestamp( [a[0] for a in x[1]][0]  ),\
+                                 (datetime.datetime.fromtimestamp( [a[0] for a in x[1]][0]   ),\
                                   numpy.std([a[1] for a in x[1]]),\
                                   numpy.mean([a[1] for a in x[1]]))\
                                 ))
         
-        sds = mds.map(lambda x: (x[0],\
-                                 (datetime.datetime.fromtimestamp( [a[0] for a in x[1]][0]  ),\
-                                  numpy.std([a[1] for a in x[1]]),\
-                                  numpy.mean([a[1] for a in x[1]]))\
-                                )) 
+#         sds = mds.map(lambda x: (x[0],\
+#                                  (datetime.datetime.fromtimestamp( [a[0] for a in x[1]][0]  ),\
+#                                   numpy.std([a[1] for a in x[1]]),\
+#                                   numpy.mean([a[1] for a in x[1]]))\
+#                                 )) 
          
-        #print sds.take(2)
-        sdsp = sdp.cogroup(sds)
+        #sdsp = sdp.cogroup(sds)
+        sdsp = mds.join(sdp)
+        print sdsp.take(2)
         elems = sdsp.collect()
+        f = open('/home/larry/l1304/workspace/finopt/data/mds_files/std/sd-rdd.txt', 'a')
         for e in elems:            
-            print '%s %s %s' % (e[0], ''.join('[%s %0.2f %0.2f]'%(p[0],p[1],p[2]) for p in e[1][0]), ''.join('[%s %0.2f %0.2f]'%(p[0],p[1],p[2]) for p in e[1][1]))
+            s =  '%s,%s,%s' % (e[0], ''.join('[%s %0.2f %0.2f]'%(p[0],p[1],p[2]) for p in e[1][0]), ''.join('[%s %0.2f %0.2f]'%(p[0],p[1],p[2]) for p in e[1][1]))
+            print s
+            f.write(s + '\n')
         return sdsp 
     except:
         return 
+    
+    
+def process_port(file):    
+    try:
+        md = sc.textFile(file)    
+        print file
+        mdl = md.map(lambda x: json.loads(x)).filter()
+            
+    except:
+        return
     
 
 if __name__ == '__main__':

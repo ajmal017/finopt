@@ -247,6 +247,7 @@ class IbKafkaProducer():
 
     def do_work(self):
         while not self.quit:
+            sleep(1)
             pass
         
     def run_forever(self):

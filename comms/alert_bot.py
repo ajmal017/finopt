@@ -140,6 +140,13 @@ class AlertHelper():
     def post_msg(self, msg):
         self.q.put(msg)      
         
+    def flush_all(self):
+        i = 0
+        while not self.q.empty():
+            self.q.get()
+            i+=1
+        return i
+        
 
 if __name__ == '__main__':
     if len(sys.argv) != 2:
@@ -163,6 +170,8 @@ if __name__ == '__main__':
         xmpp.process(block=False)
         logging.info('Complete initialization...Bot will now run forever')
         a = AlertHelper(config)
-        a.post_msg('from AlertHelper: testing 123')
+        i = a.flush_all()
+        a.post_msg('from AlertHelper: flushed %d old messages.' % i)
+        
     else:
         print("Unable to connect.")

@@ -10,7 +10,10 @@ import time, datetime
 import threading
 import time
 import os
-from finopt import ystockquote
+#from finopt import ystockquote
+from comms.epc import ExternalProcessComm
+
+ 
 ##
 ##
 ##
@@ -45,17 +48,28 @@ from comms.alert_bot import AlertHelper
 
 def f1(time, rdd):
     lt =  rdd.collect()
+    if not lt:
+        return
     print '**** f1'
     print lt
     print '**** end f1'
-    f = open('/home/larry/l1304/workspace/finopt/data/mds_files/std/std-%s.txt' % datetime.datetime.now().strftime('%Y%m%d%H%M'), 'a')
-    f.write(''.join('%s,%s,%s\n'%(s[0].strftime('%Y-%m-%d %H:%M:%S.%f'),s[1],s[2]) for s in lt))
+    f = open('/home/larry/l1304/workspace/finopt/data/mds_files/std/std-20151007.txt', 'a') # % datetime.datetime.now().strftime('%Y%m%d%H%M'), 'a')
+    msg = ''.join('%s,%s,%s,%s,%s\n'%(s[0], s[1][0][0].strftime('%Y-%m-%d %H:%M:%S.%f'),s[1][0][1],s[1][0][2], s[1][1]) for s in lt)
+    f.write(msg)
     d = Q.value
-    if float(lt[0][1]) > 4.6:
-        msg = 'Stock SD alert triggered: '.join('%s,%0.2f,%02.f\n'%(s[0].strftime('%Y-%m-%d %H:%M:%S.%f'),s[1],s[2]) for s in lt)
-        print msg
-        q = RedisQueue(d['alert_bot_q'][1], d['alert_bot_q'][0], d['host'], d['port'], d['db'])
-        q.put(msg)
+    
+    # return rdd tuple (-,((-,-),-)): name = 0--, time 100, sd 101, mean 102, vol 11-
+    
+    for s in lt:
+        if s[0].find('HSI-20151029-0') > 0 and (s[1][0][1] > 4.5 or s[1][1] > 100000):      
+            msg  = 'Unusal trading activity: %s (SD=%0.2f, mean px=%d, vol=%d) at %s\n'\
+                 % (s[0], \
+                    s[1][0][1], s[1][0][2],\
+                    s[1][1],\
+                    s[1][0][0].strftime('%m-%d %H:%M:%S'))   
+            q = RedisQueue(d['alert_bot_q'][1], d['alert_bot_q'][0], d['host'], d['port'], d['db'])
+            q.put(msg)
+            
 
 def f2(time, rdd):
     lt =  rdd.collect()
@@ -88,61 +102,47 @@ def f2(time, rdd):
 
 if __name__ == "__main__":
     if len(sys.argv) != 5:
-        print("Usage: %s <broker_list ex: vsu-01:2181>  <rdd_name> <tick id> <fn name>" % sys.argv[0])
+        print("Usage: %s <broker_list ex: vsu-01:2181>  " % sys.argv[0])
         print("Usage: to gracefully shutdown type echo 1 > /tmp/flag at the terminal")
         exit(-1)
 
-    app_name = "std_deviation_analysis"
+
+    app_name = "portfolio.stream"
     sc = SparkContext(appName= app_name) #, pyFiles = ['./cep/redisQueue.py'])
-    ssc = StreamingContext(sc, 2)
+    ssc = StreamingContext(sc, 5)
     ssc.checkpoint('/home/larry-13.04/workspace/finopt/log/checkpoint')
 
-    
+
 
     brokers, qname, id, fn  = sys.argv[1:]
     id = int(id)
     
-    #
-    # demonstrate how to use broadcast variable
-    #
+
     NumProcessed = sc.accumulator(0)
     
-    cls = float(ystockquote.get_historical_prices('^HSI', '20150930', '20150930')[1][4])
     
-    print 'closing price of HSI %f' % cls
+
     
-    Q = sc.broadcast({'cls': cls, \
+    Q = sc.broadcast({ \
                       'rname': 'rname', 'qname': qname, 'namespace': 'mdq', 'host': 'localhost', 'port':6379, 'db': 3, 'alert_bot_q': ('alert_bot', 'chatq')})
-    Threshold = sc.broadcast(0.020)
-    #kvs = KafkaUtils.createDirectStream(ssc, ['ib_tick_price', 'ib_tick_size'], {"metadata.broker.list": brokers})
-    kvs = KafkaUtils.createStream(ssc, brokers, app_name, {'ib_tick_price':1, 'ib_tick_size':1})
-
-    lns = kvs.map(lambda x: x[1])
-
-    mdl = lns.map(lambda x: json.loads(x))\
-            .filter(lambda x: (x['typeName'] == 'tickPrice' and x['contract'] == "HSI-20151029-0--FUT-HKD-102"))\
-            .map(lambda x: (x['contract'], (x['ts'], x['price']) ))\
-            .groupByKeyAndWindow(12, 10, 1)
-
-#     mdl = lns.map(lambda x: json.loads(x))\
-#             .filter(lambda x: (x['typeName'] == 'tickSize' and x['contract'] == "HSI-20151029-0--FUT-HKD-102"))\
-#             .map(lambda x: (x['contract'], (x['ts'], x['size']) ))\
-#             .groupByKeyAndWindow(12, 10, 1)
-
-
-            
-    s1 = mdl.map(lambda x: (datetime.datetime.fromtimestamp( [a[0] for a in x[1]][0]  ), numpy.std([a[1] for a in x[1]]),\
-                 numpy.mean([a[1] for a in x[1]])\
-                 )) 
-
-    s2 = s1.map(lambda x: (abs(x[2] - Q.value['cls']) / Q.value['cls'], x[2]))   
-
-
     
-    s1.foreachRDD(f1)
-    s2.foreachRDD(f2)
+    
+#     s = {v:1 for k,v in ExternalProcessComm.EPC_TOPICS.iteritems()}
+#     print s
+    kvs = KafkaUtils.createStream(ssc, brokers, app_name, \
+                                  {v:1 for k,v in ExternalProcessComm.EPC_TOPICS.iteritems()}) #{'ib_tick_price':1, 'ib_tick_size':1})
 
-    #trades.pprint()
+    lns = kvs.map(lambda x: x[1]).map(lambda x: json.loads(x))
+    ps = lns.filter(lambda x: x)
+    lns.pprint()
+#     ps = lns.map(lambda x: json.loads(x))\
+#             .filter(lambda x: (x['typeName'] == 'tickPrice'))\
+#             .map(lambda x: (x['contract'], (x['ts'], x['price']) ))\
+#             .groupByKeyAndWindow(12, 10, 1)
+# 
+#     sps.foreachRDD(f1)
+# 
+#     sps.pprint()
     #trades.foreachRDD(eval(fn))
     
         
@@ -161,7 +161,7 @@ if __name__ == "__main__":
                     os.remove('/tmp/flag') 
                     print 'terminating..........'        
                     ssc.stop(True, False) 
-                    sys.exit()          
+                    sys.exit(0)          
                 f.close()
                 time.sleep(2)
             except IOError:
@@ -173,4 +173,5 @@ if __name__ == "__main__":
     t.start()
     ssc.start()
     ssc.awaitTermination()
+    
 
