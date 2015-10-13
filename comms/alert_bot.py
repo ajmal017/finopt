@@ -128,13 +128,16 @@ class AlertMsgBot(sleekxmpp.ClientXMPP):
 class AlertHelper():
     q = None
     
-    def __init__(self, config):
-        rhost = config.get("redis", "redis.server").strip('"').strip("'")
-        rport = config.get("redis", "redis.port")
-        rdb = config.get("redis", "redis.db")
-        chatq = config.get("alert_bot", "msg_bot.redis_mq").strip('"').strip("'")
-        prefix = config.get("alert_bot", "msg_bot.redis_prefix").strip('"').strip("'")
+    def __init__(self, config, rhost=None, rport=None, rdb=None, chatq=None, prefix=None):
+        if config:
+            rhost = config.get("redis", "redis.server").strip('"').strip("'")
+            rport = config.get("redis", "redis.port")
+            rdb = config.get("redis", "redis.db")
+            chatq = config.get("alert_bot", "msg_bot.redis_mq").strip('"').strip("'")
+            prefix = config.get("alert_bot", "msg_bot.redis_prefix").strip('"').strip("'")
         
+            
+            
         self.q = RedisQueue(chatq, prefix, rhost, rport, rdb)
         
     def post_msg(self, msg):
@@ -169,7 +172,12 @@ if __name__ == '__main__':
     if xmpp.connect(): #('192.168.1.1', 5222), True, True, False):
         xmpp.process(block=False)
         logging.info('Complete initialization...Bot will now run forever')
-        a = AlertHelper(config)
+        
+        # two different ways to instantiate alerthelper
+        cfg = {'rhost':'localhost', 'rport':6379, 'rdb': 3, 'chatq': 'chatq', 'prefix': 'alert_bot'}
+        a = AlertHelper(None, *cfg )
+        #a = AlertHelper(config)
+        
         i = a.flush_all()
         a.post_msg('from AlertHelper: flushed %d old messages.' % i)
         

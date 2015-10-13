@@ -368,6 +368,68 @@ class QServer(object):
     
     
     @cherrypy.expose
+    def ws_port_summary(self):    
+        
+        rs = QServer.r_conn
+        ps_key = cherrypy.request.app.config['redis']['redis.datastore.key.port_summary']
+        s_portsum = rs.get(ps_key)
+        #dict = json.loads(s_portsum)
+        return s_portsum
+    
+
+    @cherrypy.expose
+    def ws_port_items(self):    
+        
+        rs = QServer.r_conn
+        key = cherrypy.request.app.config['redis']['redis.datastore.key.port_items']
+        s_portitems = rs.get(key)
+        #dict = json.loads(s_portsum)
+        return s_portitems
+    
+    
+    @cherrypy.expose
+    def port_bubble_chart(self):
+    
+        # Tick Value      Description
+        # 5001            impl vol
+        # 5002            delta
+        # 5003            gamma
+        # 5004            theta
+        # 5005            vega
+        # 5006            premium        
+        # 6001            avgCost
+        # 6002            pos
+        # 6003            totCost
+        # 6004            avgPx
+        # 6005            pos delta
+        # 6006            pos theta
+        # 6007            multiplier
+        # 6009            curr_port_value
+        # 6008            unreal_pl
+        # 6020            pos value impact +1% vol change
+        # 6021            pos value impact -1% vol change
+        s_portitems = self.ws_port_items() 
+        
+        ldict = json.loads(s_portitems)
+        lcontract = map(lambda x: x['contract'], ldict)
+        
+        lpos_delta = map(lambda x: x['6005'], ldict)
+        lstrike = map(lambda x: x['contract'].split('-')[2], ldict)
+        ltheta = map(lambda x:  x['6006'], ldict)
+        lupl = map(lambda x: x['6008'], ldict)
+        
+        
+        
+        
+        colnames = "[['contract', 'strike', 'unreal PL', 'theta', 'delta'],"
+        print '----------------------'
+        s_data = colnames + ''.join('["%s",%s,%s,%s,%s],' % (lcontract[i], lstrike[i], lupl[i], ltheta[i], lpos_delta[i]) for i in range(len(lcontract)))+ ']'
+        
+        print s_data
+        return s_data
+        
+    
+    @cherrypy.expose
     def ws_msg_bot(self, msg):
         a = AlertHelper(self.config)
         a.post_msg(msg)      

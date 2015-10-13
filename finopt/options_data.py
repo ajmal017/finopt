@@ -887,7 +887,7 @@ class DataMap():
 #                                              [(contractTuple, m[0], t[2], 'C') for m in undly_months_prices])        
 #                 
                      s = p.recal_port()
-                     print s
+                     #print s
                     
             sleep(sec)
 

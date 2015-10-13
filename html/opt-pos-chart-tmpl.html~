@@ -3,8 +3,8 @@
   <script src="https://ajax.googleapis.com/ajax/libs/jquery/2.1.3/jquery.min.js"></script>
     <script type="text/javascript" src="https://www.google.com/jsapi"></script>
     <script type="text/javascript">
-      google.load("visualization", "1.1", {packages:["bar"]});
-      google.load('visualization', '1', {'packages':['table']});
+      google.load("visualization", "1.1", {packages:["bar", 'table','gauge']});
+//      google.load('visualization', '1', {'packages':['table']});
 //      google.load("visualization", "1.1", {packages:["corechart"]});
       google.setOnLoadCallback(drawChart);
       function drawChart() {
@@ -38,7 +38,7 @@
        var chartTbl = new google.visualization.Table(document.getElementById('chartTbl_div'));
 
 
-       var portTbl = new google.visualization.Table(document.getElementById('portTblDiv'));
+       //var portTbl = new google.visualization.Table(document.getElementById('portTblDiv'));
 
 	var formatter = new google.visualization.NumberFormat({pattern:'0.00'});
 	for (var i = 2; i < 9; i++)
@@ -51,38 +51,116 @@
 
 	$('input[id="b_reload"]').click();
 
-      }
 
 
-        $(document).ready(function () {
-		$('input[id="b_reload"]').click(function () {
-//		   var formatter = new google.visualization.NumberFormat({pattern:'0.00'});
-//		   for (var i = 0; i < 9; i++)
-//				formatter.format(portTbl, i); 
-		   var options3 = {
-			displayAnnotations: true,
-			showRowNumber: true, width: '100%', height: '100%', allowHtml: true,
-			};	    
+////////////////////////////////////////////////////////////////////////////////
+// guage functions
+
+		var dataG = google.visualization.arrayToDataTable([
+		  ['Label', 'Value'],
+		  ['Delta', 0],
+		  ['Delta-C', 0],
+		  ['Delta-P', 0]
+		]);
+
+		var optionsG = {
+		  chart:{
+			  title: 'Portfolio Delta Value'}, 
+		  width: 400, height: 120,
+		  redFrom: -50, redTo: -25,
+		  yellowFrom:-24, yellowTo: -15,
+		  greenFrom: -10, greenTo: 10,	
+		  minorTicks: 5,
+		  min: -50, max: 50
+		};
+
+		var dataT = google.visualization.arrayToDataTable([
+		  ['Label', 'Value'],
+		  ['Theta', 0],
+		  ['Theta-C', 0],
+		  ['Theta-P', 0]
+		]);
+
+		var optionsT = {
+		  chart:{
+		  	title: 'Portfolio Theta Value'},
+		  width: 400, height: 120,
+		  redFrom: -3000, redTo: -2000,
+		  yellowFrom:-1999, yellowTo: 500,
+		  greenFrom: 5000, greenTo: 15000,	
+		  minorTicks: 5,
+		  min: -3000, max: 15000
+		};
+
+		var gchart = new google.visualization.Gauge(document.getElementById('chart_div'));
+//		refreshPortSummary();
+//		gchart.draw(dataG, optionsG);
+
+		var tchart = new google.visualization.Gauge(document.getElementById('chartTheta_div'));
+		refreshPortSummary();
+		
+		function refreshPortSummary(){
 		    $.ajax({
 			type: 'Post',
-			url: '/ws_position_summary',
+			url: '/ws_port_summary',
 			success: function (data) {
-alert(data);
-				var jdata = JSON.parse('{"rows": [{"v": 0.047488620928674306}, {"v": -34.1918070686455}, {"v": 35.01931221132403}, {"v": -69.21111927996955}, {"v": 0.0}, {"v": 4350.744926215475}, {"v": -297.6744472363985}, {"v": 4648.419373451876}, {"v": 89903.71832036527}, {"v": "20150915231057"}, {"v": "OK"}], "cols": [{"type": "number", "label": "delta_1percent"}, {"type": "number", "label": "delta_all"}, {"type": "number", "label": "delta_c"}, {"type": "number", "label": "delta_p"}, {"type": "number", "label": "theta_1percent"}, {"type": "number", "label": "theta_all"}, {"type": "number", "label": "theta_c"}, {"type": "number", "label": "theta_p"}, {"type": "number", "label": "unreal_pl"}, {"type": "string", "label": "last_updated"}, {"type": "string", "label": "status"}]}');
+				//alert(data);
+				var jdata = JSON.parse(data);
+				$('#temp').text(data);				
+				//alert(jdata.delta_all);
+				
+				dataG.setValue(0, 1, Math.round(jdata.delta_all*100)/100);
+				dataG.setValue(1, 1, Math.round(jdata.delta_c*100)/100);
+				dataG.setValue(2, 1, Math.round(jdata.delta_p*100)/100);
+				gchart.draw(dataG, optionsG);
 
-				$('#temp').text(jdata);
-				var d  = new google.visualization.DataTable(data);
-				portTbl.draw(d, options3);
+				dataT.setValue(0, 1, Math.round(jdata.theta_all));
+				dataT.setValue(1, 1, Math.round(jdata.theta_c));
+				dataT.setValue(2, 1, Math.round(jdata.theta_p));
+				tchart.draw(dataT, optionsT);
+
+				$('#pt_status').text("Unreal P/L: " + Math.round(jdata.unreal_pl*100)/100 + "   Cal Status: " + jdata.status);
+
 			}
 		    });
-		})
-	});
+
+		};
+
+		setInterval(function() {
+			refreshPortSummary();
+		}, 9500);    
+
+
+
+
+
+
+
+
+      } // end drawChart
+
+
+
+
+
+
+
+	
+
+
+		//})
+
+//	});
 
     </script>
 
 
   </head>
   <body>
+<div id='pt_status'></div>
+<div id="chart_div" style="width: 400px; height: 120px;"></div>
+<div id="chartTheta_div" style="width: 400px; height: 120px;"></div>
+
     <div id="barchart_material" style="width: 900px; height: 500px;"></div>
     <div id='chartTbl_div' style='width: 900px; height: 500px;'></div>
     <div id="portTbl">

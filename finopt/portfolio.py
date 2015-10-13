@@ -68,8 +68,12 @@ class PortfolioManager():
         self.rs_port_keys['port_conid_set'] = config.get("redis", "redis.datastore.key.port_conid_set").strip('"').strip("'")
         self.rs_port_keys['port_prefix'] = config.get("redis", "redis.datastore.key.port_prefix").strip('"').strip("'")        
         self.rs_port_keys['port_summary'] = config.get("redis", "redis.datastore.key.port_summary").strip('"').strip("'")
+        self.rs_port_keys['port_items'] = config.get("redis", "redis.datastore.key.port_items").strip('"').strip("'")
+        
         self.epc = eval(config.get("portfolio", "portfolio.epc").strip('"').strip("'"))
         # instantiate a epc object if the config says so
+        
+        
         if self.epc['stream_to_Kafka']:
             self.epc['epc'] = EPCPub(config) 
         
@@ -414,6 +418,7 @@ class PortfolioManager():
                 #print pmap
                 #print json.dumps(pmap)
                 self.r_set(ckey, json.dumps(pmap))
+                
                 logging.debug('PortfolioManager: update position in redis %s' % self.r_get(ckey))
                 
             else:
@@ -441,15 +446,16 @@ class PortfolioManager():
         #self.r_set(self.rs_port_keys['port_summary'], json.dumps(pos_summary) )
         t_pos_summary = json.dumps(pos_summary)
         self.r_conn.set(self.rs_port_keys['port_summary'], t_pos_summary )
-  
+        self.r_conn.set(self.rs_port_keys['port_items'], json.dumps(l_gmap))
         #print pos_summary
         #print l_gmap      
         # broadcast 
         if self.epc['epc']:
-            
-            self.epc['epc'].post_portfolio_summary(pos_summary)
-            self.epc['epc'].post_portfolio_items(l_gmap)
-        
+            try:
+                self.epc['epc'].post_portfolio_summary(pos_summary)
+                self.epc['epc'].post_portfolio_items(l_gmap)
+            except:
+                logging.exception("Exception in function: recal_port_rentrant_unsafe")
 
         #logging.info(pos_summary)
         
