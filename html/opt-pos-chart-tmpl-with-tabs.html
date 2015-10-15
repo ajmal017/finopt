@@ -9,7 +9,7 @@
       google.load("visualization", "1.1", {packages:["bar", 'table','gauge']});
 //      google.load('visualization', '1', {'packages':['table']});
 //      google.load("visualization", "1.1", {packages:["corechart"]});
-//      google.setOnLoadCallback(drawChart);
+      google.setOnLoadCallback(drawChart);
       function drawChart() {
         var data = google.visualization.arrayToDataTable([
           ['Strike Price', 'P', 'C', ],
@@ -155,11 +155,8 @@
 
     </script>
     <script>
-	$(document).ready(function(){
-	        google.setOnLoadCallback(drawChart);
-		$(function() {
-			$( "#tabs" ).tabs();
-		});
+	$(function() {
+		$( "#tabs" ).tabs();
 	});
     </script>
 

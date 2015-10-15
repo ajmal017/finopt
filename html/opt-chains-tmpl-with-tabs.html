@@ -4,11 +4,13 @@
   <title> Trading Options Monitor </title>
     <script type="text/javascript" src="https://www.google.com/jsapi"></script>
     <script type="text/javascript" src="http://cdnjs.cloudflare.com/ajax/libs/mathjs/2.1.1/math.min.js"></script>
+<link rel="stylesheet" href="https://ajax.googleapis.com/ajax/libs/jqueryui/1.11.4/themes/smoothness/jquery-ui.css">
+<script src="https://ajax.googleapis.com/ajax/libs/jqueryui/1.11.4/jquery-ui.min.js"></script>
 
     <script type="text/javascript">
 //      google.load("visualization", "1", {packages:["corechart"]});
 //      google.load('visualization', '1', {'packages':['table', 'corehart']});
-	google.load("visualization", "1.1", {packages:["corechart", 'table']});
+      google.load("visualization", "1.1", {packages:["corechart", 'table']});
       google.setOnLoadCallback(drawChart);
       function drawChart() {
 	// data contains implied vols for a series of this and next month options
@@ -218,12 +220,10 @@
     })
     </script>
     <script>
-$(document).ready(function() {
-
-      google.setOnLoadCallback(drawChart);
-//	$(function() {
-//		$( "#tabs" ).tabs();
-//	});
+	$(document).ready(function() {
+		$(function() {
+			$( "#tabs" ).tabs();
+		});
 
 });
 

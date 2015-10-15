@@ -51,7 +51,8 @@ class QServer(object):
        
         impl_link = "<a href='./opt_implv'>options implied vol curves</a>"
         pos_link = "<a href=./ws_position_chart>Positions</a>" 
-        return """<html><body><li>%s</li><li>%s</li><br><dl>%s</dl></br>%s</body></html>""" % (impl_link, pos_link, html, s_line)
+        bubble_link = "<a href=./port_bubble_chart>Risk Distributions</a>"
+        return """<html><body><li>%s</li><li>%s</li><li>%s</li><br><dl>%s</dl></br>%s</body></html>""" % (bubble_link, impl_link, pos_link, html, s_line)
  
  
     @cherrypy.expose
@@ -367,6 +368,9 @@ class QServer(object):
         return s
     
     
+
+    
+    
     @cherrypy.expose
     def ws_port_summary(self):    
         
@@ -424,15 +428,25 @@ class QServer(object):
         colnames = "[['contract', 'strike', 'unreal PL', 'theta', 'delta'],"
         print '----------------------'
         s_data = colnames + ''.join('["%s",%s,%s,%s,%s],' % (lcontract[i], lstrike[i], lupl[i], ltheta[i], lpos_delta[i]) for i in range(len(lcontract)))+ ']'
+
+
+        bubble_chart_tmpl = '%s%s/bubble-port.html' % (cherrypy.request.app.config['/']['tools.staticdir.root'], cherrypy.request.app.config['/static']['tools.staticdir.tmpl'])
+        f = open(bubble_chart_tmpl)
+        html_tmpl = f.read()
+        html_tmpl = html_tmpl.replace('{{{bubble_data}}}', s_data)
         
-        print s_data
-        return s_data
+        contract_month = eval(cherrypy.request.app.config['market']['option.underlying.month_price'])[0][0]
+        html_tmpl = html_tmpl.replace('{{{FUT_CONTRACT}}}', 'HSI-%s-FUT-' % (contract_month))
+        return html_tmpl
         
     
     @cherrypy.expose
     def ws_msg_bot(self, msg):
         a = AlertHelper(self.config)
-        a.post_msg(msg)      
+        a.post_msg(msg)  
+        
+        
+            
          
 if __name__ == '__main__':
             

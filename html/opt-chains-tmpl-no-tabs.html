@@ -4,11 +4,9 @@
   <title> Trading Options Monitor </title>
     <script type="text/javascript" src="https://www.google.com/jsapi"></script>
     <script type="text/javascript" src="http://cdnjs.cloudflare.com/ajax/libs/mathjs/2.1.1/math.min.js"></script>
-
     <script type="text/javascript">
-//      google.load("visualization", "1", {packages:["corechart"]});
-//      google.load('visualization', '1', {'packages':['table', 'corehart']});
-	google.load("visualization", "1.1", {packages:["corechart", 'table']});
+      google.load("visualization", "1", {packages:["corechart"]});
+      google.load('visualization', '1', {'packages':['table']});
       google.setOnLoadCallback(drawChart);
       function drawChart() {
 	// data contains implied vols for a series of this and next month options
@@ -214,71 +212,42 @@
             });
 
 
+
         })
     })
-    </script>
-    <script>
-$(document).ready(function() {
-
-      google.setOnLoadCallback(drawChart);
-//	$(function() {
-//		$( "#tabs" ).tabs();
-//	});
-
-});
-
-
     </script>
 
   </head>
   <body>
-
-<div id="tabs">
-  <ul>
-    <li><a href="#tabs-1">Volatility Curves</a></li>
-    <li><a href="#tabs-2">Implied Volatility Table</a></li>
-    <li><a href="#tabs-3">Risk Distribution</a></li>
-  </ul>
-  <div id="tabs-1">
         <div id="d_undly_last_px">
             <input type="button" id="b_refresh" value="Refresh Price" />
 	    <output id=undly_last_px></output>
 	    <output id=ssidx_px></output>
         </div>
-        <div id="chartLinear" style="height: 350px; width: 850px"></div>
-        <div id="chartPremium" style="height: 350px; width: 850px"></div>
-	<li>
-	<label for=haxis_from>H-Axis Range Starts At:</label>
-	<input type=range id=haxis_range min=10000 value=20000 max=25000 step=500>
-	<output id=haxis_from_value></output>
-	</li>
-
-  </div>
-  <div id="tabs-2">
-	<h2> Implied volatilities for this and next month HSI options</h2>
-	    <div id='chartTbl_div' style='width: 900px; height: 500px;'></div>
-	    <select id="format-select">
-	      <option value="">none</option>
-	      <option value="Diamond" selected>Diamond</option>
-	      <option value="triangle">triangle</option>
-	      <option value="square">square</option>
-	      <option value="diamond">diamond</option>
-	      <option value="star">star</option>
-	      <option value="polygon">polygon</option>
-	    </select>
-	    <div id="number_format_chart">
-	<li>
-	<label for=vol_divider>Volatility Divider</label>
-	<input type=range id=vol_divider min=0 value=50 max=100 step=5>
-	<output id=vol_divider_value></output>
-	</li>
-    
-  </div>
-  <div id="tabs-3">
-  </div>
-</div>
-
-
+    <div id="chartLinear" style="height: 350px; width: 850px"></div>
+    <div id="chartPremium" style="height: 350px; width: 850px"></div>
+<li>
+<label for=haxis_from>H-Axis Range Starts At:</label>
+<input type=range id=haxis_range min=10000 value=20000 max=25000 step=500>
+<output id=haxis_from_value></output>
+</li>
+<h2> Implied volatilities for this and next month HSI options</h2>
+    <div id='chartTbl_div' style='width: 900px; height: 500px;'></div>
+    <select id="format-select">
+      <option value="">none</option>
+      <option value="Diamond" selected>Diamond</option>
+      <option value="triangle">triangle</option>
+      <option value="square">square</option>
+      <option value="diamond">diamond</option>
+      <option value="star">star</option>
+      <option value="polygon">polygon</option>
+    </select>
+    <div id="number_format_chart">
+<li>
+<label for=vol_divider>Volatility Divider</label>
+<input type=range id=vol_divider min=0 value=50 max=100 step=5>
+<output id=vol_divider_value></output>
+</li>
 
 
 

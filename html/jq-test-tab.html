@@ -1,0 +1,192 @@
+<html>
+  <head>
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/2.1.3/jquery.min.js"></script>
+<link rel="stylesheet" href="https://ajax.googleapis.com/ajax/libs/jqueryui/1.11.4/themes/smoothness/jquery-ui.css">
+<script src="https://ajax.googleapis.com/ajax/libs/jqueryui/1.11.4/jquery-ui.min.js"></script>
+    <script type="text/javascript" src="https://www.google.com/jsapi"></script>
+    <script type="text/javascript">
+      google.load("visualization", "1.1", {packages:["bar", 'table','gauge']});
+//      google.load('visualization', '1', {'packages':['table']});
+//      google.load("visualization", "1.1", {packages:["corechart"]});
+      google.setOnLoadCallback(drawChart);
+      function drawChart() {
+        var data = google.visualization.arrayToDataTable([
+          ['Strike Price', 'P', 'C', ],
+[166.000000,0.0,0],[170.000000,0.0,0],[180.000000,0.0,0],[184.000000,-3.0,0],[194.000000,-2.0,0],[196.000000,-2.0,0],[198.000000,-5.0,0],[202.000000,-4.0,0],[204.000000,-2.0,0],[206.000000,-1.0,0],[208.000000,-2.0,0],[210.000000,0,1.0],[210.000000,1.0,0],[212.000000,0.2,0],[214.000000,0.8,0],[218.000000,0,1.0],[222.000000,0,2.6],[224.000000,0,2.0],[230.000000,0,-2.0],[232.000000,0,0.0],[234.000000,0,-5.0],[236.000000,0,-5.0],[242.000000,0,-10.6],[246.000000,0,-4.0],[248.000000,0,-2.0],
+        ]);
+
+	var dataTbl = google.visualization.arrayToDataTable([
+["symbol","right","avgcost","spotpx","pos","delta","theta","pos_delta","pos_theta","unreal_pl","last_updated"],["HSI-20151029-19600-P","P",1220.000000,10.999415,-2.000000,-0.017335,-2.626098,1.733541,262.609770,1340.058501,"20151015154159"],["HSI-20151029-17000-P","P",0.000000,0.999858,0.000000,-0.001570,-0.367255,-0.000000,-0.000000,0.000000,"20151015154159"],["MHI-20151029-21200-P","P",577.000000,38.015015,1.000000,-0.069802,-5.771672,-0.698022,-57.716718,-196.849852,"20151015154158"],["HSI-20151029-16600-P","P",0.000000,1.000131,0.000000,-0.001368,-0.401291,-0.000000,-0.000000,0.000000,"20151015154158"],["HSI-20151029-23600-C","C",3710.000000,128.000081,-5.000000,0.238123,-10.314758,-59.530862,2578.689575,-13450.020328,"20151015154158"],["MHI-20151029-22200-C","C",5337.000000,809.982506,3.000000,0.755569,-11.214440,22.667071,-336.433210,8288.475195,"20151015154159"],["MHI-20151029-24200-C","C",259.666667,30.009168,-3.000000,0.077842,-4.512433,-2.335257,135.373002,-121.275038,"20151015154159"],["HSI-20151029-23200-C","C",0.000000,245.987692,0.000000,0.384603,-12.750187,0.000000,-0.000000,0.000000,"20151015154159"],["HSI-20151029-23000-C","C",6920.000000,331.997167,-2.000000,0.468138,-13.411048,-46.813799,1341.104780,-19359.716673,"20151015154158"],["HSI-20151029-19800-P","P",2440.000000,12.999661,-5.000000,-0.021363,-2.933807,5.340751,733.451731,8950.084803,"20151015154158"],["HSI-20151029-20200-P","P",3157.500000,16.996602,-4.000000,-0.028473,-3.528713,5.694512,705.742570,9230.679501,"20151015154159"],["HSI-20151029-24800-C","C",970.000000,12.998640,-2.000000,0.033693,-2.661560,-3.369343,266.156038,640.136038,"20151015154159"],["HSI-20151029-20400-P","P",4170.000000,20.001493,-2.000000,-0.033855,-3.935196,3.385514,393.519593,6339.850713,"20151015154159"],["HSI-20151029-22200-C","C",19030.000000,844.965289,2.000000,0.762449,-11.303327,76.244913,-1130.332660,46436.528922,"20151015154158"],["HSI-20151029-20600-P","P",4020.000000,24.000015,-1.000000,-0.041617,-4.412872,2.080836,220.643579,2819.999261,"20151015154159"],["HSI-20151029-21800-C","C",26230.000000,1179.999803,1.000000,0.813468,-11.894354,40.673386,-594.717682,32769.990165,"20151015154158"],["HSI-20151029-18000-P","P",0.000000,5.002001,0.000000,-0.007135,-1.375584,-0.000000,-0.000000,0.000000,"20151015154159"],["HSI-20151029-18400-P","P",803.333333,4.000004,-3.000000,-0.005950,-1.227311,0.892491,184.096614,1809.999362,"20151015154159"],["MHI-20151029-21400-P","P",1587.000000,55.000054,4.000000,-0.099203,-7.155289,-3.968102,-286.211565,-4147.997845,"20151015154159"],["HSI-20151029-20800-P","P",1570.000000,28.000660,-2.000000,-0.048540,-4.878946,4.854034,487.894639,339.933967,"20151015154159"],["MHI-20151029-21000-P","P",7424.972471,35.011453,5.000000,-0.061412,-5.588610,-3.070591,-279.430515,-35374.289691,"20151015154158"],["HSI-20151029-24200-C","C",2210.000000,43.004258,-10.000000,0.097327,-5.864800,-48.663551,2932.399938,597.871083,"20151015154159"],["HSI-20151029-23400-C","C",7470.000000,179.981209,-5.000000,0.307659,-11.715105,-76.914625,2928.776302,-7645.302173,"20151015154159"],["MHI-20151029-22400-C","C",5781.426662,697.989984,5.000000,0.700919,-12.462483,35.045972,-623.124158,5992.365893,"20151015154159"],["HSI-20151029-24600-C","C",970.000000,19.989759,-4.000000,0.049350,-3.597504,-9.869926,719.500722,-117.951718,"20151015154158"],["MHI-20151029-21000-C","C",9023.000000,1951.987772,5.000000,0.881182,-11.919761,44.059124,-595.988068,52484.388615,"20151015154159"],["HSI-20151029-22400-C","C",22780.000000,688.991707,1.000000,0.699093,-12.395655,34.954667,-619.782736,11669.585360,"20151015154159"],["HSI-20151029-19400-P","P",895.000000,8.999886,-2.000000,-0.014173,-2.264148,1.417251,226.414831,890.011389,"20151015154158"],
+
+        ]);
+
+
+        var options = {
+          width: 900,
+          chart: {
+            title: 'Option Postion Distribution. PUT:CALL Ratio [-19.00 : -22.00]',
+            subtitle: 'for the month of 20151029, ',
+          },
+ 
+        };
+
+        var chart = new google.charts.Bar(document.getElementById('barchart_material'));
+        chart.draw(data, options);
+
+
+
+
+	// chart table display implied volatilities in a nicely formatted table	
+       var chartTbl = new google.visualization.Table(document.getElementById('chartTbl_div'));
+
+
+       //var portTbl = new google.visualization.Table(document.getElementById('portTblDiv'));
+
+	var formatter = new google.visualization.NumberFormat({pattern:'0.00'});
+	for (var i = 2; i < 9; i++)
+		formatter.format(dataTbl, i); 
+        var options2 = {
+          displayAnnotations: true,
+	  showRowNumber: true, width: '100%', height: '100%', allowHtml: true,
+        };
+	chartTbl.draw(dataTbl, options2);
+
+	$('input[id="b_reload"]').click();
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+// guage functions
+
+		var dataG = google.visualization.arrayToDataTable([
+		  ['Label', 'Value'],
+		  ['Delta', 0],
+		  ['Delta-C', 0],
+		  ['Delta-P', 0]
+		]);
+
+		var optionsG = {
+
+		  width: 400, height: 120,
+		  redFrom: -50, redTo: -25,
+		  yellowFrom:-24, yellowTo: -15,
+		  greenFrom: -10, greenTo: 10,	
+		  minorTicks: 5,
+		  min: -50, max: 50
+		};
+
+		var dataT = google.visualization.arrayToDataTable([
+		  ['Label', 'Value'],
+		  ['Theta', 0],
+		  ['Theta-C', 0],
+		  ['Theta-P', 0]
+		]);
+
+		var optionsT = {
+
+		  width: 400, height: 120,
+		  redFrom: -3000, redTo: -2000,
+		  yellowFrom:-1999, yellowTo: 500,
+		  greenFrom: 5000, greenTo: 15000,	
+		  minorTicks: 5,
+		  min: -3000, max: 15000
+		};
+
+		var gchart = new google.visualization.Gauge(document.getElementById('chart_div'));
+//		refreshPortSummary();
+//		gchart.draw(dataG, optionsG);
+
+		var tchart = new google.visualization.Gauge(document.getElementById('chartTheta_div'));
+		refreshPortSummary();
+		
+		function refreshPortSummary(){
+		    $.ajax({
+			type: 'Post',
+			url: '/ws_port_summary',
+			success: function (data) {
+				//alert(data);
+				var jdata = JSON.parse(data);
+				$('#temp').text(data);				
+				//alert(jdata.delta_all);
+				
+				dataG.setValue(0, 1, Math.round(jdata.delta_all*100)/100);
+				dataG.setValue(1, 1, Math.round(jdata.delta_c*100)/100);
+				dataG.setValue(2, 1, Math.round(jdata.delta_p*100)/100);
+				gchart.draw(dataG, optionsG);
+
+				dataT.setValue(0, 1, Math.round(jdata.theta_all));
+				dataT.setValue(1, 1, Math.round(jdata.theta_c));
+				dataT.setValue(2, 1, Math.round(jdata.theta_p));
+				tchart.draw(dataT, optionsT);
+
+				$('#pt_status').text("Unreal P/L: " + Math.round(jdata.unreal_pl*100)/100 + "   Cal Status: " + jdata.status);
+
+			}
+		    });
+
+		};
+
+		setInterval(function() {
+			refreshPortSummary();
+		}, 5000);    
+
+
+
+
+
+
+
+
+      } // end drawChart
+
+
+
+
+
+
+
+	
+
+
+		//})
+
+//	});
+
+    </script>
+  <script>
+  $(function() {
+    $( "#tabs" ).tabs();
+  });
+  </script>
+
+  </head>
+  <body>
+
+<div id="tabs">
+  <ul>
+    <li><a href="#tabs-1">Nunc tincidunt</a></li>
+    <li><a href="#tabs-2">Proin dolor</a></li>
+    <li><a href="#tabs-3">Aenean lacinia</a></li>
+  </ul>
+  <div id="tabs-1">
+<div id='pt_status'></div>
+<div id="chart_div" style="width: 400px; height: 120px;"></div>
+<div id="chartTheta_div" style="width: 400px; height: 120px;"></div>
+
+  </div>
+  <div id="tabs-2">
+    <div id="barchart_material" style="width: 900px; height: 500px;"></div>
+    <div id='chartTbl_div' style='width: 900px; height: 500px;'></div>
+
+  </div>
+  <div id="tabs-3">
+  </div>
+</div>
+ 
+
+
+
+  </body>
+</html>
+
+

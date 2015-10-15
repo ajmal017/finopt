@@ -1,0 +1,139 @@
+<html>
+  <head>
+   <style>
+   .chartWithMarkerOverlay {
+       position: relative;
+       width: 700px;
+   }
+   .overlay-text {
+       width: 200px;
+       height: 200px;
+       position: absolute;
+       top: 30px;   /* chartArea top */
+       left: 200px; /* chartArea left */
+   }
+   .overlay-marker {
+       width: 50px;
+       height: 50px;
+       position: absolute;
+       top: 53px;   /* chartArea top */
+       left: 528px; /* chartArea left */
+       color: #000066;
+       font: 15px arial;
+    
+   }
+   </style>
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/2.1.3/jquery.min.js"></script>
+    <script type="text/javascript" src="https://www.google.com/jsapi"></script>
+    <script type="text/javascript">
+      google.load("visualization", "1.1", {packages:['corechart']});
+      google.setOnLoadCallback(drawChart);
+      function drawChart() {
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+// guage functions
+
+
+		var data = google.visualization.arrayToDataTable( 
+{{{bubble_data}}}
+		); 
+
+
+		var options = { title: 'Portfolio Risk Distribution', 
+			hAxis: {title: 'Strike Price'}, vAxis: {title: ' Unreal P/L'}, 
+			// to display labels, remove the color: 'none option
+			bubble: {textStyle: {fontSize: 11, color: 'none'}}, colorAxis: {colors: ['red', 'blue']},
+			sizeAxis: {minValue: 2,  maxSize: 40}
+			//backgroundColor: '#E4E4E4'
+		 }; 
+
+
+		var chart = new google.visualization.BubbleChart(document.getElementById('chart_div')); 
+		chart.draw(data, options); 
+
+
+		google.visualization.events.addListener(chart, 'ready', placeIndexMarker);
+		
+
+/*
+		setInterval(function() {
+		  placeIndexMarker();
+		}, 2000);
+*/
+
+
+		function placeIndexMarker() {
+		    $.ajax({
+			type: 'Post',
+			url: '/ws_market_data?r_ckey={{{FUT_CONTRACT}}}&fid=4',
+			success: function (data) {
+
+				var spot = data
+				$('#spot').text(spot);
+
+				var cli = chart.getChartLayoutInterface();
+				document.querySelector('.overlay-marker').style.top = Math.floor(cli.getYLocation(0) - 45) + "px";
+				document.querySelector('.overlay-marker').style.left = Math.floor(cli.getXLocation(spot)) + "px";
+
+			}
+		    });
+		}
+
+
+
+
+//https://groups.google.com/forum/#!msg/google-chart-api/yYxkv4eorhA/P-MHQOLA19MJ
+/* testing
+		function placeMarker() {
+			var cli = chart.getChartLayoutInterface();
+			document.querySelector('.overlay-marker').style.top = Math.floor(cli.getYLocation(0) - 25) + "px";
+			var spot = Math.round(Math.max(25000 * Math.random(), 15000))
+			$('#pt_status').text(spot);
+			$('#spot').text(spot);
+			document.querySelector('.overlay-marker').style.left = Math.floor(cli.getXLocation(spot)) + "px";
+		};
+
+
+		var cli = chart.getChartLayoutInterface();
+
+		var l= cli.getChartAreaBoundingBox().left;
+		var t=cli.getChartAreaBoundingBox().top;
+		var h=cli.getChartAreaBoundingBox().height;
+		var w= cli.getChartAreaBoundingBox().width;
+		var hx = cli.getYLocation(50000);
+		var cx = cli.getYLocation(0);
+
+		$('#pt_status').text(l + ':' + t  + ':' + h  + ':' + w + ':' + hx + ':' + cx);
+		  function chartMouseOver(e) {
+			var cli = chart.getChartLayoutInterface();
+			var xx = Math.floor(cli.getXLocation(e['row'])) + 'px';
+			var yy = Math.floor(cli.getYLocation(data.getValue(e['row'], 1))) + 'px';
+		  	$('#pt_status').text(e['row'] + ':' + xx +  + ':' + yy + ':' + data.getValue(e['row'], 1));
+		  	$('#pt2_status').text(e['row'] + ':' + cli.getHAxisValue(e['row']));
+		  }
+*/
+      } // end drawChart
+
+
+
+
+
+
+    </script>
+
+
+  </head>
+  <body>
+<div id='pt_status'></div>
+<div id='pt2_status'></div>
+<div id="chart_div" style="width: 900px; height: 800px;"></div>
+<div id='temp'></div>
+  <div class="overlay-marker">
+  <img src="/public/green_marker.png" height="50"><div id='spot'></div>
+  </div>
+  </body>
+</html>
+

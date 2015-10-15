@@ -85,7 +85,6 @@ class PortfolioManager():
         
         self.con = ibConnection(host, port, appid)
         self.con.registerAll(self.on_ib_message)
-        #self.con.registerAll(self.xyz)
         
         
         self.tlock = Lock()
@@ -531,17 +530,6 @@ class PortfolioManager():
 
 if __name__ == '__main__':
            
-#     logging.basicConfig(#filename = "log/port.log", filemode = 'w', 
-#                         level=logging.DEBUG,
-#                         format='%(asctime)s %(levelname)-8s %(message)s')      
-#     
-#     config = ConfigParser.ConfigParser()
-#     config.read("config/app.cfg")
-#     p = PortfolioManager(config)
-#     p.retrieve_position()
-#     print p.get_portfolio_summary()
-#     print p.get_tbl_pos_csv()
-
     if len(sys.argv) != 2:
         print("Usage: %s <config file>" % sys.argv[0])
         exit(-1)    
@@ -560,12 +548,6 @@ if __name__ == '__main__':
     print p.get_portfolio_summary()
     print p.get_tbl_pos_csv()
 
-
-
-    #p.recal_port()
-#    print p.get_tbl_pos_csv()
-#     print p.get_grouped_options_str_array()
-#     print p.group_pos_by_right()
 
     # sample ouput    
 # ["exch","type","contract_mth","right","strike","con_ration","pos","avgcost"],["HSI","OPT","20150828","C","22600",50.0,0.0000,0.0000,],["HSI","OPT","20150828","C","23000",50.0,-1.0000,1770.0000,],["HSI","OPT","20150828","C","23600",50.0,-2.0000,1470.0000,],["HSI","OPT","20150828","C","23800",50.0,-1.0000,920.0000,],["HSI","OPT","20150828","C","24000",50.0,-2.0000,1820.0000,],["HSI","OPT","20150828","C","24200",50.0,-1.0000,3120.0000,],["HSI","OPT","20150828","C","24800",50.0,-1.0000,220.0000,],["HSI","OPT","20150828","P","18000",50.0,-2.0000,1045.0000,],["HSI","OPT","20150828","P","18600",50.0,-1.0000,1120.0000,],["HSI","OPT","20150828","P","18800",50.0,-1.0000,1570.0000,],["HSI","OPT","20150828","P","19800",50.0,-1.0000,870.0000,],["HSI","OPT","20150828","P","20200",50.0,-1.0000,970.0000,],["HSI","OPT","20150828","P","20800",50.0,-2.0000,970.0000,],["HSI","OPT","20150828","P","21600",50.0,-1.0000,1570.0000,],["HSI","OPT","20150828","P","21800",50.0,-7.0000,1955.7143,],["HSI","OPT","20150828","P","23200",50.0,1.0000,25930.0000,],["HSI","OPT","20150929","C","24400",50.0,1.0000,24880.0000,],["HSI","OPT","20150929","P","21600",50.0,0.0000,0.0000,],["HSI","OPT","20150929","P","21800",50.0,2.0000,52713.3333,],["HSI","OPT","20150929","P","22600",50.0,3.0000,39763.3333,],["MHI","OPT","20150828","C","24400",10.0,-1.0000,2603.0000,],["MHI","OPT","20150828","P","20800",10.0,-1.0000,313.0000,],["MHI","OPT","20150828","P","21000",10.0,-1.0000,363.0000,],["MHI","OPT","20150828","P","23600",10.0,5.0000,4285.0000,],["MHI","OPT","20150929","C","24400",10.0,1.0000,4947.0000,],["MHI","OPT","20150929","P","21600",10.0,1.0000,12657.0000,],["MHI","OPT","20150929","P","22600",10.0,1.0000,9877.0000,],["MHI","OPT","20150929","P","23600",10.0,4.0000,7757.0000,],
