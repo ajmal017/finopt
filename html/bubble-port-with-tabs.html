@@ -25,7 +25,12 @@
    </style>
   <script src="https://ajax.googleapis.com/ajax/libs/jquery/2.1.3/jquery.min.js"></script>
     <script type="text/javascript" src="https://www.google.com/jsapi"></script>
+
+<link rel="stylesheet" href="https://ajax.googleapis.com/ajax/libs/jqueryui/1.11.4/themes/smoothness/jquery-ui.css">
+<script src="https://ajax.googleapis.com/ajax/libs/jqueryui/1.11.4/jquery-ui.min.js"></script>
+
     <script type="text/javascript">
+
       google.load("visualization", "1.1", {packages:['corechart']});
       google.setOnLoadCallback(drawChart);
       function drawChart() {
@@ -193,21 +198,48 @@
 
 
     </script>
-
+    <script>
+	$(function() {
+		$( "#tabs" ).tabs();
+	});
+    </script>
 
   </head>
   <body>
+<div id="tabs">
+  <ul>
+    <li><a href="#tabs-1">Dashboard</a></li>
+    <li><a href="#tabs-2">Position Distribution</a></li>
+    <li><a href="#tabs-3">Risk Distribution</a></li>
+  </ul>
+  <div id="tabs-1">
+	<div id='pt2_status'></div>
+	<button type='button' id='b1'>Update</button>
+	<div id="chart_div" style="width: 900px; height: 800px;"></div>
+	  <div class="overlay-marker">
+	  <img src="/public/green_marker.png" height="50"><div id='spot'></div>
+	  </div>
 
-<div id='pt2_status'></div>
-<button type='button' id='b1'>Update Charts</button>
-<div id="chart_div" style="width: 900px; height: 800px;"></div>
-<div id="barchart_div" style="width:800px; height: 600px;"></div>
-<div id='temp'></div>
-  <div class="overlay-marker">
-  <img src="/public/green_marker.png" height="50"><div id='spot'></div>
+
   </div>
 
+  <div id="tabs-2">
+	<div id="barchart_div" style="width:800px; height: 600px;"></div>    
+  </div>
+
+
+  <div id="tabs-3">
+<div id='temp'></div>
+
 <div id='pt_status'></div>
+
+  </div>
+</div>
+
+  </body>
+</html>
+
+
   </body>
 </html>
 

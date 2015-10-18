@@ -22,7 +22,10 @@ from kafka.producer import SimpleProducer
 from comms.alert_bot import AlertHelper
 
 
-
+def get_ib_acct_tags(file):
+    f = open(file)
+    ln = f.readlines()
+    return ''.join("'%s'," % s.replace('\n', '').strip(' ') for s in ln)
 
 
 
@@ -61,5 +64,6 @@ def create_subscription_file(src, dest):
 #         newContract.m_right = contractTuple[6]
 
 if __name__ == '__main__':
-    create_subscription_file('/home/larry-13.04/workspace/finopt/log/hsio.txt', '/home/larry-13.04/workspace/finopt/log/subo.txt')
+    #create_subscription_file('/home/larry-13.04/workspace/finopt/log/hsio.txt', '/home/larry-13.04/workspace/finopt/log/subo.txt')
+    print get_ib_acct_tags('/home/larry/l1304/workspace/finopt/data/temp_data/ib_account_summary_tags')
     

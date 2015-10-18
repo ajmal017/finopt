@@ -394,6 +394,30 @@ class QServer(object):
     @cherrypy.expose
     def port_bubble_chart(self):
     
+        s_data = self.ws_bubble_data()
+
+        bubble_chart_tmpl = '%s%s/bubble-port.html' % (cherrypy.request.app.config['/']['tools.staticdir.root'], cherrypy.request.app.config['/static']['tools.staticdir.tmpl'])
+        f = open(bubble_chart_tmpl)
+        html_tmpl = f.read()
+        html_tmpl = html_tmpl.replace('{{{bubble_data}}}', s_data)
+        
+        contract_month = eval(cherrypy.request.app.config['market']['option.underlying.month_price'])[0][0]
+        html_tmpl = html_tmpl.replace('{{{FUT_CONTRACT}}}', 'HSI-%s-FUT-' % (contract_month))
+        
+        
+        
+        s_acctitems, last_updated, account_no = self.ws_acct_data()
+        print s_acctitems, last_updated, account_no
+        html_tmpl = html_tmpl.replace('{{{barAcct}}}', s_acctitems)
+        html_tmpl = html_tmpl.replace('{{{account_no}}}', account_no)
+        html_tmpl = html_tmpl.replace('{{{last_updated}}}', last_updated)
+        
+        
+        
+        return html_tmpl
+       
+    @cherrypy.expose
+    def ws_bubble_data(self):
         # Tick Value      Description
         # 5001            impl vol
         # 5002            delta
@@ -414,9 +438,12 @@ class QServer(object):
         # 6021            pos value impact -1% vol change
         s_portitems = self.ws_port_items() 
         
-        ldict = json.loads(s_portitems)
-        lcontract = map(lambda x: x['contract'], ldict)
+        litems = json.loads(s_portitems)
         
+        # only interested in unrealized items, pos != 0 
+        ldict = filter(lambda x: x['6002'] <> 0, litems)
+        
+        lcontract = map(lambda x: x['contract'], ldict)
         lpos_delta = map(lambda x: x['6005'], ldict)
         lstrike = map(lambda x: x['contract'].split('-')[2], ldict)
         ltheta = map(lambda x:  x['6006'], ldict)
@@ -428,17 +455,26 @@ class QServer(object):
         colnames = "[['contract', 'strike', 'unreal PL', 'theta', 'delta'],"
         print '----------------------'
         s_data = colnames + ''.join('["%s",%s,%s,%s,%s],' % (lcontract[i], lstrike[i], lupl[i], ltheta[i], lpos_delta[i]) for i in range(len(lcontract)))+ ']'
-
-
-        bubble_chart_tmpl = '%s%s/bubble-port.html' % (cherrypy.request.app.config['/']['tools.staticdir.root'], cherrypy.request.app.config['/static']['tools.staticdir.tmpl'])
-        f = open(bubble_chart_tmpl)
-        html_tmpl = f.read()
-        html_tmpl = html_tmpl.replace('{{{bubble_data}}}', s_data)
-        
-        contract_month = eval(cherrypy.request.app.config['market']['option.underlying.month_price'])[0][0]
-        html_tmpl = html_tmpl.replace('{{{FUT_CONTRACT}}}', 'HSI-%s-FUT-' % (contract_month))
-        return html_tmpl
-        
+      
+        return s_data
+    
+    
+            
+    
+    
+    @cherrypy.expose
+    def ws_acct_data(self):
+        rs = QServer.r_conn
+        key = cherrypy.request.app.config['redis']['redis.datastore.key.acct_summary']
+        s_acctitems = rs.get(key)
+        dict = json.loads(s_acctitems)
+        colnames = "[['Category', 'Value', { role: 'style' } ],"
+        unwanted_cols = ['DayTradesRemaining','last_updated', 'AccountType']
+        s_data = colnames + ''.join('["%s", %s, "%s"],' % (k, '%s'%(v[0]), '#3366CC' if float(v[0]) > 500000 else '#DC3912') if k not in unwanted_cols else '' for k, v in dict.iteritems()   )+ ']'
+      
+        return (s_data, dict['last_updated'], dict['AccountType'][2])
+    
+    
     
     @cherrypy.expose
     def ws_msg_bot(self, msg):

@@ -50,18 +50,21 @@ class PortfolioManager():
     r_conn = None
     port = []
     grouped_options = None
-    download_state = 'undone'
+    
+    # item 0 is for position, item 1 is for account
+    download_states = [False, False]
     quit = False
     interested_types = ['OPT', 'FUT']
     rs_port_keys = {}
     ib_port_msg = []
     tlock = None
     epc = None
+    account_tags = []
+    ib_acct_msg = {}
     
     def __init__(self, config):
         self.config = config
-#        config = ConfigParser.ConfigParser()
-#        config.read("config/app.cfg")
+
         host = config.get("market", "ib.gateway").strip('"').strip("'")
         port = int(config.get("market", "ib.port"))
         appid = int(config.get("market", "ib.appid.portfolio"))   
@@ -69,6 +72,10 @@ class PortfolioManager():
         self.rs_port_keys['port_prefix'] = config.get("redis", "redis.datastore.key.port_prefix").strip('"').strip("'")        
         self.rs_port_keys['port_summary'] = config.get("redis", "redis.datastore.key.port_summary").strip('"').strip("'")
         self.rs_port_keys['port_items'] = config.get("redis", "redis.datastore.key.port_items").strip('"').strip("'")
+        
+        
+        self.rs_port_keys['acct_summary'] = config.get("redis", "redis.datastore.key.acct_summary").strip('"').strip("'") 
+        self.account_tags = eval(config.get("portfolio", "portfolio.account_summary_tags").strip('"').strip("'"))
         
         self.epc = eval(config.get("portfolio", "portfolio.epc").strip('"').strip("'"))
         # instantiate a epc object if the config says so
@@ -99,7 +106,8 @@ class PortfolioManager():
         
         self.subscribe()
         while not self.quit:
-            if self.download_state == 'done':
+            if self.download_states[0] == True and self.download_states[1] == True:
+                self.disconnect()
                 self.quit = True
                 
     def clear_redis_portfolio(self):
@@ -113,16 +121,17 @@ class PortfolioManager():
     def subscribe(self):
 
             self.con.reqPositions()
-            #self.con.reqAccountSummary(100,'All', 'EquityWithLoanValue,NetLiquidation')
+            logging.debug('account info to retrieve: %s' % (''.join('%s,' % s for s in self.account_tags)))
+            self.con.reqAccountSummary(100, 'All', ''.join('%s,' % s for s in self.account_tags))
 
             #self.con.register(self.on_ib_message, 'UpdateAccountValue')
 
     def on_ib_message(self, msg):
         
-        
+        #print msg.typeName, msg
         
         if msg.typeName in "position":
-            if self.download_state == 'undone':
+            if self.download_states[0] == False:
                 logging.debug("%s" %  (options_data.ContractHelper.printContract(msg.contract)))
                 if msg.contract.m_secType in self.interested_types:
                     logging.debug("PortfolioManager: getting position...%s" % msg)
@@ -138,11 +147,35 @@ class PortfolioManager():
             self.recal_port()
             self.group_pos_by_strike()
             logging.debug("PortfolioManager: Complete position download. Disconnecting...")
-            self.disconnect()
             
 
+            self.download_states[0] = True
+            
+        if msg.typeName == "accountSummary":
+            if self.download_states[1] == False:
+                
+                self.ib_acct_msg[msg.tag] = (msg.value, msg.currency, msg.account)
+                logging.debug("PortfolioManager: getting account info...%s" % msg)
+            
+        if msg.typeName == 'accountSummaryEnd':
+            
+            self.ib_acct_msg['last_updated'] = datetime.datetime.now().strftime('%Y%m%d%H%M%S') 
+            logging.info("-------------- ACCOUNT SUMMARY [%s]" % (self.ib_acct_msg['AccountType'][2]))
+            logging.info('\n\n' + ''.join('%30s: %22s\n' % (k, ''.join('%10s %12s' % (v[0], v[1] if v[1] else ''))) for k,v in self.ib_acct_msg.iteritems()))
+            
+            self.r_conn.set(self.rs_port_keys['acct_summary'], json.dumps(self.ib_acct_msg))
+            if self.epc['epc']:
+                try:
 
-            self.download_state = "done"
+                    self.epc['epc'].post_account_summary(self.ib_acct_msg)
+
+                except:
+                    logging.exception("Exception in function when trying to broadcast account summary message to epc")
+            
+            self.download_states[1] = True
+        
+            
+            
             
     def group_pos_by_strike(self):
 

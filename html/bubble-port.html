@@ -16,8 +16,8 @@
        width: 50px;
        height: 50px;
        position: absolute;
-       top: 53px;   /* chartArea top */
-       left: 528px; /* chartArea left */
+       top: 375px;   /* chartArea top */
+       left: 350px; /* chartArea left */
        color: #000066;
        font: 15px arial;
     
@@ -57,7 +57,13 @@
 
 		google.visualization.events.addListener(chart, 'ready', placeIndexMarker);
 		
+		var button = document.getElementById('b1');
 
+		button.onclick = function() {
+			refreshPortItems();
+			refreshAcctItems();
+
+		}
 
 		setInterval(function() {
 		  placeIndexMarker();
@@ -65,7 +71,46 @@
 
 
 
-		function placeIndexMarker() {
+		function refreshPortItems() {
+		    $.ajax({
+			type: 'Post',
+			url: '/ws_bubble_data',
+			success: function (s_portitems) {
+
+
+				//$('#pt_status').text(s_portitems);				
+				//alert(jdata.delta_all);
+				lst = eval(s_portitems);
+//alert(lst[0]);
+				data = google.visualization.arrayToDataTable(eval(s_portitems));
+				chart.draw(data, options);
+				drawChart();
+
+			}
+		    });
+		}
+
+
+		function refreshAcctItems() {
+		    $.ajax({
+			type: 'Post',
+			url: '/ws_acct_data',
+			success: function (s_accttitems) {
+
+
+				//$('#pt_status').text(s_accttitems);				
+				//alert(jdata.delta_all);
+				lst = eval(s_portitems);
+//alert(lst[0]);
+				dataB = google.visualization.arrayToDataTable(eval(s_accttitems));
+				chart.draw(dataB, options);
+				drawChart();
+
+			}
+		    });
+		}
+
+		function placeIndexMarker(){
 		    $.ajax({
 			type: 'Post',
 			url: '/ws_market_data?r_ckey={{{FUT_CONTRACT}}}&fid=4',
@@ -75,13 +120,38 @@
 				$('#spot').text(spot);
 
 				var cli = chart.getChartLayoutInterface();
-				document.querySelector('.overlay-marker').style.top = Math.floor(cli.getYLocation(0) - 45) + "px";
-				document.querySelector('.overlay-marker').style.left = Math.floor(cli.getXLocation(spot)) + "px";
+				document.querySelector('.overlay-marker').style.top = Math.floor(cli.getYLocation(0) - 25) + "px";
+				document.querySelector('.overlay-marker').style.left = Math.floor(cli.getXLocation(spot) - 25) + "px";
 
 			}
 		    });
-		}
 
+
+		var dataB = google.visualization.arrayToDataTable(
+{{{barAcct}}}
+		);
+
+		var view = new google.visualization.DataView(dataB);
+		view.setColumns([0, 1,
+			       { calc: "stringify",
+				 sourceColumn: 1,
+				 type: "string",
+				 role: "annotation" }, 2]);
+
+		var options = {
+		chart: {
+		  title: 'Account Summary {{{account_no}}}',
+		  subtitle: 'Last updated {{{last_updated}}}'
+		},
+
+		bars: 'horizontal',bar: {groupWidth: "55%"},
+
+		  legend: { position: "none" },
+		};
+		var material = new google.visualization.BarChart(document.getElementById('barchart_div'));
+		material.draw(view, options);
+
+		}
 
 
 
@@ -127,13 +197,17 @@
 
   </head>
   <body>
-<div id='pt_status'></div>
+
 <div id='pt2_status'></div>
+<button type='button' id='b1'>Update Charts</button>
 <div id="chart_div" style="width: 900px; height: 800px;"></div>
+<div id="barchart_div" style="width:800px; height: 600px;"></div>
 <div id='temp'></div>
   <div class="overlay-marker">
   <img src="/public/green_marker.png" height="50"><div id='spot'></div>
   </div>
+
+<div id='pt_status'></div>
   </body>
 </html>
 

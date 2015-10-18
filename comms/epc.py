@@ -19,8 +19,7 @@ class EPCPub():
     
     producer = None
 
-    EPC_TOPICS= {'EPC_PORT_SUMMARY_TOPIC': 'port_summary', 
-                 'EPC_PORT_ITEM_TOPIC': 'port_item'}
+
     
     def __init__(self, config):
 
@@ -48,7 +47,9 @@ class EPCPub():
         self.post_msg(ExternalProcessComm.EPC_TOPICS['EPC_PORT_ITEM_TOPIC'], json.dumps(msg))
                              
 
-
+    def post_account_summary(self, dict):
+        msg = (time.time(), ExternalProcessComm.EPC_TOPICS['EPC_ACCT_SUMMARY_TOPIC'], dict)
+        self.post_msg(ExternalProcessComm.EPC_TOPICS['EPC_ACCT_SUMMARY_TOPIC'], json.dumps(msg))
 
         
 class ExternalProcessComm(threading.Thread):
@@ -56,7 +57,8 @@ class ExternalProcessComm(threading.Thread):
     producer = None
     consumer = None
     EPC_TOPICS= {'EPC_PORT_SUMMARY_TOPIC': 'port_summary', 
-                 'EPC_PORT_ITEM_TOPIC': 'port_item'}
+                 'EPC_PORT_ITEM_TOPIC': 'port_item',
+                 'EPC_ACCT_SUMMARY_TOPIC': 'acct_summary'}
     
     def __init__(self, config):
 
@@ -104,6 +106,10 @@ class ExternalProcessComm(threading.Thread):
     def post_portfolio_items(self, ldict):
         msg= (time.time(), ldict)
         self.post_msg(ExternalProcessComm.EPC_TOPICS['EPC_PORT_ITEM_TOPIC'], json.dumps(msg))
+        
+    def post_account_summary(self, dict):
+        msg = (time.time(), dict)
+        self.post_msg(ExternalProcessComm.EPC_TOPICS['EPC_ACCT_SUMMARY_TOPIC'], json.dumps(msg))
                              
     def run(self):
         

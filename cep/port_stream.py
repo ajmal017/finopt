@@ -13,7 +13,7 @@ import os
 #from finopt import ystockquote
 from comms.epc import ExternalProcessComm
 import ConfigParser
- 
+import logging 
 ##
 ##
 ##
@@ -111,7 +111,14 @@ if __name__ == "__main__":
         exit(-1)    
 
     cfg_path= sys.argv[1:]    
-    config = ConfigParser.ConfigParser()
+    config = ConfigParser.SafeConfigParser()
+    if len(config.read(cfg_path)) == 0:      
+        raise ValueError, "Failed to open config file" 
+    
+    logconfig = eval(config.get("cep", "cep.logconfig").strip('"').strip("'"))
+    logconfig['format'] = '%(asctime)s %(levelname)-8s %(message)s'    
+    logging.basicConfig(**logconfig)        
+                                       
 
     param = {}
     param['broker'] = 'vsu-1:2181'
@@ -162,18 +169,21 @@ if __name__ == "__main__":
                 .window(param['win_interval'],param['slide_interval'])
     pl_st = jport_st.filter(lambda x: x[1] == 'port_item')\
                 .window(param['win_interval'],param['slide_interval'])
-    
+    acct_st = jport_st.filter(lambda x: x[1] == 'acct_summary')\
+                .window(param['win_interval'],param['slide_interval'])
     
     # listen to ib_mds price updates
-    ib_st = KafkaUtils.createStream(ssc, brokers, param['app_name'], {'ib_tick_price':1, 'ib_tick_size':1})\
-                         .filter(lambda x: (x['typeName'] == 'tickPrice'))\
-                         .map(lambda x: (x['contract'], (x['ts'], x['price']) ))\
-                         .groupByKeyAndWindow(param['win_interval'],param['slide_interval'], 1)
+#     ib_st = KafkaUtils.createStream(ssc, brokers, param['app_name'], {'ib_tick_price':1, 'ib_tick_size':1})\
+#                          .filter(lambda x: (x['typeName'] == 'tickPrice'))\
+#                          .map(lambda x: (x['contract'], (x['ts'], x['price']) ))\
+#                          .groupByKeyAndWindow(param['win_interval'],param['slide_interval'], 1)
+    
+    
     
     
     #lns.pprint()
  
-    pt_st.foreachRDD(f2)
+    acct_st.foreachRDD(f2)
 # 
 #     sps.pprint()
     #trades.foreachRDD(eval(fn))

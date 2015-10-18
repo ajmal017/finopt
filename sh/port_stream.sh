@@ -8,6 +8,7 @@ OPTIONS="--driver-memory 2g"
 #spark-submit  --jars  $KAFKA_ASSEMBLY_JAR /home/larry-13.04/workspace/finopt/cep/momentum.py vsu-01:2181 hsi 1 cal_trend 
 #spark-submit --master spark://192.168.1.118:7077   --jars  $KAFKA_ASSEMBLY_JAR /home/larry-13.04/workspace/finopt/cep/momentum.py vsu-01:2181 hsi 1 simple 
 #spark-submit --total-executor-cores 2 --master spark://192.168.1.118:7077   --jars  $KAFKA_ASSEMBLY_JAR /home/larry-13.04/workspace/finopt/cep/momentum.py vsu-01:2181 hsi 1 cal_trend 
-spark-submit   $OPTIONS --jars  $KAFKA_ASSEMBLY_JAR $SRC/cep/port_stream.py vsu-01:2181 hsi 1 cal_trend 
+#spark-submit   $OPTIONS --jars  $KAFKA_ASSEMBLY_JAR $SRC/cep/port_stream.py vsu-01:2181 hsi 1 cal_trend 
 #spark-submit  --jars  $KAFKA_ASSEMBLY_JAR $SRC/cep/t1.py
 
+spark-submit   $OPTIONS --jars  $KAFKA_ASSEMBLY_JAR $SRC/cep/port_stream.py $SRC/config/cep.cfg vsu-01:2181 hsi 1 cal_trend 
