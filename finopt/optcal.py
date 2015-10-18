@@ -128,7 +128,7 @@ if __name__ == '__main__':
     v2 = v1 * 1.01
     
     print 'validating vega: (%0.2f - %0.2f) / (%0.4f - %0.4f) = %0.2f' % (npv2, npv1, v2, v1, (npv2-npv1)/ (v2 - v1))     
-    
+    print 'validating gamma: (%0.2f - %0.2f) / (%0.4f - %0.4f) = %0.2f' % (npv2, npv1, v2, v1, (npv2-npv1)/ (v2 - v1))
     
     results = cal_option(23067.0, 22000, 'C', '20151018', '20151029', 0.0009, 0.0328, 0.2918*1.01)
     print ''.join ('%s=%0.4f, '%(k,v) for k, v in results.iteritems())
