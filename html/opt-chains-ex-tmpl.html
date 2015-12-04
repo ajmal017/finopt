@@ -178,7 +178,7 @@
             
             $.ajax({
                 type: 'Post',
-                url: '/ws_market_data?r_ckey=HSI-20150929-FUT-&fid=4',
+                url: '/ws_market_data?r_ckey=HSI-{{{thisContractMonth}}}-FUT-&fid=4',
                 success: function (data) {
 			document.getElementById('undly_last_px').value = data;
                 }

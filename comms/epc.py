@@ -119,7 +119,7 @@ class ExternalProcessComm(threading.Thread):
                                          message.offset, message.key,
                                          message.value))
 
-            print ("%s:%d:%d: key=%s value=%s" % (message.topic, message.partition,
+            print ("received %s:%d:%d: key=%s value=%s" % (message.topic, message.partition,
                                          message.offset, message.key,
                                          message.value))
 
@@ -142,3 +142,8 @@ if __name__ == '__main__':
     e.start()
     
     e.post_msg(ExternalProcessComm.EPC_TOPICS['EPC_PORT_SUMMARY_TOPIC'], 'test msg')
+    
+    e2 = ExternalProcessComm(config)
+    e2.start()
+
+    

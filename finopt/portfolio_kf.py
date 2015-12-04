@@ -6,20 +6,25 @@ import logging
 import thread, threading
 from threading import Lock
 import ConfigParser
-from ib.ext.Contract import Contract
-from ib.opt import ibConnection#, message
+
+from ib.ext.ExecutionFilter import ExecutionFilter
 from time import sleep
 import time, datetime
-import optcal
-import opt_serve
-import cherrypy
+
+
 import redis
+print sys.path
+
+
+from misc2.helpers import ContractHelper, ExecutionFilterHelper
+
 from comms.epc import EPCPub
+from comms.tws_client import SimpleTWSClient
 
 
 
-#from options_data import ContractHelper
-import options_data
+#import options_data
+
 # Tick Value      Description
 # 5001            impl vol
 # 5002            delta
@@ -43,7 +48,7 @@ import options_data
 # https://www.interactivebrokers.com/en/software/api/api.htm
                     
 
-class PortfolioManager():
+class PortfolioManagerKF(threading.Thread):
     
     config = {}
     con = None
@@ -61,8 +66,12 @@ class PortfolioManager():
     epc = None
     account_tags = []
     ib_acct_msg = {}
+    check_interval = {'exec': 5, 'port': 30}
+    has_new_execution = False
+    retrieve_position_complete = False
     
     def __init__(self, config):
+        super(PortfolioManagerKF, self).__init__()
         self.config = config
 
         host = config.get("market", "ib.gateway").strip('"').strip("'")
@@ -90,26 +99,64 @@ class PortfolioManager():
         
         self.r_conn = redis.Redis(r_host, r_port, r_db)
         
-        self.con = ibConnection(host, port, appid)
-        self.con.registerAll(self.on_ib_message)
+        khost = config.get("epc", "kafka.host").strip('"').strip("'")
+        kport = config.get("epc", "kafka.port")
+        
+#        self.con = ibConnection(host, port, appid)
+        self.con = SimpleTWSClient(khost, kport)
+        self.con.registerAll([self.on_ib_message])
         
         
     	self.download_states = [False, False]
         self.tlock = Lock()
+        
+    
     
     def retrieve_position(self):
+        print 'this function no longer do anything.'
+        pass
+    
+    
+    def run(self):
+        
         self.connect()
+        
+        
+        while 1:
+            now = datetime.datetime.now()
+            exec_filter = ExecutionFilterHelper.kv2object({'m_time': now.strftime('%Y%m%d  %H%M%S')}, ExecutionFilter)
+            self.con.get_command_handler().reqExecutions(exec_filter)
+            if self.has_new_execution:
+                while self.retrieve_position_complete == False:
+                    pass
+                self._retrieve_position()
+            sleep(self.check_interval['exec'])
+            
+                
+                
+    
+    def _retrieve_position(self):
+        #self.connect()
         
         # clear previous saved values
         self.port = []
         self.ib_port_msg = []
         self.clear_redis_portfolio()
-        
+        self.quit = False
         self.subscribe()
-        while not self.quit:
+        while not self.retrieve_position_complete: 
             if self.download_states[0] == True and self.download_states[1] == True:
-                self.disconnect()
-                self.quit = True
+                
+                
+                print '-------------------------------'
+                print ' some lengthy operations....set the number larger than the consumer timeout to test....'
+                print self.download_states
+                #sleep(7)
+                print '-- now instruct consumer to die '
+                print  '-----------------------------'
+                
+                #self.disconnect()
+                self.retrieve_position_complete = True
                 
     def clear_redis_portfolio(self):
         l = map(lambda x: (self.r_conn.delete(x)), self.r_conn.keys(pattern='%s*' % (self.rs_port_keys['port_prefix'])))
@@ -121,19 +168,24 @@ class PortfolioManager():
     
     def subscribe(self):
 
-            self.con.reqPositions()
+            self.con.get_command_handler().reqPositions()
             logging.debug('account info to retrieve: %s' % (''.join('%s,' % s for s in self.account_tags)))
-            self.con.reqAccountSummary(100, 'All', ''.join('%s,' % s for s in self.account_tags))
-
+            #self.con.reqAccountSummary(100, 'All', ''.join('%s,' % s for s in self.account_tags))
+            self.con.get_command_handler().reqAccountSummary(100, 'All', ''.join('%s,' % s for s in self.account_tags))
             #self.con.register(self.on_ib_message, 'UpdateAccountValue')
 
     def on_ib_message(self, msg):
         
-        #print msg.typeName, msg
+        print msg
+        
+        if msg.typeName in 'execution':
+            print 'execution-------'
+            print msg
+            self.has_new_execution = True
         
         if msg.typeName in "position":
             if self.download_states[0] == False:
-                logging.debug("%s" %  (options_data.ContractHelper.printContract(msg.contract)))
+                logging.debug("%s" %  (ContractHelper.printContract(msg.contract)))
                 if msg.contract.m_secType in self.interested_types:
                     logging.debug("PortfolioManager: getting position...%s" % msg)
                     self.ib_port_msg.append(msg)
@@ -174,7 +226,7 @@ class PortfolioManager():
                     logging.exception("Exception in function when trying to broadcast account summary message to epc")
             
             self.download_states[1] = True
-        
+            
             
             
             
@@ -236,24 +288,6 @@ class PortfolioManager():
         #print sorted(list(set(li)))
         return sorted(list(set(li)))
     
-#     def get_tbl_pos_csv(self):
-#         s_cols = [0,1,2,3,4]
-#         i_cols = [5,6,7]
-#         s = '["exch","type","contract_mth","right","strike","con_ration","pos","avgcost"],'
-#         
-#         for l in sorted(self.port):
-#             content = ''    
-#             toks= l.split(',')
-#  #           print toks
-#             for i in s_cols:
-#                 content += '"%s",' % toks[i]
-#             for i in i_cols:
-#                 content += '%s,' % toks[i]
-#             
-#                 
-#             s += "[%s]," % content
-#         return s       
-
 
     def get_greeks(self, c_key):
         #print c_key, len(c_key), self.r_conn.get('a')
@@ -515,7 +549,7 @@ class PortfolioManager():
         # 6002            pos
     
         
-        toks = options_data.ContractHelper.printContract(pos_msg.contract).split('-')
+        toks = ContractHelper.printContract(pos_msg.contract).split('-')
         s = ''
         
         slots = [0, 1, 4, 6]
@@ -525,7 +559,7 @@ class PortfolioManager():
         
         self.port.append(s)
                 
-        ckey = options_data.ContractHelper.makeRedisKey(pos_msg.contract)
+        ckey = ContractHelper.makeRedisKey(pos_msg.contract)
         multiplier = 50.0 if toks[0][1:] == 'HSI' else 10.0
 
         
@@ -561,6 +595,7 @@ class PortfolioManager():
 
         self.con.disconnect()
         self.quit = True
+      
 
 if __name__ == '__main__':
            
@@ -577,17 +612,13 @@ if __name__ == '__main__':
     logconfig['format'] = '%(asctime)s %(levelname)-8s %(message)s'    
     logging.basicConfig(**logconfig)        
 
-    p = PortfolioManager(config)
+    p = PortfolioManagerKF(config)
     p.retrieve_position()
+    p.start()
+    
     print p.get_portfolio_summary()
     print p.get_tbl_pos_csv()
 
-
-    # sample ouput    
-# ["exch","type","contract_mth","right","strike","con_ration","pos","avgcost"],["HSI","OPT","20150828","C","22600",50.0,0.0000,0.0000,],["HSI","OPT","20150828","C","23000",50.0,-1.0000,1770.0000,],["HSI","OPT","20150828","C","23600",50.0,-2.0000,1470.0000,],["HSI","OPT","20150828","C","23800",50.0,-1.0000,920.0000,],["HSI","OPT","20150828","C","24000",50.0,-2.0000,1820.0000,],["HSI","OPT","20150828","C","24200",50.0,-1.0000,3120.0000,],["HSI","OPT","20150828","C","24800",50.0,-1.0000,220.0000,],["HSI","OPT","20150828","P","18000",50.0,-2.0000,1045.0000,],["HSI","OPT","20150828","P","18600",50.0,-1.0000,1120.0000,],["HSI","OPT","20150828","P","18800",50.0,-1.0000,1570.0000,],["HSI","OPT","20150828","P","19800",50.0,-1.0000,870.0000,],["HSI","OPT","20150828","P","20200",50.0,-1.0000,970.0000,],["HSI","OPT","20150828","P","20800",50.0,-2.0000,970.0000,],["HSI","OPT","20150828","P","21600",50.0,-1.0000,1570.0000,],["HSI","OPT","20150828","P","21800",50.0,-7.0000,1955.7143,],["HSI","OPT","20150828","P","23200",50.0,1.0000,25930.0000,],["HSI","OPT","20150929","C","24400",50.0,1.0000,24880.0000,],["HSI","OPT","20150929","P","21600",50.0,0.0000,0.0000,],["HSI","OPT","20150929","P","21800",50.0,2.0000,52713.3333,],["HSI","OPT","20150929","P","22600",50.0,3.0000,39763.3333,],["MHI","OPT","20150828","C","24400",10.0,-1.0000,2603.0000,],["MHI","OPT","20150828","P","20800",10.0,-1.0000,313.0000,],["MHI","OPT","20150828","P","21000",10.0,-1.0000,363.0000,],["MHI","OPT","20150828","P","23600",10.0,5.0000,4285.0000,],["MHI","OPT","20150929","C","24400",10.0,1.0000,4947.0000,],["MHI","OPT","20150929","P","21600",10.0,1.0000,12657.0000,],["MHI","OPT","20150929","P","22600",10.0,1.0000,9877.0000,],["MHI","OPT","20150929","P","23600",10.0,4.0000,7757.0000,],
-# [180.000000,-2.0,0],[186.000000,-1.0,0],[188.000000,-1.0,0],[198.000000,-1.0,0],[202.000000,-1.0,0],[208.000000,-2.2,0],[210.000000,-0.2,0],[216.000000,-0.8,0],[218.000000,-5.0,0],[226.000000,0,0.0],[226.000000,3.2,0],[230.000000,0,-1.0],[232.000000,1.0,0],[236.000000,0,-2.0],[236.000000,1.8,0],[238.000000,0,-1.0],[240.000000,0,-2.0],[242.000000,0,-1.0],[244.000000,0,1.0],[248.000000,0,-1.0],
-# {'P': 0.0, 'C': 0.0} [('P', 0.8), ('P', 0.0), ('C', -2.0), ('C', -2.0), ('P', -1.0), ('C', 0.2), ('P', -1.0), ('P', -0.2), ('C', 0.0), ('P', -0.2), ('C', -1.0), ('P', -1.0), ('C', -1.0), ('P', 1.0), ('P', 0.2), ('P', 2.0), ('C', 1.0), ('P', -2.0), ('P', -7.0), ('P', 1.0), ('P', -1.0), ('P', -1.0), ('P', 0.2), ('C', -1.0), ('P', 3.0), ('C', -1.0), ('C', -0.2), ('P', -2.0)]
-# [('P', -8.200000000000001), ('C', -7.0)]
 
     
          

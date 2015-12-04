@@ -111,35 +111,35 @@ if __name__ == '__main__':
     #spot 24119.0, X 25000, right: P, evaldate: 20150812, expiry: 20150828, rate: 0.0005, div: 0.0005, vol: 0.2000, premium: 334.0000
     #spot 24149.0, X 25200, right: P, evaldate: 20150812, expiry: 20150828, rate: 0.0005, div: 0.0005, vol: 0.2000, premium: 437.5000
     
-    results = cal_option(23067.0, 22000, 'P', '20151018', '20151030', 0.0009, 0.0328, 0.2918)
+    results = cal_option(22363.0, 22000, 'C', '20151201', '20151230', 0.00012, 0.0328, 0.198)
     print ''.join ('%s=%0.4f, '%(k,v) for k, v in results.iteritems())
-    results = cal_option(23067.0, 22000, 'P', '20151018', '20151029', 0.0009, 0.0328, 0.2918)
-    npv1 = results['npv']
-    v1 = 0.2918
-
-    
-    print ''.join ('%s=%0.4f, '%(k,v) for k, v in results.iteritems())
-    results = cal_option(23067.0, 22000, 'C', '20151018', '20151029', 0.0009, 0.0328, 0.2918)
-    print ''.join ('%s=%0.4f, '%(k,v) for k, v in results.iteritems())
-
-    results = cal_option(23067.0, 22000, 'P', '20151018', '20151029', 0.0009, 0.0328, 0.2918*1.01)
-    print ''.join ('%s=%0.4f, '%(k,v) for k, v in results.iteritems())
-    npv2 = results['npv']
-    v2 = v1 * 1.01
-    
-    print 'validating vega: (%0.2f - %0.2f) / (%0.4f - %0.4f) = %0.2f' % (npv2, npv1, v2, v1, (npv2-npv1)/ (v2 - v1))     
-    print 'validating gamma: (%0.2f - %0.2f) / (%0.4f - %0.4f) = %0.2f' % (npv2, npv1, v2, v1, (npv2-npv1)/ (v2 - v1))
-    
-    results = cal_option(23067.0, 22000, 'C', '20151018', '20151029', 0.0009, 0.0328, 0.2918*1.01)
-    print ''.join ('%s=%0.4f, '%(k,v) for k, v in results.iteritems())
+#     results = cal_option(23067.0, 22000, 'P', '20151018', '20151029', 0.0009, 0.0328, 0.2918)
+#     npv1 = results['npv']
+#     v1 = 0.2918
+# 
+#     
+#     print ''.join ('%s=%0.4f, '%(k,v) for k, v in results.iteritems())
+#     results = cal_option(23067.0, 22000, 'C', '20151018', '20151029', 0.0009, 0.0328, 0.2918)
+#     print ''.join ('%s=%0.4f, '%(k,v) for k, v in results.iteritems())
+# 
+#     results = cal_option(23067.0, 22000, 'P', '20151018', '20151029', 0.0009, 0.0328, 0.2918*1.01)
+#     print ''.join ('%s=%0.4f, '%(k,v) for k, v in results.iteritems())
+#     npv2 = results['npv']
+#     v2 = v1 * 1.01
+#     
+#     print 'validating vega: (%0.2f - %0.2f) / (%0.4f - %0.4f) = %0.2f' % (npv2, npv1, v2, v1, (npv2-npv1)/ (v2 - v1))     
+#     print 'validating gamma: (%0.2f - %0.2f) / (%0.4f - %0.4f) = %0.2f' % (npv2, npv1, v2, v1, (npv2-npv1)/ (v2 - v1))
+#     
+#     results = cal_option(23067.0, 22000, 'C', '20151018', '20151029', 0.0009, 0.0328, 0.2918*1.01)
+#     print ''.join ('%s=%0.4f, '%(k,v) for k, v in results.iteritems())
 
     
  
     
-    results = cal_implvol(23067.0, 21000, 'P', '20151018', '20151030', 0.0009, 0.0328, 0.19, 14.5817)
+    #results = cal_implvol(22363.0, 22000, 'C', '20151201', '20151230', 0.0328, 0.00012, 0.21055, 
     
         
-    print ''.join ('%s=%0.4f, '%(k,v) for k, v in results.iteritems())
+    #print ''.join ('%s=%0.4f, '%(k,v) for k, v in results.iteritems())
 
 
     chk = HongKong()

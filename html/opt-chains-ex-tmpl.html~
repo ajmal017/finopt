@@ -29,8 +29,8 @@
         curveType:'function',
         intervals: { 'color':'series-color' },
         interval: {
-            'i0': { 'color': '#4374E0', 'style':'bars', 'barWidth':0, 'lineWidth':1, 'pointSize':6, 'fillOpacity':0.3 },
-            'i1': { 'color': '#E49307', 'style':'bars', 'barWidth':0, 'lineWidth':1, 'pointSize':6, 'fillOpacity':0.3 },
+            'i3': { 'color': '#4374E0', 'style':'bars', 'barWidth':0, 'lineWidth':1, 'pointSize':6, 'fillOpacity':0.3 },
+            'i4': { 'color': '#E49307', 'style':'bars', 'barWidth':0, 'lineWidth':1, 'pointSize':6, 'fillOpacity':0.3 },
             'i2': { 'style':'area', 'curveType':'function', 'fillOpacity':0.3 }},
 
 	  pointShape: 'diamond',
