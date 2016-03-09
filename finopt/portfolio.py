@@ -208,6 +208,46 @@ class PortfolioManager():
         # pass the list to sumByKey routine
         self.grouped_options = sumByKey(lambda x:(x[0], 0), n)
         #print len(l), sorted(l)
+
+
+    def group_pos_by_strike_by_month(self):
+
+
+        # split into lines of position       
+        m = map(lambda x: x.split(','), self.port)
+        # transform each line into two elements. first one is a key created 
+        # by combining right and strike, the second is the product of 
+        # position * conversion ratio (HSI=50, MSI=10)
+        
+        mth_set = set(map(lambda x: x[2], m))
+        print max(mth_set)
+        n = map(lambda x: (x[3] + x[4] + x[2], float(x[5]) * float(x[6])/50), m)
+        
+        #p = dict(set(map(lambda x:(x[0], 0), n)))
+        
+        def sumByKey(f, n):
+            # filter the list with only unique keys
+            # transform the list into a dict
+            p = dict(set(map(f, n)))
+            
+            # add the numbers together on key
+            l =[]
+            for x in n:
+                
+                p[x[0]] += x[1]
+                
+            return [(k[1:6], 'NEAR' if k[6:] < max(mth_set) else 'FAR', k[0:1],v) for k,v in p.iteritems()]
+         
+         
+           
+        #print len(n),n
+        # initialize a list of strikes and the position sum to 0
+        # pass the list to sumByKey routine
+        self.grouped_options = sumByKey(lambda x:(x[0],  0), n)
+        #print len(l), sorted(l)
+
+
+
         
     def group_pos_by_right(self):        
     # group by put, call (summing up all contracts by right type,ignoring strikes)
@@ -225,7 +265,18 @@ class PortfolioManager():
         for e in sorted(self.grouped_options):
             s += "[%f,%s,%s]," % (float(e[0])/100.0, e[2] if e[1] == 'P' else 0, e[2] if e[1] == 'C' else 0)
         return s
-    
+ 
+ 
+    def get_grouped_options_str_array_stacked(self):
+        s = ''
+        
+        #[('20800', 'FAR', 'C', -1.0), ('17600', 'NEAR', 'P', -2.0), ('21400', 'NEAR', 'C', -4.0), ('15800', 'NEAR', 'P', -4.0), ('15600', 'FAR', 'P', -3.0), ('14600', 'FAR', 'P', -1.0), ('20400', 'NEAR', 'C', -2.0), ('15600', 'NEAR', 'P', -2.0), ('18200', 'NEAR', 'P', 0.0), ('16000', 'NEAR', 'P', -3.0), ('15000', 'FAR', 'P', -1.0), ('18800', 'FAR', 'P', 3.0), ('21200', 'FAR', 'C', -2.0), ('20800', 'NEAR', 'C', -4.0), ('18200', 'FAR', 'P', 1.0), ('17800', 'NEAR', 'P', -8.0), ('18600', 'NEAR', 'P', -1.0)]
+        for e in sorted(self.grouped_options):
+            s += "[%s,%s,%s,%s,%s]," % (e[0], e[3] if e[1] == 'NEAR' and e[2] =='P' else 0, 
+                                        e[3] if e[1] == 'NEAR' and e[2] =='C' else 0,
+                                        e[3] if e[1] == 'FAR' and e[2] =='P' else 0,
+                                        e[3] if e[1] == 'FAR' and e[2] =='c' else 0)
+        return s   
     
     def get_traded_months(self):
         
@@ -288,13 +339,17 @@ class PortfolioManager():
         s = '["symbol","right","avgcost","spotpx","pos","delta","theta","pos_delta","pos_theta","unreal_pl","last_updated"],'
         
         def split_toks(x):
-            pmap = json.loads(self.r_conn.get(x))
-            #print pmap
-            gmap = json.loads(self.r_conn.get(x[3:]))
-            #print gmap
-            s = '["%s","%s",%f,%f,%f,%f,%f,%f,%f,%f,"%s"],' % (x[3:], x[len(x)-1:], pmap['6001'], gmap['5006'], pmap['6002'],\
-                                                                         gmap['5002'],gmap['5004'],\
-                                                                         pmap['6005'],pmap['6006'],pmap['6008'],pmap['last_updated'])
+            try: # 
+                pmap = json.loads(self.r_conn.get(x))
+                #print pmap
+                gmap = json.loads(self.r_conn.get(x[3:]))
+                #print gmap
+                s = '["%s","%s",%f,%f,%f,%f,%f,%f,%f,%f,"%s"],' % (x[3:], x[len(x)-1:], pmap['6001'], gmap['5006'], pmap['6002'],\
+                                                                             gmap['5002'],gmap['5004'],\
+                                                                             pmap['6005'],pmap['6006'],pmap['6008'],pmap['last_updated'])
+            except:
+                logging.error('entry %s skipped due to an exception. Please validate your position' % x)
+                return ''
             return s                                                          
             
         end_s = s + ''.join (split_toks( x ) for x in pall)
@@ -515,6 +570,7 @@ class PortfolioManager():
         # 6002            pos
     
         
+        # sample pos_msg '[HSI', 'OPT', 'None', 'HKD', '20160330', '18200.0', 'P', '204436784]'
         toks = options_data.ContractHelper.printContract(pos_msg.contract).split('-')
         s = ''
         
@@ -522,7 +578,8 @@ class PortfolioManager():
         s = s + '%s,%s,%s' % (','.join(toks[i] for i in slots), toks[5].replace('.0', ''), '50.0' if toks[0][1:] == 'HSI' else '10.0')
         s = s.replace('[', '') + ",%0.4f,%0.4f" % (pos_msg.pos, pos_msg.avgCost)
         
-        
+#         print toks
+#         print '---> %s' % s
         self.port.append(s)
                 
         ckey = options_data.ContractHelper.makeRedisKey(pos_msg.contract)
@@ -581,7 +638,9 @@ if __name__ == '__main__':
     p.retrieve_position()
     print p.get_portfolio_summary()
     print p.get_tbl_pos_csv()
-
+    p.group_pos_by_strike_by_month()
+    print p.grouped_options
+    print p.get_grouped_options_str_array_stacked()
 
     # sample ouput    
 # ["exch","type","contract_mth","right","strike","con_ration","pos","avgcost"],["HSI","OPT","20150828","C","22600",50.0,0.0000,0.0000,],["HSI","OPT","20150828","C","23000",50.0,-1.0000,1770.0000,],["HSI","OPT","20150828","C","23600",50.0,-2.0000,1470.0000,],["HSI","OPT","20150828","C","23800",50.0,-1.0000,920.0000,],["HSI","OPT","20150828","C","24000",50.0,-2.0000,1820.0000,],["HSI","OPT","20150828","C","24200",50.0,-1.0000,3120.0000,],["HSI","OPT","20150828","C","24800",50.0,-1.0000,220.0000,],["HSI","OPT","20150828","P","18000",50.0,-2.0000,1045.0000,],["HSI","OPT","20150828","P","18600",50.0,-1.0000,1120.0000,],["HSI","OPT","20150828","P","18800",50.0,-1.0000,1570.0000,],["HSI","OPT","20150828","P","19800",50.0,-1.0000,870.0000,],["HSI","OPT","20150828","P","20200",50.0,-1.0000,970.0000,],["HSI","OPT","20150828","P","20800",50.0,-2.0000,970.0000,],["HSI","OPT","20150828","P","21600",50.0,-1.0000,1570.0000,],["HSI","OPT","20150828","P","21800",50.0,-7.0000,1955.7143,],["HSI","OPT","20150828","P","23200",50.0,1.0000,25930.0000,],["HSI","OPT","20150929","C","24400",50.0,1.0000,24880.0000,],["HSI","OPT","20150929","P","21600",50.0,0.0000,0.0000,],["HSI","OPT","20150929","P","21800",50.0,2.0000,52713.3333,],["HSI","OPT","20150929","P","22600",50.0,3.0000,39763.3333,],["MHI","OPT","20150828","C","24400",10.0,-1.0000,2603.0000,],["MHI","OPT","20150828","P","20800",10.0,-1.0000,313.0000,],["MHI","OPT","20150828","P","21000",10.0,-1.0000,363.0000,],["MHI","OPT","20150828","P","23600",10.0,5.0000,4285.0000,],["MHI","OPT","20150929","C","24400",10.0,1.0000,4947.0000,],["MHI","OPT","20150929","P","21600",10.0,1.0000,12657.0000,],["MHI","OPT","20150929","P","22600",10.0,1.0000,9877.0000,],["MHI","OPT","20150929","P","23600",10.0,4.0000,7757.0000,],

@@ -52,7 +52,11 @@ def cal_option(spot, strike, callput, evaldate, exdate, rate, div, vol):
     
     results['theta'] = option.theta() / 365
     results['vega'] = option.vega() 
+#    results['rho'] = option.rho() 
 
+    results['strikeSensitivity'] = option.strikeSensitivity()
+   # results['thetaPerDay'] = option.thetaPerDay()
+   # results['itmCashProbability'] = option.itmCashProbability()
  
 
     return results

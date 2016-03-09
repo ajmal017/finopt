@@ -94,7 +94,7 @@ class TWS_event_handler(EWrapper):
             # no catch if fails again
             if message == 'gw_subscriptions':   
                 sleep(2)
-                logging.info('TWS_event_handler: Retry once broadcasting gw_subscription ' % (dict['typeName'], dict))
+                logging.info('TWS_event_handler: Retry once broadcasting gw_subscription %s [%s]' % (dict['typeName'], dict))
                 self.producer.send_messages(message, json.dumps(dict))    
             
             
@@ -357,7 +357,21 @@ class TWS_gateway(threading.Thread):
         key = self.config.get("tws_gateway",  "subscription_manager.subscriptions.redis_key").strip('"').strip("'")
         if self.rs.get(key):
             #contracts = map(lambda x: ContractHelper.kvstring2contract(x), json.loads(self.rs.get(key)))
-            contracts = map(lambda x: ContractHelper.kvstring2object(x, Contract), json.loads(self.rs.get(key)))
+            
+            def is_outstanding(c):
+                
+                today = time.strftime('%Y%m%d') 
+                if c.m_expiry < today:
+                    logging.info('initialize_subscription_mgr: ignoring expired contract %s%s%s' % (c.m_expiry, c.m_strike, c.m_right))
+                    return False
+                return True
+            
+            contracts = filter(lambda x: is_outstanding(x), 
+                               map(lambda x: ContractHelper.kvstring2object(x, Contract), json.loads(self.rs.get(key))))
+            
+            
+            
+            
             self.contract_subscription_mgr.load_subscription(contracts)
         
 
@@ -642,9 +656,9 @@ class SubscriptionManager():
             self.parent.connection.reqMktData(id, contract, '', False) 
             
                    
-#             if self.persist_f:
-#                 logging.debug('SubscriptionManager reqMktData: trigger callback')
-#                 self.persist_f(self.handle)
+            if self.persist_f:
+                logging.debug('SubscriptionManager reqMktData: trigger callback')
+                self.persist_f(self.handle)
                 
             logging.info('SubscriptionManager: reqMktData. Requesting market data, id = %d, contract = %s' % (id, ContractHelper.makeRedisKeyEx(contract)))
         
@@ -686,7 +700,7 @@ class SubscriptionManager():
                                      if self.handle[i] <> None else ''          ) for i in range(len(self.handle)))\
                      )
         
-        logging.info( ''.join('%s[%d],\n' % (k, v) for k, v in self.conId.iteritems()))
+        #logging.info( ''.join('%s[%d],\n' % (k, v) for k, v in self.conId.iteritems()))
         logging.info( 'Number of instruments subscribed: %d' % len(self.handle))
         logging.info( '------------------------------------------------')
         

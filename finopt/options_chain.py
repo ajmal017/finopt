@@ -285,11 +285,50 @@ class OptionsChain():
         print footer
         
         
-
-                
+    def generate_google_datatable_json(self):
         
-    
+        sorted_opt = sorted(map(lambda i: (self.options[i].get_contract().m_strike, self.options[i]) , range(len(self.options))))
+        
+        sorted_call = filter(lambda x: x[1].get_contract().m_right == 'C', sorted_opt)
+        sorted_put = filter(lambda x: x[1].get_contract().m_right == 'P', sorted_opt)
+        
 
+        
+        dtj = {'cols':[], 'rows':[]}
+        header = [('last', 'number'), ('bidq', 'number'), ('bid', 'number'), 
+                  ('ask', 'number'), ('askq', 'number'), ('ivol', 'number'), 
+                  ('delta', 'number'), ('theta', 'number'), ('strike', 'number'), 
+                  ('last', 'number'), ('bidq', 'number'), ('bid', 'number'), 
+                  ('ask', 'number'), ('askq', 'number'), ('ivol', 'number'), 
+                  ('delta', 'number'), ('theta', 'number')
+                  ]  
+        # header fields      
+        map(lambda hf: dtj['cols'].append({'id': hf[0], 'label': hf[0], 'type': hf[1]}), header)
+        
+        
+        # table rows
+        # arrange each row with C on the left, strike in the middle, and P on the right
+        def row_fields(x):
+            
+            rf = [{'v': x[1].get_tick_value(4)}, 
+                 {'v': x[1].get_tick_value(0)},
+                 {'v': x[1].get_tick_value(1)},
+                 {'v': x[1].get_tick_value(2)},
+                 {'v': x[1].get_tick_value(3)},
+                 {'v': x[1].get_analytics()[Option.IMPL_VOL]},
+                 {'v': x[1].get_analytics()[Option.DELTA]},
+                 {'v': x[1].get_analytics()[Option.THETA]}]                 
+                 
+             
+            return rf 
+        
+        map(lambda i: dtj['rows'].append({'c': row_fields(sorted_call[i]) +
+                                                [{'v': sorted_call[i][0]}] + 
+                                                row_fields(sorted_put[i])}), range(len(sorted_call)))
+    
+        
+        print json.dumps(dtj) #, indent=4)
+        
 class OptionsCalculationEngine(SimpleTWSClient):
     tickerMap = {}
     option_chains = {}    
@@ -402,7 +441,9 @@ class OptionsCalculationEngine(SimpleTWSClient):
         while 1:
             sleep(5)
             for oc in self.option_chains.keys():
-                self.option_chains[oc].pretty_print()
+                #self.option_chains[oc].pretty_print()
+                
+                self.option_chains[oc].generate_google_datatable_json()
             
         self.disconnect()
         
@@ -583,7 +624,8 @@ class OptionsCalculationEngine(SimpleTWSClient):
         
         self.get_producer().send_messages('optionAnalytics', msg_str)
     
-    
+    #def broadcast_chain_snapshots(self):
+        
 
         
     
@@ -607,27 +649,28 @@ if __name__ == '__main__':
     
     contractTuple = ('QQQ', 'STK', 'SMART', 'USD', '', 0, '')
     contract = ContractHelper.makeContract(contractTuple)  
-    oc = OptionsChain('QQQ-DEC11')
-    oc.set_option_structure(contract, 0.5, 100, 0.005, 0.003, '20151211')
-    oc.build_chain(114.79, 0.05, 0.25)
+    oc = OptionsChain('QQQ-MAR24')
+    oc.set_option_structure(contract, 2.5, 100, 0.005, 0.003, '20160324')
+    oc.build_chain(98.0, 0.025, 0.25)
     for c in oc.get_option_chain():
         print '%s' % ContractHelper.makeRedisKeyEx(c.get_contract())
     
 
-    contractTuple = ('HSI', 'FUT', 'HKFE', 'HKD', '20151230', 0, '')
+    near_expiry = '20160226'
+    contractTuple = ('HSI', 'FUT', 'HKFE', 'HKD', near_expiry, 0, '')
     contract = ContractHelper.makeContract(contractTuple)  
-    oc1 = OptionsChain('HSI-DEC30')
-    oc1.set_option_structure(contract, 200, 50, 0.0012, 0.0328, '20151230')
-    oc1.build_chain(22508, 0.08, 0.219)
+    oc1 = OptionsChain('HSI-%s' % near_expiry)
+    oc1.set_option_structure(contract, 200, 50, 0.0012, 0.0328, near_expiry)
+    oc1.build_chain(19200, 0.08, 0.219)
     for c in oc1.get_option_chain():
         print '%s' % ContractHelper.makeRedisKeyEx(c.get_contract())
 
-
-    contractTuple = ('HSI', 'FUT', 'HKFE', 'HKD', '20160128', 0, '')
+    far_expiry = '20160330'
+    contractTuple = ('HSI', 'FUT', 'HKFE', 'HKD', far_expiry, 0, '')
     contract = ContractHelper.makeContract(contractTuple)  
-    oc2 = OptionsChain('HSI-JAN28')
-    oc2.set_option_structure(contract, 200, 50, 0.0012, 0.0328, '20160128')
-    oc2.build_chain(22508, 0.08, 0.22)
+    oc2 = OptionsChain('HSI-%s' % far_expiry)
+    oc2.set_option_structure(contract, 200, 50, 0.0012, 0.0328, far_expiry)
+    oc2.build_chain(19200, 0.08, 0.22)
     for c in oc2.get_option_chain():
         print '%s' % ContractHelper.makeRedisKeyEx(c.get_contract())
 

@@ -138,9 +138,9 @@ if __name__ == "__main__":
     lns = kvs.map(lambda x: x[1])
     
 #{"analytics":{"imvol" : 0.210757782404, "vega" : 3321.50906944, "delta" : 0.402751602804, "theta" : -5.58857173887, "npv" : 499.993413708, "gamma" : 0.00021240629952}, "contract":{"m_conId": 0, "m_right": "C", "m_symbol": "HSI", "m_secType": "OPT", "m_includeExpired": false, "m_multiplier": 50, "m_expiry": "20160128", "m_currency": "HKD", "m_exchange": "HKFE", "m_strike": 22600.0}, "tick_values":{"0" : 20, "1" : 500.0, "2" : 510.0, "3" : 25, "4" : 500.0, "5" : 1, "8" : 22, "9" : 628.0}, "extra":{"spot" : 22190.0, "rate" : 0.0012, "last_updated" : "20151204143050", "div" : 0.0328}}    
-
+  #QQQ-DEC11, HSI-DEC30
     mdp = lns.map(lambda x: json.loads(x))\
-            .filter(lambda x: (x['extra']['chain_id'] == 'HSI-DEC30'))\
+            .filter(lambda x: (x['extra']['chain_id'] == 'QQQ-DEC11'))\
             .map(lambda x: (x['contract']['m_strike'], (x['analytics']['imvol'], x['analytics']['theta'])  ))\
             .groupByKeyAndWindow(6, 4, 1)
             #.groupByKeyAndWindow(12, 10, 1)

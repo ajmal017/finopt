@@ -21,6 +21,10 @@ import uuid
 from comms.tws_protocol_helper import TWS_Protocol
 
 class AnalyticsListener(threading.Thread):
+    """ This class is used to receive kafka
+        events broadcasted by OptionCalculationEngine 
+
+    """    
     consumer = None
     command_handler = None
     stop_consumer = False
@@ -83,7 +87,7 @@ class AnalyticsListener(threading.Thread):
                         message = self.consumer.next()
                         
                         
-                        logging.debug("TWS_client_base_app: %s:%d:%d: key=%s value=%s" % (message.topic, message.partition,
+                        logging.debug("AnalyticsListener: %s:%d:%d: key=%s value=%s" % (message.topic, message.partition,
                                                      message.offset, message.key,
                                                      message.value))
                         
@@ -95,7 +99,7 @@ class AnalyticsListener(threading.Thread):
 
                                         
     def stop(self):
-        logging.info('TWS_client_base_app: --------------- stopping consumer')
+        logging.info('AnalyticsListener: --------------- stopping consumer')
         self.stop_consumer = True
         
 
