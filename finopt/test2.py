@@ -324,19 +324,19 @@ class DummyClient(WebSocketClient):
     
     
 if __name__ == '__main__':
-#     rs = redis.Redis('localhost', 6379,3)
-#     
-#     s = f2()
-#     q = RedisQueue('test', host='localhost', port=6379, db=3)
-#     #[q.put(item) for item in s.split(',')]
-#     
-#     while not q.empty():
-#         q.get()
-#     [q.put(item) for item in range(1,100)]
-#     print q.qsize()
-#     #print q.qsize()
-#     print q.peek()
-#     print q.peek(50)
+    rs = redis.Redis('localhost', 6379,3)
+     
+    s = f2()
+    q = redisQueue.RedisQueue('test', host='localhost', port=6379, db=3)
+    #[q.put(item) for item in s.split(',')]
+     
+    while not q.empty():
+        q.get()
+    [q.put(item) for item in range(1,100)]
+    print q.qsize()
+    #print q.qsize()
+    print q.peek()
+    print q.peek(50)
     #stk = ['1398.HK', '0992.HK', '0787.HK', 'DUG', 'USO']
     #stk = ['0700.HK', '0787.HK'] #,'0941.HK',  '2822.HK', '2823.HK', '0939.HK', '2318.HK', '1299.HK', '3988.HK', '1398.HK']
 #     rics = analyze_all('./data/hkex-stock-list.txt')
@@ -353,19 +353,19 @@ if __name__ == '__main__':
 #             
 #     print st
 #    mark6()
-
+   
 #    analyze()
 
 
 #    stdan2('/home/larry/l1304/workspace/finopt/data/mds_files/std/', 'std-20151007')
 
 
-    try:
-        ws = DummyClient('ws://localhost:8082/ws', protocols=['http-only', 'chat'])
-        ws.connect()
-        ws.run_forever()
-    except KeyboardInterrupt:
-        ws.close()
+#     try:
+#         ws = DummyClient('ws://localhost:8082/ws', protocols=['http-only', 'chat'])
+#         ws.connect()
+#         ws.run_forever()
+#     except KeyboardInterrupt:
+#         ws.close()
     
     
 

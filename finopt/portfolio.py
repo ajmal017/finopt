@@ -374,6 +374,25 @@ class PortfolioManager():
             s += "[%s]," % content
         return s  
 
+
+    def get_tbl_pos_list(self, calGreeks=False):
+        s_cols = [0,1,2,3,4]
+        i_cols = [5,6,7]
+        s = []
+        
+        for l in sorted(self.port):
+            content = []    
+            toks= l.split(',')
+ #           print toks
+            for i in s_cols:
+                content.append(toks[i])
+            for i in i_cols:
+                content.append(toks[i])
+            
+                
+            s.append(content)
+        return s 
+
     def get_portfolio_summary(self):
 
         

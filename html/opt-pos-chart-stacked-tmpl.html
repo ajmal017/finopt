@@ -1,0 +1,181 @@
+<html>
+  <head>
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/2.1.3/jquery.min.js"></script>
+    <script type="text/javascript" src="https://www.google.com/jsapi"></script>
+    <script type="text/javascript">
+      google.load("visualization", "1.1", {packages:["corechart", 'table','gauge']});
+//      google.load('visualization', '1', {'packages':['table']});
+//      google.load("visualization", "1.1", {packages:["corechart"]});
+      google.setOnLoadCallback(drawChart);
+      function drawChart() {
+        var data = google.visualization.arrayToDataTable([
+          ['strike', 'Near-P', 'Near-C', 'Far-P', 'Far-C'],
+{{{dataPCpos}}}
+        ]);
+
+	var dataTbl = google.visualization.arrayToDataTable([
+{{{dataTablePos}}}
+
+        ]);
+
+
+        var options = {
+	  title: 'PUT:CALL Ratio [{{{PRvsCR}}}}] for the month of {{{option_months}}}',
+          width: 900,
+ 	  legend:{ position: 'top', maxLines: 2},
+	  bar:{groupWidth: '20%'},
+	  chartArea:{left:40,top:50,width:"80%",height:"70%"},
+ 	  isStacked: true,
+	  series:{
+		0: {color:'#0066ff'},		  
+		1: {color:'#e60000'},
+		2: {color:'#80b3ff'},
+		3: {color:'#ff8080'},
+
+		
+	  },
+        };
+
+        
+        var chart = new google.visualization.ColumnChart(document.getElementById('barchart_material'));
+        chart.draw(data, options);
+
+
+
+
+	// chart table display implied volatilities in a nicely formatted table	
+       var chartTbl = new google.visualization.Table(document.getElementById('chartTbl_div'));
+
+
+       //var portTbl = new google.visualization.Table(document.getElementById('portTblDiv'));
+
+	var formatter = new google.visualization.NumberFormat({pattern:'0.00'});
+	for (var i = 2; i < 9; i++)
+		formatter.format(dataTbl, i); 
+        var options2 = {
+          displayAnnotations: true,
+	  showRowNumber: true, width: '100%', height: '100%', allowHtml: true,
+        };
+	chartTbl.draw(dataTbl, options2);
+
+	$('input[id="b_reload"]').click();
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+// guage functions
+
+		var dataG = google.visualization.arrayToDataTable([
+		  ['Label', 'Value'],
+		  ['Delta', 0],
+		  ['Delta-C', 0],
+		  ['Delta-P', 0]
+		]);
+
+		var optionsG = {
+
+		  width: 400, height: 120,
+		  redFrom: -50, redTo: -25,
+		  yellowFrom:-24, yellowTo: -15,
+		  greenFrom: -10, greenTo: 10,	
+		  minorTicks: 5,
+		  min: -50, max: 50
+		};
+
+		var dataT = google.visualization.arrayToDataTable([
+		  ['Label', 'Value'],
+		  ['Theta', 0],
+		  ['Theta-C', 0],
+		  ['Theta-P', 0]
+		]);
+
+		var optionsT = {
+
+		  width: 400, height: 120,
+		  redFrom: -3000, redTo: -2000,
+		  yellowFrom:-1999, yellowTo: 500,
+		  greenFrom: 5000, greenTo: 15000,	
+		  minorTicks: 5,
+		  min: -3000, max: 15000
+		};
+
+		var gchart = new google.visualization.Gauge(document.getElementById('chart_div'));
+//		refreshPortSummary();
+//		gchart.draw(dataG, optionsG);
+
+		var tchart = new google.visualization.Gauge(document.getElementById('chartTheta_div'));
+		refreshPortSummary();
+		
+		function refreshPortSummary(){
+		    $.ajax({
+			type: 'Post',
+			url: '/ws_port_summary',
+			success: function (data) {
+				//alert(data);
+				var jdata = JSON.parse(data);
+				$('#temp').text(data);				
+				//alert(jdata.delta_all);
+				
+				dataG.setValue(0, 1, Math.round(jdata.delta_all*100)/100);
+				dataG.setValue(1, 1, Math.round(jdata.delta_c*100)/100);
+				dataG.setValue(2, 1, Math.round(jdata.delta_p*100)/100);
+				gchart.draw(dataG, optionsG);
+
+				dataT.setValue(0, 1, Math.round(jdata.theta_all));
+				dataT.setValue(1, 1, Math.round(jdata.theta_c));
+				dataT.setValue(2, 1, Math.round(jdata.theta_p));
+				tchart.draw(dataT, optionsT);
+
+				$('#pt_status').text("Unreal P/L: " + Math.round(jdata.unreal_pl*100)/100 + "   Cal Status: " + jdata.status);
+
+			}
+		    });
+
+		};
+
+		setInterval(function() {
+			refreshPortSummary();
+		}, 9500);    
+
+
+
+
+
+
+
+
+      } // end drawChart
+
+
+
+
+
+
+
+	
+
+
+		//})
+
+//	});
+
+    </script>
+
+
+  </head>
+  <body>
+<div id='pt_status'></div>
+<div id="chart_div" style="width: 400px; height: 120px;"></div>
+<div id="chartTheta_div" style="width: 400px; height: 120px;"></div>
+
+    <div id="barchart_material" style="width: 900px; height: 500px;"></div>
+    <div id='chartTbl_div' style='width: 900px; height: 500px;'></div>
+    <div id="portTbl">
+        <input type="button" id="b_reload" value="Reload" />
+    </div>
+    <div id='portTblDiv' style='width: 900px; height: 500px;'></div>
+<div id='temp'></div>
+
+  </body>
+</html>
+

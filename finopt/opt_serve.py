@@ -19,6 +19,7 @@ from comms.alert_bot import AlertHelper
 from ws4py.server.cherrypyserver import WebSocketPlugin, WebSocketTool
 from ws4py.websocket import WebSocket
 from ws4py.websocket import EchoWebSocket
+from sets import Set
 import thread
 
 
@@ -40,7 +41,7 @@ class QServer(object):
     @cherrypy.expose
     def index(self):
         
-        s_line = 'welcome!'
+        #s_line = 'welcome!'
         #r_host = cherrypy.request.app.config['redis']['redis.server']
         #r_port = cherrypy.request.app.config['redis']['redis.port']
         #r_db = cherrypy.request.app.config['redis']['redis.db']
@@ -49,14 +50,20 @@ class QServer(object):
         #rs = redis.Redis(r_host, r_port, r_db)
         rs = QServer.r_conn
         s_line = rs.info()
+	
         html =''
         for k, v in cherrypy.request.app.config.iteritems():
             html = html + '<dt>%s</dt><dd>%s</dd>' % (k, v)
        
-        impl_link = "<a href='./opt_implv'>options implied vol curves</a>"
-        pos_link = "<a href=./ws_position_chart>Positions</a>" 
-        bubble_link = "<a href=./port_bubble_chart>Risk Distributions</a>"
-        return """<html><body><li>%s</li><li>%s</li><li>%s</li><br><dl>%s</dl></br>%s</body></html>""" % (bubble_link, impl_link, pos_link, html, s_line)
+        impl_link = "<a href=./opt_implv><img src='public/chart.png' width='42' height=42'/>options implied vol curves</a>"
+        pos_link = "<a href=./ws_position_chart><img src='public/moneyup.png' width='42' height='42'/>Positions</a>" 
+        stackpos_link = "<a href=./ws_position_chart_ex><img src='public/scale.png' width='42' height='42' />Positions (Stacked View)</a>"
+        bubble_link = "<a href=./port_bubble_chart><img src='public/Market-Risk-Icon.png' width='42' height='42' />Risk Distributions</a>"
+
+	html = ''
+	s_line = ''
+
+        return """<html><body><li>%s</li><li>%s</li><li>%s</li><li>%s</li><br><dl>%s</dl></br>%s</body></html>""" % (bubble_link, impl_link, pos_link, stackpos_link, html, s_line)
  
  
     @cherrypy.expose
@@ -315,6 +322,104 @@ class QServer(object):
         
         
         return html_tmpl
+    
+    #
+    # ws_position_chart_ex
+    #
+    # 
+    # this is an extended version of ws_position_chart
+    # shows options by month, strikes, right instead of just strikes and right
+    # 2016-03-23
+    def generate_garray(self, plist):
+        
+        
+        # generate a key map with month-right-strike
+        # example: ('20160330-C-20000', 0.2),...
+        
+        klist = map(lambda x: ('%s-%s-%s' % (x[2], x[3], x[4]), float(x[5])/50.0*float(x[6])), plist)
+        # for e in sorted(klist):
+        #     print e
+        
+        # get the unique keys in klist
+        unique_keys= Set(map(lambda x:x[0], klist))
+        strikes =[e for e in Set(map(lambda x:x[4], plist))]
+        # sort the months in ascending order
+        months = sorted([e for e in Set(map(lambda x:x[2], plist))])
+	print klist
+        print strikes
+        # print months
+        # print len(klist), len(s)
+        
+        # group and sum position by month, strike, right
+        grouped_pos = []
+        for elem in unique_keys:
+            grp1 = filter(lambda x: x[0] == elem, klist)
+            print grp1
+            # sum items with same key
+            # example: [('20160330-P-19600', -1.0), ('20160330-P-19600', 0.2)]
+            grouped_pos.append( grp1[0] if len(grp1) == 1 else reduce(lambda x,y: (x[0], x[1]+y[1]), grp1) )
+            print '---'
+        
+        print grouped_pos    
+            
+        garr = {}
+        def init_garray(x):
+            garr[x] = {}
+        map(init_garray, sorted(strikes))
+        print garr
+        
+        def set_garray(x):
+            vals = x[0].split(('-'))
+            
+            if vals[0] == months[0]:
+                
+                if vals[1] == 'C':
+                    garr[vals[2]]['NEAR_C'] = x[1]
+                else:
+                    garr[vals[2]]['NEAR_P'] = x[1]
+            elif vals[0] == months[1]:
+        
+                if vals[1] == 'C':
+                    garr[vals[2]]['FAR_C'] = x[1]
+                else:
+                    garr[vals[2]]['FAR_P'] = x[1]
+                  
+        # find all C of near month
+        map(set_garray, grouped_pos)
+        print garr
+        s=''
+        for k, v in garr.iteritems():
+            s+= '[%s, %s,%s,%s,%s],' % (k, v['NEAR_P'] if 'NEAR_P' in v else '0',
+                                         v['NEAR_C'] if 'NEAR_C' in v else '0',  
+                                         v['FAR_P'] if 'FAR_P' in v else '0', 
+                                         v['FAR_C'] if 'FAR_C' in v else '0', )
+        return s    
+    
+    
+    @cherrypy.expose
+    def ws_position_chart_ex(self):
+        p = portfolio.PortfolioManager(config)
+        p.retrieve_position()
+        opt_pos_chart_tmpl = '%s%s/opt-pos-chart-stacked-tmpl.html' % (cherrypy.request.app.config['/']['tools.staticdir.root'], cherrypy.request.app.config['/static']['tools.staticdir.tmpl'])
+        f = open(opt_pos_chart_tmpl)
+        html_tmpl = f.read()
+
+        html_tmpl = html_tmpl.replace('{{{dataPCpos}}}', self.generate_garray(p.get_tbl_pos_list()))
+        
+        html_tmpl = html_tmpl.replace('{{{dataTablePos}}}', p.get_tbl_pos_csv())
+        
+        html_tmpl = html_tmpl.replace('{{{option_months}}}', ''.join(('%s, ' % m) for m in p.get_traded_months()))
+        v = p.group_pos_by_right()
+        html_tmpl = html_tmpl.replace('{{{PRvsCR}}}}', '%0.2f : %0.2f' % (v[0][1], v[1][1]))
+        
+        #print p.get_portfolio_summary()
+        #html_tmpl = html_tmpl.replace('{{{pos_summary}}}', ''.join('<li>%s:   %s</li>' % (x[0],x[1]) for x in p.get_portfolio_summary() ))
+        #print '\n'.join('%s:\t\t%s' % (k,v) for k,v in sorted(json.loads(DataMap.rs.get(port_key)).iteritems()))
+        
+        
+        return html_tmpl
+
+
  
     @cherrypy.expose
     def ws_position_summary(self):
