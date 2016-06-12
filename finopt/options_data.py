@@ -533,7 +533,11 @@ class DataMap():
     #            retrive record from hkgov website
     #            update redis db
     #      -  
-    
+    # 
+    # for all hard coded options end dates:
+    # https://www.hkex.com.hk/eng/prod/drprod/hkifo/tradcalend_2.htm to get all dates 
+    # 
+    #
     def set_option_calendar(self):
         year = int(datetime.datetime.now().strftime('%Y'))
         month = int(datetime.datetime.now().strftime('%m'))

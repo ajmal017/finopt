@@ -102,6 +102,7 @@ def get_hk_holidays(year):
                     } 
     try:
         url = 'http://www.gov.hk/en/about/abouthk/holiday/{{year}}.htm'
+        #url = 'http://www.gov.hk/en/about/abouthk/holiday/'
         url = url.replace('{{year}}', str(year))
 
 
@@ -137,18 +138,36 @@ def get_HSI_last_trading_day(holidays, month, year):
     map(lambda x: cal.addHoliday(str2qdate(x)), holidays)    
     
     def deduce_last_trading_day(ld):
-        
+        #print ld
         ld = ld - 1
         #print '###' + str(ld)
+        
         if cal.isHoliday(ld):
-            return deduce_last_trading_day(ld - 1)
+            return deduce_last_trading_day(ld)
         elif not cal.isBusinessDay(ld):
-            return deduce_last_trading_day(ld - 1)
+            return deduce_last_trading_day(ld)
+
         else:
-            #print '---' + str(ld)
+            #print '---' + str(ld-1)
+            
+            return ld
+ 
+    
+    def deduce_last_business_day(ld):
+        #print ld
+        #ld = ld - 1
+        #print '###' + str(ld)
+        
+        if cal.isHoliday(ld):
+            return deduce_last_business_day(ld - 1)
+        elif not cal.isBusinessDay(ld):
+            return deduce_last_business_day(ld - 1)
+        else:
+            #print '---' + str(ld-1)
+            
             return ld
     
-    return qdate2str(deduce_last_trading_day(Date.endOfMonth(Date(1, month, year))))
+    return qdate2str(deduce_last_trading_day(deduce_last_business_day(Date.endOfMonth(Date(1, month, year)))))
     
     
 # QUANTLIB Period class usage:
