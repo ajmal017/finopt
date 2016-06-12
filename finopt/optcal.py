@@ -101,9 +101,12 @@ def get_hk_holidays(year):
                     'December': 12,
                     } 
     try:
-        url = 'http://www.gov.hk/en/about/abouthk/holiday/{{year}}.htm'
-        #url = 'http://www.gov.hk/en/about/abouthk/holiday/'
-        url = url.replace('{{year}}', str(year))
+        #print (Date().todaysDate() + Period("1y")).ISO()[0:4]
+        if str(year) == (Date().todaysDate() + Period("1y")).ISO()[0:4]:
+            url = 'http://www.gov.hk/en/about/abouthk/holiday/'
+        else:
+            url = 'http://www.gov.hk/en/about/abouthk/holiday/{{year}}.htm'
+            url = url.replace('{{year}}', str(year))
 
 
         headers = { 'User-Agent' : 'Mozilla/5.0' }
@@ -303,7 +306,7 @@ if __name__ == '__main__':
 #     print chk.advance(Date(17, October, 2015), 1, 2)
     #print get_HSI_expiry(2016)
     
-    holidays = get_hk_holidays(2016)
+    holidays = get_hk_holidays(2017)
 
     
     
@@ -321,6 +324,6 @@ if __name__ == '__main__':
                 December,
                 ] 
     for i in month_names:
-        dd = get_HSI_last_trading_day(holidays, i, 2016)
+        dd = get_HSI_last_trading_day(holidays, i, 2017)
         print dd
         
