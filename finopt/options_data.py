@@ -63,7 +63,10 @@ class OptionsMarketDataManager():
         # option.chain_range = 0.08
         
         undly_tuple = eval(config.get("market", "option.underlying").strip('"').strip("'"))
-        undly_months_prices = eval(config.get("market", "option.underlying.month_price").strip('"').strip("'"))
+        #undly_months_prices = eval(config.get("market", "option.underlying.month_price").strip('"').strip("'"))
+        # 20160612
+        undly_months_prices = DataMap().rskeys['option.underlying.month_price']
+        
         undly_yahoo_ws = eval(config.get("market", "option.underlying.yahoo_ws").strip('"').strip("'"))
         self.cal_greeks_config = eval(config.get("market", "option.greeks.recal").strip('"').strip("'"))
     
@@ -486,6 +489,7 @@ class DataMap():
     rs = None
     rskeys = {}
     mkt_sessions = {}
+    
     config = None
 
 
@@ -511,6 +515,54 @@ class DataMap():
         
         DataMap.rs = redis.Redis(host, port, db)
         logging.info(self.rs.info())
+        
+        
+        self.rskeys['option.underlying.month_price'] = self.set_option_calendar()
+
+
+    # 20160612
+    # routine to determine the near and far month contract expiry date
+    #
+    # logic:
+    #      - determine today's date
+    #
+    #      - auto mode:
+    #      - look up entries in redis
+    #      - if records are found, use the records in redis
+    #         else 
+    #            retrive record from hkgov website
+    #            update redis db
+    #      -  
+    
+    def set_option_calendar(self):
+        year = int(datetime.datetime.now().strftime('%Y'))
+        month = int(datetime.datetime.now().strftime('%m'))
+
+
+        holiday_key_prefix = config.get("redis", "redis.datastore.key.hkex_holiday_prefix").strip('"').strip("'")        
+        
+        rs = self.redisConn()
+        holiday_key = '%s%s' % (holiday_key_prefix, year)
+        holidays = rs.get(holiday_key)
+                    
+        if holidays == None:
+            holidays = optcal.get_hk_holidays(year)
+            logging.info("options_data:set_option_calendar: retrieved from gov.hk --> update Redis: [%s]: %s", holiday_key, json.dumps(holidays))
+            rs.set(holiday_key, json.dumps(holidays))    
+
+        else:
+            holidays = json.loads(holidays)
+            logging.info("options_data:set_option_calendar: retrieved holidays from redis %s", str(holidays))
+
+        
+        
+        undly_months_prices = eval(config.get("market", "option.underlying.month_price").strip('"').strip("'"))
+        
+        undly_months_prices[0][0] = optcal.get_HSI_last_trading_day(holidays, month, year)
+        undly_months_prices[1][0] = optcal.get_HSI_last_trading_day(holidays, (month + 1) % 12, year)
+        
+        logging.info("options_data:set_option_calendar:  %s " % str(undly_months_prices))
+        return undly_months_prices
     
     def redisConn(self):
         return DataMap.rs
@@ -982,8 +1034,12 @@ def create_subscription_file(dest):
     f1.close()
 
 
+
 def console(config, omd):
-    undly_months_prices = eval(config.get("market", "option.underlying.month_price").strip('"').strip("'"))
+#    undly_months_prices = eval(config.get("market", "option.underlying.month_price").strip('"').strip("'"))
+# 20160612
+    undly_months_prices = DataMap().rskeys['option.underlying.month_price']
+    
     done = False
     while not done:
 #        try:
@@ -1041,7 +1097,9 @@ def add_portfolio_subscription(config, omd):
     p.retrieve_position()
     
     
-    undly_months_prices = eval(config.get("market", "option.underlying.month_price").strip('"').strip("'"))
+#    undly_months_prices = eval(config.get("market", "option.underlying.month_price").strip('"').strip("'"))
+    # 20160612
+    undly_months_prices = DataMap().rskeys['option.underlying.month_price']
     
     # example: MHI-20150929-22600-P
     toks = map(lambda x: x.split('-'), p.get_pos_contracts())

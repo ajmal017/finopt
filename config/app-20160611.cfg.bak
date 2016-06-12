@@ -1,15 +1,11 @@
 [global]
 server.socket_host: "0.0.0.0"
-#server.socket_port: 8082
-server.socket_port: 8091
+server.socket_port: 8082
 
 [redis]
 redis.server: "localhost"
 redis.port: 6379
-# db - 0 production larry046, 3 development, 2 production mchan927
-#redis.db: 3
-redis.db:2
-
+redis.db: 3
 redis.sleep: 0.5
 redis.datastore.key.option_implv: 'opt_implv'
 redis.datastore.key.option_chains: 'opt_chains'
@@ -25,8 +21,6 @@ redis.datastore.key.port_prefix: 'PT'
 redis.datastore.key.port_summary: 'port_summary'
 redis.datastore.key.port_items: 'port_items'
 redis.datastore.key.acct_summary: 'acct_summary'
-redis.datastore.key.hkex_holiday_prefix: 'hkex_holiday_'
-
  
 [/]
 tools.sessions.on : True
@@ -71,29 +65,16 @@ ib.subscription.fileloc: '/home/larry-13.04/workspace/finopt/data/subscription.t
 
 [market]
 hkex.openhours: '{"morning":[915,1200], "afternoon":[1300,1615]}'
-
-
-
-ib.gateway: '127.0.0.1'
-#ib.gateway: 'vsu-01'
-
-# 7496 - production larry046, 7496 - development,  8496 production mchan927
-ib.port: 8496
+#ib.gateway: '127.0.0.1'
+ib.gateway: 'vsu-01'
+ib.port: 7496
 #gw port
 #ib.port:4001
+ib.appid.portfolio: 9922
 
-# 9922: production larry046, 9922 development, 9933 production mchan927
-ib.appid.portfolio: 9933
-
-# 9911: production larry046, 9911 development, 9913 production mchan927
-ib.appid: 9913
-
+ib.appid: 9911
 option.underlying = "('HSI', 'FUT', 'HKFE', 'HKD', '', 0, '')"
-
-# the month value is no longer required as the system
-# will auto retrieve holidays from hk gov website
-# and deduce the near and next month options last trading date
-option.underlying.month_price = "[['20160629', 20100, '^HSI'], ['20160728', 20100.0, '^HSI']]"
+option.underlying.month_price = "[['20151029', 22817.0, '^HSI'], ['20151127', 22715.0, '^HSI']]"
 option.underlying.yahoo_ws = "{'use_yahoo': True, 'func': 'ystockquote.get_price'}"
 option.underlying.tick_size = 200
 

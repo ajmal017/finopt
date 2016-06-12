@@ -336,7 +336,11 @@ class PortfolioManager():
         # new instruments to its subscription list 
 
         pall = set(self.r_conn.keys(pattern='%s*' % self.rs_port_keys['port_prefix']))
-        s = '["symbol","right","avgcost","spotpx","pos","delta","theta","pos_delta","pos_theta","unreal_pl","last_updated"],'
+        
+        # 2016/06/11
+        # add 2 new columns: avgcost in points, unreal_pl ratio
+        #s = '["symbol","right","avgcost","spotpx","pos","delta","theta","pos_delta","pos_theta","unreal_pl","last_updated"],'
+        s = '["symbol","right","avgcost","avgpx","spotpx","pos","delta","theta","pos_delta","pos_theta","unreal_pl","unreal%","last_updated"],'
         
         def split_toks(x):
             try: # 
@@ -344,9 +348,16 @@ class PortfolioManager():
                 #print pmap
                 gmap = json.loads(self.r_conn.get(x[3:]))
                 #print gmap
-                s = '["%s","%s",%f,%f,%f,%f,%f,%f,%f,%f,"%s"],' % (x[3:], x[len(x)-1:], pmap['6001'], gmap['5006'], pmap['6002'],\
+#                 s = '["%s","%s",%f,%f,%f,%f,%f,%f,%f,%f,"%s"],' % (x[3:], x[len(x)-1:], pmap['6001'], gmap['5006'], pmap['6002'],\
+#                                                                              gmap['5002'],gmap['5004'],\
+#                                                                              pmap['6005'],pmap['6006'],pmap['6008'],pmap['last_updated'])
+        # 2016/06/11        
+                s = '["%s","%s",%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,"%s"],' % (x[3:], x[len(x)-1:], pmap['6001'], pmap['6001'] / pmap['6007'], gmap['5006'], pmap['6002'],\
                                                                              gmap['5002'],gmap['5004'],\
-                                                                             pmap['6005'],pmap['6006'],pmap['6008'],pmap['last_updated'])
+                                                                             pmap['6005'],pmap['6006'],pmap['6008'],
+                                                                             
+                                                                             (gmap['5002'] - (pmap['6001'] / pmap['6007'])) / pmap['6001'] / pmap['6007'],
+                                                                             pmap['last_updated'])                
             except:
                 logging.error('entry %s skipped due to an exception. Please validate your position' % x)
                 return ''

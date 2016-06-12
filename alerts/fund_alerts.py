@@ -143,13 +143,14 @@ def retrieve_hk_holidays(year):
         tds = soup.findAll('h3')[0].parent.findAll('td', 'date')
         
         d1 = map(lambda x: (x.text.split(' ')[0], x.text.split(' ')[1]), tds[1:])
-        return map(lambda x: strftime('%Y%m%d', time.strptime('%s %s %s' % (month_names.index(x[1])+1, x[0], '2015'), "%m %d %Y")), d1)
+        
+        return map(lambda x: strftime('%Y%m%d', time.strptime('%s %s %s' % (month_names.index(x[1])+1, x[0], year), "%m %d %Y")), d1)
     except:
         print 'error'
 
 if __name__ == '__main__':      
     #send_daily_alert()
-    print retrieve_hk_holidays(2015)
+    print retrieve_hk_holidays(2016)
      
 #     print allianz()
 #     
