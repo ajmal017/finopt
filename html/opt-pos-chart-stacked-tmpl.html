@@ -9,7 +9,7 @@
       google.setOnLoadCallback(drawChart);
       function drawChart() {
         var data = google.visualization.arrayToDataTable([
-          ['strike', 'Near-P', 'Near-C', 'Far-P', 'Far-C'],
+           ['strike', 'Near-P', 'Near-C', 'Far-P', 'Far-C','Near-F', 'Far-F'],
 {{{dataPCpos}}}
         ]);
 
@@ -49,13 +49,26 @@
 
        //var portTbl = new google.visualization.Table(document.getElementById('portTblDiv'));
 
+	var formatterColor = new google.visualization.ColorFormat();
+	formatterColor.addRange(-100, 0, 'white', 'red');
+	formatterColor.addRange(0, 100, 'white', 'blue');
+	formatterColor.format(dataTbl, 5); 
+
+	var formatterColor2 = new google.visualization.ColorFormat();
+	formatterColor2.addGradientRange(null, null, 'white', 'orange', 'blue');
+	formatterColor2.format(dataTbl, 10); 
+
 	var formatter = new google.visualization.NumberFormat({pattern:'0.00'});
-	for (var i = 2; i < 9; i++)
+	for (var i = 2; i < 12; i++){
 		formatter.format(dataTbl, i); 
+	}
         var options2 = {
           displayAnnotations: true,
 	  showRowNumber: true, width: '100%', height: '100%', allowHtml: true,
         };
+        var formatterBar = new google.visualization.BarFormat({width: 80,
+				colorPositive: 'green', max:100 });       
+        formatterBar.format(dataTbl, 11);
 	chartTbl.draw(dataTbl, options2);
 
 	$('input[id="b_reload"]').click();
@@ -68,6 +81,7 @@
 		var dataG = google.visualization.arrayToDataTable([
 		  ['Label', 'Value'],
 		  ['Delta', 0],
+		  ['Delta-F', 0],
 		  ['Delta-C', 0],
 		  ['Delta-P', 0]
 		]);
@@ -117,8 +131,9 @@
 				//alert(jdata.delta_all);
 				
 				dataG.setValue(0, 1, Math.round(jdata.delta_all*100)/100);
-				dataG.setValue(1, 1, Math.round(jdata.delta_c*100)/100);
-				dataG.setValue(2, 1, Math.round(jdata.delta_p*100)/100);
+				dataG.setValue(1, 1, Math.round(jdata.delta_f*100)/100);
+				dataG.setValue(2, 1, Math.round(jdata.delta_c*100)/100);
+				dataG.setValue(3, 1, Math.round(jdata.delta_p*100)/100);
 				gchart.draw(dataG, optionsG);
 
 				dataT.setValue(0, 1, Math.round(jdata.theta_all));
@@ -133,8 +148,26 @@
 
 		};
 
+		function isMarketOpen(now){
+			var hkex_mstart_hhmm = '0915';
+			var hkex_mend_hhmm = '1200';
+			var hkex_astart_hhmm = '1300';
+			var hkex_aend_hhmm = '1630';
+
+			var now_hhmm = ('0' + now.getHours()).slice(-2) + '' + ('0' + now.getMinutes()).slice(-2);
+			rc = ( 
+				(hkex_mstart_hhmm < now_hhmm && now_hhmm < hkex_mend_hhmm) || 
+				(hkex_astart_hhmm < now_hhmm && now_hhmm < hkex_aend_hhmm)
+		       	) ? true : false;
+			return rc;
+		}
+
 		setInterval(function() {
-			refreshPortSummary();
+			//var rc = isMarketOpen(new Date());
+			if (isMarketOpen(new Date())){
+			//if (rc){
+				refreshPortSummary();
+			}
 		}, 9500);    
 
 

@@ -122,8 +122,8 @@ class ContractHelper(BaseHelper):
     def makeRedisKey(contract):
         #print "makerediskey %s" % ContractHelper.printContract(contract)
 #20150904        
-        #contract.m_strike = int(contract.m_strike)
-        contract.m_strike = contract.m_strike
+        contract.m_strike = int(contract.m_strike)
+        #contract.m_strike = contract.m_strike
         
         if contract.m_secType == 'OPT':
             s = '%s-%s-%s-%s' % (contract.m_symbol,

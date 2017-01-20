@@ -105,7 +105,10 @@ def get_hk_holidays(year):
         if str(year) == (Date().todaysDate() + Period("1y")).ISO()[0:4]:
             url = 'http://www.gov.hk/en/about/abouthk/holiday/'
         else:
-            url = 'http://www.gov.hk/en/about/abouthk/holiday/{{year}}.htm'
+            #url = 'http://www.gov.hk/en/about/abouthk/holiday/{{year}}.htm'
+	    # lc 2017-01-03
+	    # just use the same url for both cases
+            url = 'http://www.gov.hk/en/about/abouthk/holiday/'
             url = url.replace('{{year}}', str(year))
 
 
@@ -327,3 +330,5 @@ if __name__ == '__main__':
         dd = get_HSI_last_trading_day(holidays, i, 2017)
         print dd
         
+    print holidays	
+    print get_HSI_last_trading_day(['20170128'], 1, 2017)
