@@ -151,7 +151,7 @@ class ContractHelper(BaseHelper):
             return ContractHelper.makeRedisKey(contract)
         
         #contract.m_strike = int(contract.m_strike)
-        contract.m_strike = contract.m_strike
+        #contract.m_strike = contract.m_strike
 # amend 10/22 
 # add exchange to the key         
 #         s = '%s-%s-%s-%s-%s-%s-%s-%d' % (contract.m_symbol,
@@ -181,6 +181,9 @@ class ContractHelper(BaseHelper):
         return s
     
     
+    @staticmethod
+    def is_equal(c1, c2):
+        return ContractHelper.makeRedisKeyEx(c1) == ContractHelper.makeRedisKeyEx(c2) 
 
     
 # def str2dict(s):

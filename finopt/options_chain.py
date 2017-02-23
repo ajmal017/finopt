@@ -7,6 +7,8 @@ import logging
 import threading
 from ib.ext.Contract import Contract
 from misc2.helpers import ContractHelper, dict2str
+from instrument import Symbol, Option
+from misc2.observer import Publisher, Subscriber 
 #from misc2.helpers import ContractHelper, OrderHelper, ExecutionFilterHelper
 from comms.tws_client import SimpleTWSClient
 from time import sleep
@@ -15,105 +17,12 @@ import optcal
 import traceback
 import redis
 
-class Symbol():
-    
-    def __init__(self, contract):
-        self.contract = contract
-        self.tick_values = {}
-        self.extra = {}    
-    
-    def set_tick_value(self, id, price):
-        self.tick_values[id] = price
-
-    def get_tick_value(self, id):
-        try:
-            
-            return self.tick_values[id]
-    
-        except:
-            
-            return None
-
-    def get_contract(self):
-        return self.contract
-    
-    def get_tick_values(self):
-        return self.tick_values
-    
-    def set_extra_attributes(self, id, val):
-        self.extra[id] = val
-            
-    def get_extra_attributes(self):
-        return self.extra
-    
-class Option(Symbol):
-    
-    analytics = None
-    IMPL_VOL = 'imvol'
-    DELTA    = 'delta'
-    GAMMA    = 'gamma'
-    THETA    = 'theta'
-    VEGA     = 'vega'
-    PREMIUM  = 'npv'
-    
-    
-    #[0,1,2,3,4,5,6,7,8,9,14,5001,5002,5003,5004,5005,5006]
-        
-    def __init__(self, contract):
-        Symbol.__init__(self, contract)
-        
-        self.set_analytics(-1.0, -1.0, -1.0, -1.0, -1.0, -1.0)
-
-        
-    def set_analytics(self, imvol=None, delta=None, gamma=None, theta=None, vega=None, npv=None):
-        
-        
-        if self.analytics == None:
-            self.analytics = {}           
-        self.analytics[Option.IMPL_VOL] = imvol
-        self.analytics[Option.DELTA] = delta 
-        self.analytics[Option.GAMMA] = gamma
-        self.analytics[Option.THETA] = theta
-        self.analytics[Option.VEGA] = vega
-        self.analytics[Option.PREMIUM] = npv
-        
-        
-    def get_analytics(self):
-        return self.analytics
-    
-    
-    def object2kvstring(self):
-        
-        try:           
-            kv = self.object2kv()
-            return '{"%s":%s, "%s":%s, "%s":%s, "%s":%s}' % ('analytics', dict2str(kv['analytics']), 
-                                                    'contract', ContractHelper.contract2kvstring(self.get_contract()), 
-                                                    'tick_values', dict2str(kv['tick_values']),
-                                                    'extra', dict2str(kv['extra']))
-        except:
-            logging.error( 'Exception Option.object2kvstring')
-               
-        return None
-    
-    
-    def object2kv(self):
-        try:
-            analytics = self.get_analytics()
-            contract =  self.get_contract()
-            tick_values = self.get_tick_values()
-            extra = self.get_extra_attributes()
-            return {'analytics': analytics, 'contract': contract, 'tick_values': tick_values, 'extra': extra}            
-        except:
-            logging.error( 'Exception Option.object2kv')
-               
-        return None
-        
             
     
                
         
 
-class OptionsChain():
+class OptionsChain(Publisher):
     underlying = None
     spd_size = None
     multiplier = None
@@ -129,11 +38,14 @@ class OptionsChain():
     trade_vol = None
     #iv = optcal.cal_implvol(spot, contract.m_strike, contract.m_right, today, contract.m_expiry, rate, div, vol, premium)
     
+    option_chain_events = ('on_option_added', 'on_option_deleted', 'on_option_updated')
     
     def __init__(self, id):
         self.id = id
         self.options = []
+        Publisher.__init__(self, OptionsChain.option_chain_events)
         
+
     
     def get_id(self):
         return self.id
@@ -144,6 +56,8 @@ class OptionsChain():
     def set_underlying(self, contract):
         #self.underlying = contract
         self.underlying = Symbol(contract)
+
+        
         
     def set_spread_table(self, spd_size, multiplier):
         self.spd_size = spd_size
@@ -174,8 +88,20 @@ class OptionsChain():
         upper_limit = undlypx * (1 + bound)
         lower_limit = undlypx * (1 - bound)          
         
+        
+        
         base_opt_contract = json.loads(ContractHelper.object2kvstring(self.get_underlying().get_contract()))
-
+        
+        #
+        #     notify listener(s) the option's underlying
+        #     allowing the listeners to store the reference to OptionsChain underlying 
+        #
+        self.dispatch(OptionsChain.option_chain_events[0], self.get_underlying())
+        #
+        #
+        #
+        
+        
         #for i in self.xfrange(int(undlypx), int(upper_limit ), self.spd_size):
         for i in self.xfrange(undlypx, upper_limit, self.spd_size):
 
@@ -184,30 +110,34 @@ class OptionsChain():
             base_opt_contract['m_expiry'] = self.expiry
             base_opt_contract['m_right'] = 'C'
             base_opt_contract['m_multiplier'] = self.multiplier
-            #self.options.append(ContractHelper.kv2object(base_opt_contract, Contract))
-            self.options.append(Option(ContractHelper.kv2object(base_opt_contract, Contract)))
+            
+            #self.options.append(Option(ContractHelper.kv2object(base_opt_contract, Contract)))
+            self.add_option(Option(ContractHelper.kv2object(base_opt_contract, Contract)))
             
             base_opt_contract['m_right'] = 'P'
             #self.options.append(ContractHelper.kv2object(base_opt_contract, Contract))
-            self.options.append(Option(ContractHelper.kv2object(base_opt_contract, Contract)))
+            #self.options.append(Option(ContractHelper.kv2object(base_opt_contract, Contract)))
+            self.add_option(Option(ContractHelper.kv2object(base_opt_contract, Contract)))
  
-        for i in self.xfrange(undlypx - self.spd_size, lower_limit, -self.spd_size):             
+        
+        for i in self.xfrange(undlypx - self.spd_size, lower_limit, -self.spd_size):      
+            #print i, lower_limit
             base_opt_contract['m_secType'] = 'OPT'
             base_opt_contract['m_strike'] = i
             base_opt_contract['m_expiry'] = self.expiry
             base_opt_contract['m_right'] = 'C'
             base_opt_contract['m_multiplier'] = self.multiplier
             #self.options.append(ContractHelper.kv2object(base_opt_contract, Contract))
-            self.options.append(Option(ContractHelper.kv2object(base_opt_contract, Contract)))
+            #self.options.append(Option(ContractHelper.kv2object(base_opt_contract, Contract)))
+            self.add_option(Option(ContractHelper.kv2object(base_opt_contract, Contract)))
              
             base_opt_contract['m_right'] = 'P'
             #self.options.append(ContractHelper.kv2object(base_opt_contract, Contract))
-            self.options.append(Option(ContractHelper.kv2object(base_opt_contract, Contract)))
+            #self.options.append(Option(ContractHelper.kv2object(base_opt_contract, Contract)))
+            self.add_option(Option(ContractHelper.kv2object(base_opt_contract, Contract)))
         
-#         print '------------####'     
-#         for c in self.options:
-#              #print ContractHelper.contract2kvstring(c)
-#              print c.option2kv()
+        
+
         
 
     def xfrange(self, start, stop=None, step=None):
@@ -232,8 +162,12 @@ class OptionsChain():
         return self.options
 
         
-    def add_option(self, kvc):
-        pass
+    def add_option(self, option):
+        #events = ('on_option_added', 'on_option_deleted', 'on_option_updated')
+        #
+        # 
+        self.options.append(option)
+        self.dispatch(OptionsChain.option_chain_events[0], option)
     
     
     def pretty_print(self):
@@ -274,10 +208,19 @@ class OptionsChain():
                                                format_tick_val(x[1].get_analytics()[Option.DELTA], fmt_spec2),
                                                format_tick_val(x[1].get_analytics()[Option.THETA], fmt_spec2),                    
                                                )), sorted_put)
-        title = '%s%30s%s' % ('-' * 40, ContractHelper.makeRedisKeyEx(self.get_underlying().get_contract()).center(50, ' '), '-' * 40) 
+        
+        undlypx = '%s,%s,%s,%s,%s' % (format_tick_val(self.get_underlying().get_tick_value(4), fmt_spec), 
+                                  format_tick_val(self.get_underlying().get_tick_value(0), fmt_specq),
+                                           format_tick_val(self.get_underlying().get_tick_value(1), fmt_spec),
+                                           format_tick_val(self.get_underlying().get_tick_value(2), fmt_spec),
+                                           format_tick_val(self.get_underlying().get_tick_value(3), fmt_spec)
+                                )
+        
+        #title = '%s%30s%s%s' % ('-' * 40, ContractHelper.makeRedisKeyEx(self.get_underlying().get_contract()).center(50, ' '), undlypx, '-' * 40) 
+        title = '%s%30s%s%s' % ('-' * 41, ContractHelper.makeRedisKeyEx(self.get_underlying().get_contract()).center(42, ' '), undlypx, '-' * 27)
         header = '%8s|%8s|%8s|%8s|%8s|%8s|%8s|%8s |%8s| %8s|%8s|%8s|%8s|%8s|%8s|%8s|%8s' % ('last', 'bidq', 'bid', 'ask', 'askq', 'ivol', 'delta', 'theta', 'strike', 'last', 'bidq', 'bid', 'ask', 'askq', 'ivol', 'delta', 'theta')
         combined = map(lambda i: '%s |%8.2f| %s' % (fmt_call[i][1], fmt_put[i][0], fmt_put[i][1]), range(len(fmt_call)) )
-        footer = '%s' % ('-' * 130) 
+        footer = '%s' % ('-' * 154) 
         print title
         print header
         for e in combined:
@@ -337,6 +280,54 @@ class OptionsCalculationEngine(SimpleTWSClient):
     download_gw_map_done = False
     rs = None
     rs_oc_prefix = None
+    
+    
+    """
+        symbols= {}
+        tickers={}
+        optionChain->id, [optsym1,optsym2]
+        
+        
+        
+        symbols[symbol_key]={'ticker_id': None, 'syms': [symbol1, symbol2...symbolN]}
+        tickers[ticker_id]=symbol_key
+        
+        
+        oce = OptionCalEngine('OCE')
+        oce.start()
+        
+        oc = OptionChain('QQQ'）
+        oce.register(oc) # listen for oc events
+        
+        
+        o1 = Option(ContractHelper.makeContract(contractTuple))
+        oc.add_option(o1) --> notify listeners' update method
+        
+        #oce
+        def update(method, option):
+            key = ContractHelper.makeRedisKeyEx(option)
+            symbols[key]['ticker_id'] = -1
+        
+            symbols[key]['syms'].append(option)
+        
+        
+        def gw_subscription_changed(param):
+            ticker_id = param[ticker_id]
+            symbol_key= param[symbol_key]
+            symbols[key]['ticker_id'] = ticker_id
+            tickers[ticker_id] = key
+        
+        def tick_price(vars):
+        
+            key= tickers[vars['id']]
+            for o in symbols[key]['syms']:
+                # update message values 
+    
+    """
+    
+    
+    
+    
     
     def __init__(self, config): #host, port, id=None):
         
@@ -627,7 +618,173 @@ class OptionsCalculationEngine(SimpleTWSClient):
     #def broadcast_chain_snapshots(self):
         
 
+
+class OCConsumer(Subscriber):
+    symbols = {}
+    tickers = {}
+    
+    """
+    
+    Data structure:
+        tickers map contains key value pairs of ticker id mapped to Symbol primary key
+        tickers => {id1: key1, id2:key2...}
         
+        example: tickers = {9: 'QQQ-20170217-127.00-C-OPT-USD-SMART-102'
+                            43: 'QQQ-20170217-124.00-C-OPT-USD-SMART-102' ...}
+                            
+        symbols map contains key value pairs of Symbol primary key mapped to a dict object.
+        The dict object contains the ticker id and a list of Symbol objects associated with ticker_id
+        symbols => {key1: 
+                        { 'ticker_id': id1, 
+                          'syms' : [<object ref to Symbol1>,<object ref to Symbol2>...]
+                        }
+                    key2:
+                        ...
+                   }
+        
+        example: symbols = {'QQQ-20170217-127.00-C-OPT-USD-SMART-102':
+                                {'ticker_id': 9, 
+                                 'syms': [<object ref to Symbol QQQ>, ...]
+                                }
+                            }
+                            
+        Usage:
+        Given a ticker_id, the Symbol key can be looked up from tickers
+        With the Symbol key obtained, the reference to the actual object associated with the ticker_id can be retrieved
+        by looking up from symbols[key]['syms']
+        
+        speed: 2 x O(1) + n
+    
+    
+    """
+
+    def __init__(self, name):
+        Subscriber.__init__(self, name)
+    
+    def dump(self):
+            #print ', '.join('[%s:%s]' % (k, v['ticker_id'])) 
+        logging.debug('OCConsumer-symbols: [Key: Ticker ID: # options objects]: ---->\n%s' % (',\n'.join('[%s:%d:%d]' % (k, v['ticker_id'],len(v['syms'])) for k,v in self.symbols.iteritems())))
+        logging.debug('OCConsumer-tickers: %s' % self.tickers)
+        
+    def on_option_chain_changed(self, message, symbol=None):
+        key = symbol.get_key()
+        #print key
+        if key not in self.symbols:
+            self.symbols[key]= {'ticker_id': -1, 'syms': []}
+#         self.symbols[key]['ticker_id'] = -1
+        self.symbols[key]['syms'].append(symbol)        
+        logging.debug('OCConsumer: update event %s: %s %s' % (self.name,message, "none" if not symbol else symbol.get_key()))
+    
+        
+    def tickPrice(self, items):   
+        
+        tid = items['tickerId']
+        #print tid
+        if tid in self.tickers:
+            contract_key = self.tickers[tid]
+            #print contract_key
+            for e in self.symbols[contract_key]['syms']:
+                e.set_tick_value(items['field'], items['price'])
+            
+        
+    def gw_subscription_changed(self, items):
+        # <class 'comms.tws_protocol_helper.Message'>
+        # sample
+        #{0: {'contract': <ib.ext.Contract.Contract object at 0x7ff8f8c9e210>}, 1: {'contract': <ib.ext.Contract.Contract object at 0x7ff8f8c9e250>},... }
+        #print items.__dict__['subscriptions']
+        """
+        {0: {u'm_conId': 0, u'm_right': u'', u'm_symbol': u'QQQ', 
+        u'm_secType': u'STK', u'm_includeExpired': False, 
+        u'm_expiry': u'', u'm_currency': u'USD', u'm_exchange': u'SMART', u'm_strike': 0}, 
+        1: {u'm_conId': 0, u'm_right': u'C', u'm_symbol': u'QQQ', u'm_secType': u'OPT', 
+        u'm_includeExpired': False, u'm_multiplier': 100, u'm_expiry': u'20170217', u'm_currency': u'USD', u'm_exchange': u'SMART', u'm_strike': 125.0}, 
+        2: {u'm_conId': 0, u'm_right': u'P', u'm_symbol': u'QQQ', u'm_secType': u'OPT', u'm_includeExpired': False, u'm_multiplier': 100, 
+        u'm_expiry': u'20170217', u'm_currency': u'USD', u'm_exchange': u'SMART', u'm_strike': 125.0}, 
+        ...
+         
+        78: {u'm_conId': 0, u'm_right': u'P', u'm_symbol': u'QQQ', u'm_secType': u'OPT', 
+        u'm_includeExpired': False, u'm_multiplier': 100, u'm_expiry': u'20170217', 
+        u'm_currency': u'USD', u'm_exchange': u'SMART', u'm_strike': 115.5}}
+        tickPrice>> [0:QQQ--0.00--STK-USD-SMART-102] bid_q=-1.0000 [2017-01-28 12:08:49.587014]
+
+        """
+        #l = map(lambda x: {x[0]: {'contract': x[1]}}, map(lambda x: (x[0], ContractHelper.kvstring2object(x[1], Contract)), items)) #items.__dict__['subscriptions']))
+        #l = map(lambda x: {x[0]: x[1]}, map(lambda x: (x[0], json.loads(x[1])), items.__dict__['subscriptions']))
+
+        for tid, con in items.iteritems():
+            contract = ContractHelper.kv2contract(con)
+            key = ContractHelper.makeRedisKeyEx(contract)
+            if key in self.symbols: 
+                self.symbols[key]['ticker_id'] = tid
+                self.tickers[tid] = key
+        
+        
+                
+        
+         
+              
+              
+              
+def unit_test1():
+    
+    fn = open('../../data/mock_msg/mock_msg.txt')
+    lines = map(lambda x: x.split('|'), filter(lambda x: x[0] <> '#', fn.readlines()))
+    mock_msg_str = filter(lambda x: x[0] == 'gw_subscription_changed', lines)[0]
+    #print mock_msg_str
+    mock_msg = eval(mock_msg_str[1])
+
+    
+    dc = OCConsumer('dummy consumer')
+
+
+
+    expiry = '20170217'
+    contractTuple = ('QQQ', 'STK', 'SMART', 'USD', '', 0, '')
+    contract = ContractHelper.makeContract(contractTuple)  
+    oc2 = OptionsChain('qqq-%s' % expiry)
+    oc2.set_option_structure(contract, 0.5, 100, 0.0012, 0.0328, expiry)
+
+
+    for i in range(len(OptionsChain.option_chain_events)):
+        oc2.register(OptionsChain.option_chain_events[i], dc, dc.on_option_chain_changed)
+        
+
+    
+    oc2.build_chain(125, 0.02, 0.22)
+#     for c in oc2.get_option_chain():
+#         print '%s' % ContractHelper.makeRedisKeyEx(c.get_contract())
+
+
+
+    for right in ['C','P']:    
+        optionTuple = ('QQQ', 'OPT', 'SMART', 'USD', expiry, 130.5, right)
+        o = Option(ContractHelper.makeContract(optionTuple))
+        oc2.add_option(o)
+#     optionTuple = ('HSI', 'OPT', 'HKFE', 'HKD', far_expiry, 23000, 'C')
+#     o = Option(ContractHelper.makeContract(optionTuple))
+#     oc2.add_option(o)
+    
+    
+    dc.gw_subscription_changed(mock_msg)
+     
+    mock_items= {'field':4, 'typeName':'tickPrice', 'price':1.0682, 'ts':1485661437.83, 'source':'IB', 'tickerId':79, 'canAutoExecute':0}
+    dc.tickPrice(mock_items)
+    mock_items= {'field':4, 'typeName':'tickPrice', 'price':125.82, 'ts':1485661437.83, 'source':'IB', 'tickerId':0, 'canAutoExecute':0}
+    dc.tickPrice(mock_items)
+    mock_items= {'field':2, 'typeName':'tickPrice', 'price':125.72, 'ts':1485661437.83, 'source':'IB', 'tickerId':0, 'canAutoExecute':0}
+    dc.tickPrice(mock_items)
+    mock_items= {'field':1, 'typeName':'tickPrice', 'price':124.72, 'ts':1485661437.83, 'source':'IB', 'tickerId':0, 'canAutoExecute':0}
+    dc.tickPrice(mock_items)
+    
+    mock_items= {'field':4, 'typeName':'tickPrice', 'price':1.0682, 'ts':1485661437.83, 'source':'IB', 'tickerId':3, 'canAutoExecute':0}
+    dc.tickPrice(mock_items)
+    mock_items= {'field':2, 'typeName':'tickPrice', 'price':1.0682, 'ts':1485661437.83, 'source':'IB', 'tickerId':5, 'canAutoExecute':0}
+    dc.tickPrice(mock_items)
+    mock_items= {'field':1, 'typeName':'tickPrice', 'price':1.0682, 'ts':1485661437.83, 'source':'IB', 'tickerId':10, 'canAutoExecute':0}
+    dc.tickPrice(mock_items) 
+    dc.dump()     
+    oc2.pretty_print()      
+     
     
 if __name__ == '__main__':
     
@@ -643,42 +800,39 @@ if __name__ == '__main__':
    
       
     logconfig = eval(config.get("options_chain", "options_calculation_engine.logconfig").strip('"').strip("'"))
-    logconfig['format'] = '%(asctime)s %(levelname)-8s %(message)s'    
+    logconfig['format'] = '%(asctime)s %(levelname)-8s %(message)s'
+    logconfig['level'] = logging.DEBUG
     logging.basicConfig(**logconfig)        
         
     
-    contractTuple = ('QQQ', 'STK', 'SMART', 'USD', '', 0, '')
-    contract = ContractHelper.makeContract(contractTuple)  
-    oc = OptionsChain('QQQ-MAR24')
-    oc.set_option_structure(contract, 2.5, 100, 0.005, 0.003, '20160324')
-    oc.build_chain(98.0, 0.025, 0.25)
-    for c in oc.get_option_chain():
-        print '%s' % ContractHelper.makeRedisKeyEx(c.get_contract())
+#     contractTuple = ('QQQ', 'STK', 'SMART', 'USD', '', 0, '')
+#     
+#     contract = ContractHelper.makeContract(contractTuple)  
+#     oc = OptionsChain('QQQ-MAR24')
+#     
+#     oc.set_option_structure(contract, 0.5, 100, 0.005, 0.003, '20160324')
+#     oc.build_chain(98.0, 0.025, 0.25)
+#     
+#     for c in oc.get_option_chain():
+#         print '%s' % ContractHelper.makeRedisKeyEx(c.get_contract())
+    
+    unit_test1()
     
 
-    near_expiry = '20160226'
-    contractTuple = ('HSI', 'FUT', 'HKFE', 'HKD', near_expiry, 0, '')
-    contract = ContractHelper.makeContract(contractTuple)  
-    oc1 = OptionsChain('HSI-%s' % near_expiry)
-    oc1.set_option_structure(contract, 200, 50, 0.0012, 0.0328, near_expiry)
-    oc1.build_chain(19200, 0.08, 0.219)
-    for c in oc1.get_option_chain():
-        print '%s' % ContractHelper.makeRedisKeyEx(c.get_contract())
-
-    far_expiry = '20160330'
-    contractTuple = ('HSI', 'FUT', 'HKFE', 'HKD', far_expiry, 0, '')
-    contract = ContractHelper.makeContract(contractTuple)  
-    oc2 = OptionsChain('HSI-%s' % far_expiry)
-    oc2.set_option_structure(contract, 200, 50, 0.0012, 0.0328, far_expiry)
-    oc2.build_chain(19200, 0.08, 0.22)
-    for c in oc2.get_option_chain():
-        print '%s' % ContractHelper.makeRedisKeyEx(c.get_contract())
+#     near_expiry = '20160226'
+#     contractTuple = ('HSI', 'FUT', 'HKFE', 'HKD', near_expiry, 0, '')
+#     contract = ContractHelper.makeContract(contractTuple)  
+#     oc1 = OptionsChain('HSI-%s' % near_expiry)
+#     oc1.set_option_structure(contract, 200, 50, 0.0012, 0.0328, near_expiry)
+#     oc1.build_chain(19200, 0.08, 0.219)
+#     for c in oc1.get_option_chain():
+#         print '%s' % ContractHelper.makeRedisKeyEx(c.get_contract())
 
 
 
     
-    oce = OptionsCalculationEngine(config)
-#    oce.add_chain(oc)
-    oce.add_chain(oc1)
-    oce.add_chain(oc2)
-    oce.run_server()
+#     oce = OptionsCalculationEngine(config)
+# #    oce.add_chain(oc)
+#     oce.add_chain(oc1)
+#     oce.add_chain(oc2)
+#     oce.run_server()

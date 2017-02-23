@@ -55,6 +55,7 @@ class SampleClient(SimpleTWSClient):
                                         (items.__dict__['tickerId'], ContractHelper.makeRedisKeyEx(ct),\
                                         'bid' if field == 0 else ('ask' if field == 3 else ('last' if field == 5 else field)), \
                                         items.__dict__['size'], datetime.datetime.fromtimestamp(items.__dict__['ts']).strftime('%Y-%m-%d %H:%M:%S.%f')))
+            
         except KeyError:
             print 'tickSize: keyerror: (this could happen on the 1st run as the subscription manager sub list is still empty.'
             print items
@@ -110,6 +111,10 @@ class SampleClient(SimpleTWSClient):
             self.tickerMap.update(i)   
         print 'gw_subscriptions -> dump tickerMap '
         print self.tickerMap 
+        
+    def gw_subscription_changed(self, items):
+        print '[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[['
+        print items        
     
 # override this function to perform your own processing
 #    def accountDownloadEnd(self, items):
@@ -318,10 +323,10 @@ def test1():
      
      
     contract = Contract() #
-    contract.m_symbol = 'EUR'
+    contract.m_symbol = 'WMT'
     contract.m_currency = 'USD'
-    contract.m_secType = 'CASH'
-    contract.m_exchange = 'IDEALPRO'
+    contract.m_secType = 'STK'
+    contract.m_exchange = 'SMART'
     twsc.get_command_handler().reqMktData(contract)
       
     twsc.connect()
@@ -330,6 +335,19 @@ def test1():
     print 'completed...'
 
 
+def test15():
+    contract = Contract() #
+    contract.m_symbol = 'WMT'
+    contract.m_currency = 'USD'
+    contract.m_secType = 'STK'
+    contract.m_exchange = 'SMART'
+    c = SampleClient(host, port, 'SampleClient-777')
+    c.connect()
+
+    c.get_command_handler().reqMktData(contract)
+    sleep(4)
+    c.disconnect()
+    print 'completed...'
     
 def test2():
     
@@ -477,15 +495,16 @@ def test6():
         
         
 def test7():
-    contractTuple = ('VMW', 'STK', 'SMART', 'USD', '', 0, '')
+    contractTuple = ('QQQ', 'STK', 'SMART', 'USD', '', 0, '')
     contract = ContractHelper.makeContract(contractTuple)  
     oc = OptionsChain('t7')
     
     
     oc.set_underlying(contract)
-       
-    oc.set_option_structure(contract, 0.5, 100, 0.0012, 0.0328, '20151211')
-    oc.build_chain(59.3, 0.08, 0.22)            
+    
+    # underlying, spd_size, multiplier, rate, div, expiry):   
+    oc.set_option_structure(contract, 0.5, 100, 0.0012, 0.0328, '20170217')
+    oc.build_chain(125, 0.04, 0.22)            
     
     c = SampleClient(host, port, 'SampleClient-777')
     c.connect()
@@ -497,7 +516,7 @@ def test7():
     for ct in oc.get_option_chain():    
         c.get_command_handler().reqMktData(ct.get_contract())
         print ContractHelper.object2kvstring(ct.get_contract())
-    sleep(3)
+    sleep(1)
     c.disconnect()
     
 def test8():    
@@ -562,13 +581,16 @@ if __name__ == '__main__':
 
     choice= sys.argv[1]
            
-    logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)-8s %(message)s')
+    logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)-8s %(message)s',
+                        filename= '/home/larry-13.04/workspace/finopt/log/unitest.log')
     
-    host = 'vsu-01'
+    
+    # bootstrap server settings
+    host = 'localhost'
     port = 9092
 
     print 'choice: %s' % choice
-    test9()
+    test4()
     #test8()
 #     if choice == '2': 
 #         

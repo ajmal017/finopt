@@ -18,7 +18,7 @@ class TWS_Protocol:
     
     
     gatewayMethods = ('gw_req_subscriptions',)
-    gatewayEvents = ('gw_subscriptions',)
+    gatewayEvents = ('gw_subscriptions', 'gw_subscription_changed')
     
     oceMethods = ()
     oceEvents = ('optionAnalytics','optionsSnapshot')

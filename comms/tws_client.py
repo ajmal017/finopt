@@ -8,10 +8,13 @@ import ConfigParser
 from time import sleep
 import time, datetime
 from threading import Lock
-from kafka.client import KafkaClient
+#from kafka.client import KafkaClient
+
+
+from kafka import KafkaProducer
 from kafka import KafkaConsumer
-from kafka.producer import SimpleProducer
-from kafka.common import LeaderNotAvailableError, ConsumerTimeout
+#from kafka.producer import SimpleProducer
+#from kafka.common import LeaderNotAvailableError, ConsumerTimeout
 import threading
 
 from misc2.helpers import ContractHelper, OrderHelper, ExecutionFilterHelper
@@ -35,22 +38,23 @@ class TWS_client_base_app(threading.Thread):
     def __init__(self, host, port, id=None):
 
         super(TWS_client_base_app, self).__init__()
-        client = KafkaClient('%s:%s' % (host, port))
-        self.producer = SimpleProducer(client, async=False)
+        #client = KafkaClient('%s:%s' % (host, port))
+        #self.producer = SimpleProducer(client, async=False)
+        self.producer = KafkaProducer(bootstrap_servers='%s:%s' % (host, port))
         
 
  
         # consumer_timeout_ms must be set - this allows the consumer an interval to exit from its blocking loop
-        self.consumer = KafkaConsumer( *[(v,0) for v in list(TWS_Protocol.topicEvents) + list(TWS_Protocol.gatewayEvents)] , \
-                                       metadata_broker_list=['%s:%s' % (host, port)],\
+        self.consumer = KafkaConsumer( *[v for v in list(TWS_Protocol.topicEvents) + list(TWS_Protocol.gatewayEvents)] , \
+                                       bootstrap_servers=['%s:%s' % (host, port)],\
                                        client_id = str(uuid.uuid1()) if id == None else id,\
                                        group_id = 'epc.group',\
-                                       auto_commit_enable=True,\
+                                       enable_auto_commit=True,\
                                        consumer_timeout_ms = 2000,\
                                        auto_commit_interval_ms=30 * 1000,\
-                                       auto_offset_reset='largest') # discard old ones
+                                       auto_offset_reset='latest') # discard old ones
         
-        self.reset_message_offset()
+        #self.reset_message_offset()
         
         #self.consumer.set_topic_partitions(('gw_subscriptions', 0, 114,),('tickPrice', 0, 27270,))
         self.command_handler= TWS_server_wrapper(self.producer)
@@ -94,7 +98,7 @@ class TWS_client_base_app(threading.Thread):
 #                 # the message is turned into IB compatible type before firing the callbacks
 #                 [f(self.convertItemsToIBmessage(message.value)) for f in self.reg_all_callbacks]
 
-            logging.info ('TWS_client_base_app: consumer_timeout_ms = %d' % self.consumer._config['consumer_timeout_ms']) 
+            logging.info ('TWS_client_base_app: consumer_timeout_ms = %d' % self.consumer.config['consumer_timeout_ms']) 
  
             # keep running until someone tells us to stop
             while self.stop_consumer == False:
@@ -105,8 +109,8 @@ class TWS_client_base_app(threading.Thread):
                         # it will raise a consumertimeout if no message is received after a pre-set interval   
                         message = self.consumer.next()
                         
-                        
-                        logging.debug("TWS_client_base_app: %s:%d:%d: key=%s value=%s" % (message.topic, message.partition,
+                        if message.topic == 'gw_subscription_changed':
+                            logging.info("TWS_client_base_app: %s:%d:%d: key=%s value=%s" % (message.topic, message.partition,
                                                      message.offset, message.key,
                                                      message.value))
                         
@@ -120,7 +124,7 @@ class TWS_client_base_app(threading.Thread):
                         
                         #self.consumer.task_done(message)
                         
-                    except ConsumerTimeout:
+                    except: # ConsumerTimeout:
                         logging.info('TWS_client_base_app run: ConsumerTimeout. Check new message in the next round...')
                                         
                   
@@ -145,10 +149,10 @@ class TWS_client_base_app(threading.Thread):
 
         items = list(mapping.items())
         items.sort()
-        print(('### %s' % (msg_name, )))
-        for k, v in items:
-            print(('    %s:%s' % (k, v)))
-
+#         print(('### %s' % (msg_name, )))
+#         for k, v in items:
+#             print(('    %s:%s' % (k, v)))
+        print "TWS client base app: handlemessage<%s>: %s" % (msg_name, json.dumps(items))
     
     def ascii_encode_dict(self, data):
         ascii_encode = lambda x: x.encode('ascii') if isinstance(x, unicode) else x
@@ -163,6 +167,7 @@ class TWS_client_base_app(threading.Thread):
                 items['contract'] = ContractHelper.kv2contract(items['contract'])
             del(items['self'])
         except (KeyError, ):
+            #logging.error('convertItemsToIBmessage Exception: %s' % str(items))
             pass        
         return Message(**items)
     
@@ -296,7 +301,7 @@ class TWS_client_base_app(threading.Thread):
         self.handlemessage("tickEFP", items)
 
 
-###########################################################################3333
+###########################################################################
 #   Gateway respond events
 #
 #
@@ -304,6 +309,10 @@ class TWS_client_base_app(threading.Thread):
     def gw_subscriptions(self, items):
         self.handlemessage("gw_subscriptions", items)
 
+
+    def gw_subscription_changed(self, items):
+        print '************************'
+        self.handlemessage("gw_subscription_changed", items)
 
 #     def on_tickPrice(self, tickerId, field, price, canAutoExecute):
 #         self.handlemessage('tickPrice', vars())
@@ -519,7 +528,7 @@ class TWS_server_wrapper():
         
     def post_msg(self, topic, msg):
         logging.info('post_msg sending request to gateway: %s[%s]' % (topic,msg))
-        self.producer.send_messages(topic, msg)
+        self.producer.send(topic, msg)
 
 
 #############################################################33

@@ -1,11 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-##
-# This script is an exmple of using the generated code within IbPy in
-# the same manner as the Java code.  We subclass EWrapper and give an
-# instance of the wrapper to an EClientSocket.
-##
+
 
 
 import sys
@@ -27,10 +23,14 @@ from ib.ext.Execution import Execution
 from ib.ext.OrderState import OrderState
 from ib.ext.Order import Order
 
-from kafka.client import KafkaClient
+from kafka import KafkaProducer
 from kafka import KafkaConsumer
-from kafka.producer import SimpleProducer
-from kafka.common import LeaderNotAvailableError
+from kafka.errors import KafkaError
+
+
+#from kafka.client import KafkaClient
+#from kafka.producer import SimpleProducer
+#from kafka.common import LeaderNotAvailableError
 
 from misc2.helpers import ContractHelper, OrderHelper, ExecutionFilterHelper
 from comms.ib_heartbeat import IbHeartBeat
@@ -48,8 +48,9 @@ class TWS_event_handler(EWrapper):
     
     def __init__(self, host, port):
         
-        client = KafkaClient('%s:%s' % (host, port))
-        self.producer = SimpleProducer(client, async=False)    
+        #client = KafkaClient()#{'bootstrap_servers': '%s:%s' % (host, port)})
+        #self.producer = SimpleProducer(client, async=False)
+        self.producer = KafkaProducer(bootstrap_servers='%s:%s' % (host, port))    
         logging.info('TWS_event_handler: __init__ Creating kafka client producer at %s:%s' % (host, port))
  
  
@@ -82,9 +83,9 @@ class TWS_event_handler(EWrapper):
 
         try:
             dict = self.serialize_vars_to_dict(message, mapping, source)     
-            if message == 'gw_subscriptions':   
+            if message == 'gw_subscriptions' or message == 'gw_subscription_changed':   
                 logging.info('TWS_event_handler: broadcast event: %s [%s]' % (dict['typeName'], dict))
-            self.producer.send_messages(message, json.dumps(dict))    
+            self.producer.send(message, json.dumps(dict))    
         except:
             logging.error('broadcast_event: exception while encoding IB event to client:  [%s]' % message)
             logging.error(traceback.format_exc())
@@ -95,7 +96,7 @@ class TWS_event_handler(EWrapper):
             if message == 'gw_subscriptions':   
                 sleep(2)
                 logging.info('TWS_event_handler: Retry once broadcasting gw_subscription %s [%s]' % (dict['typeName'], dict))
-                self.producer.send_messages(message, json.dumps(dict))    
+                self.producer.send(message, json.dumps(dict))    
             
             
 
@@ -315,14 +316,14 @@ class TWS_gateway(threading.Thread):
         
         
         logging.info('starting up client request handler - kafkaConsumer...')
-        self.cli_request_handler = KafkaConsumer( *[(v,0) for v in list(TWS_Protocol.topicMethods) + list(TWS_Protocol.gatewayMethods) ], \
-                                   metadata_broker_list=['%s:%s' % (kafka_host, kafka_port)],\
+        self.cli_request_handler = KafkaConsumer( *[v for v in list(TWS_Protocol.topicMethods) + list(TWS_Protocol.gatewayMethods) ], \
+                                   bootstrap_servers=['%s:%s' % (kafka_host, kafka_port)],\
                                    group_id = 'epc.tws_gateway',\
-                                   auto_commit_enable=True,\
+                                   enable_auto_commit=True,\
                                    auto_commit_interval_ms=30 * 1000,\
-                                   auto_offset_reset='largest') # discard old ones
+                                   auto_offset_reset='latest') # discard old ones
         
-        self.reset_message_offset()
+        #self.reset_message_offset()
         
 
 
@@ -584,6 +585,22 @@ class TWS_gateway(threading.Thread):
         print subm
         if subm:
             self.tws_event_handler.broadcast_event('gw_subscriptions',  {'subscriptions': subm}, source='GW')
+            
+            
+       
+#####################################################################
+#    
+#    broadcast gateway notifications  
+    def gw_notify_subscription_changed(self, value): 
+        #
+        # this function is triggered by SubscriptionManager
+        # value param:
+        #
+        #     {id: contractkv_str}
+        #
+        logging.info("TWS_gateway:gw_notify_subscription_changed: %s" % value)
+        self.tws_event_handler.broadcast_event('gw_subscription_changed',  value, source='GW')
+        
         
 class SubscriptionManager():
     
@@ -653,7 +670,9 @@ class SubscriptionManager():
             #
             # the conId must be set to zero when calling TWS reqMktData
             # otherwise TWS will fail to subscribe the contract
+            
             self.parent.connection.reqMktData(id, contract, '', False) 
+            
             
                    
             if self.persist_f:
@@ -666,6 +685,14 @@ class SubscriptionManager():
             self.parent.connection.reqMktData(1000 + id, contract, '', True)
             logging.info('SubscriptionManager: reqMktData: contract already subscribed. Request snapshot = %d, contract = %s' % (id, ContractHelper.makeRedisKeyEx(contract)))
         #self.dump()
+
+        #
+        # instruct gateway to broadcast new id has been assigned to a new contract
+        #
+        self.parent.gw_notify_subscription_changed({id: ContractHelper.object2kvstring(contract)})
+        logging.info('SubscriptionManager reqMktData: gw_notify_subscription_changed: %d:%s' % (id, ContractHelper.makeRedisKeyEx(contract)))
+        
+        
         
 #     def makeStkContract(self, contractTuple):
 #         newContract = Contract()
