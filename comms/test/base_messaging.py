@@ -263,7 +263,11 @@ class SimpleMessageListener(BaseMessageListener):
         print "on_kb_reached_last_offset [%s] %s" % (self.name, param)
 
 
-class  TestProducer(BaseProducer):
+class Prosumer(BaseProducer):
+    pass
+
+
+class TestProducer(BaseProducer):
     pass
 
 def test_base_proconsumer(mode):
