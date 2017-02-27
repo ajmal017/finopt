@@ -264,6 +264,7 @@ class SimpleMessageListener(BaseMessageListener):
 
 
 class Prosumer(BaseProducer):
+    # wrapper object
     pass
 
 
