@@ -397,7 +397,7 @@ class TWS_gateway():
     def get_gw_message_prosumer(self):
         return self.gw_message_prosumer
     
-
+ 
 
 
     def on_ib_conn_broken(self, msg):
