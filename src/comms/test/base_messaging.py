@@ -289,7 +289,7 @@ class BaseConsumer(threading.Thread, Publisher):
                     # notify the observers
                     # the "and" condition ensures that on a fresh start of kafka server this event is not triggered as
                     # both saved value in redis and current offset are both 0
-                    if self.my_topics[message.topic][str(message.partition)] == message.offset and message.ofset <> 0:
+                    if self.my_topics[message.topic][str(message.partition)] == message.offset and message.offset <> 0:
                         self.dispatch(BaseConsumer.KB_REACHED_LAST_OFFSET, self.enrich_message(message))
                         logging.info('********************** reached the last message previously processed %s %d' % (message.topic, message.offset))
                     else:
@@ -448,7 +448,19 @@ def test_prosumer2(mode):
         sB = SubscriptionListener('earB', pB)
         pB.add_listeners([sB])
         pB.start_prosumer()
-    
+        try:
+            
+            while True: #i < 5:
+                
+                pB.send_message('tickPrice', 
+                        pB.message_dumps({'field':5, 'typeName':'tickPrice', 'price':2.0682, 'ts':1485661437.83, 'source':'IB', 'tickerId':79, 'canAutoExecute':0}))
+                
+                time.sleep(.45)
+                
+        except (KeyboardInterrupt, SystemExit):
+                logging.error('caught user interrupt')
+                pB.set_stop()
+                pB.join()    
     
     
 
