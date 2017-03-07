@@ -340,8 +340,9 @@ class Prosumer(BaseProducer):
         self.kwargs = kwargs
         
     
-
-    
+    def add_listener_topics(self, listener, topics):
+        map(lambda e: self.kconsumer.register(e, listener, getattr(listener, e)), topics)
+        
     def add_listeners(self, listeners):
         
         for l in listeners:
