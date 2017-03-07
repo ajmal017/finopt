@@ -1,5 +1,5 @@
 #!/bin/bash
-FINOPT_HOME=~/l1304/workspace/finopt/src/
+FINOPT_HOME=~/l1304/workspace/finopt-ironfly/finopt/src/
 ROOT=$FINOPT_HOME
 FINDATA=$ROOT/../data 
 SRC=$ROOT
