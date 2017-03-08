@@ -196,7 +196,7 @@ class BaseConsumer(threading.Thread, Publisher):
     def run(self):
         print '%s:%s started' % (self.kwargs['group_id'], self.name)
         
-        if self.kwargs['clear_offsets'] == 1:
+        if self.kwargs['clear_offsets'] == True:
             self.clear_offsets()
         
         consumer = KafkaConsumer(bootstrap_servers='%s:%s' % (self.kwargs['bootstrap_host'], self.kwargs['bootstrap_port']),
@@ -365,8 +365,6 @@ class Prosumer(BaseProducer):
     
     
     def __init__(self, name, kwargs=None):
-        BaseProducer.__init__(self, group=None, target=None, name=name,
-                 args=(), kwargs=kwargs, verbose=None)
         
         
         self.kwargs = copy.copy(self.PROSUMER_DEFAULT_CONFIG)
@@ -374,9 +372,12 @@ class Prosumer(BaseProducer):
             if key in kwargs:
                 self.kwargs[key] = kwargs.pop(key)        
         self.kwargs.update(kwargs)
-        
+
         logging.info('\nProsumer:init: **** Configurations dump ***')
         logging.info('\n'.join('%s:%s' % (k.ljust(40), self.kwargs[k]) for k in sorted(self.kwargs)))
+
+        BaseProducer.__init__(self, group=None, target=None, name=name,
+                 args=(), kwargs=self.kwargs, verbose=None)
 
         
         self.kconsumer = BaseConsumer(name=name,  kwargs=self.kwargs)
@@ -457,7 +458,7 @@ def test_prosumer2(mode):
         pA = Prosumer(name='A', kwargs={'bootstrap_host':'localhost', 'bootstrap_port':9092,
                                         'redis_host':'localhost', 'redis_port':6379, 'redis_db':0,
                                         'group_id': 'groupA', 'session_timeout_ms':10000,
-                                                 'topics': topicsA, 'clear_offsets' : 0})
+                                                 'topics': topicsA, 'clear_offsets' : False})
         sA = SubscriptionListener('earA', pA)
         
         pA.add_listeners([sA])
@@ -488,7 +489,7 @@ def test_prosumer2(mode):
         pB = Prosumer(name='B', kwargs={'bootstrap_host':'localhost', 'bootstrap_port':9092,
                                         'redis_host':'localhost', 'redis_port':6379, 'redis_db':0,
                                         'group_id': 'groupB', 'session_timeout_ms':10000,
-                                                 'topics': topicsB, 'clear_offsets' : 0})
+                                                 'topics': topicsB, 'clear_offsets' : False})
         sB = SubscriptionListener('earB', pB)
         pB.add_listeners([sB])
         pB.start_prosumer()
