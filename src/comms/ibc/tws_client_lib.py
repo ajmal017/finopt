@@ -368,12 +368,15 @@ class GatewayMessageListener(AbstractGatewayListener):
     def tickPrice(self, event, message_value):  # tickerId, field, price, canAutoExecute):
         logging.info('GatewayMessageListener:tickPrice. val->[%s]' % message_value)
 
+    def tickSize(self, event, message_value):  # tickerId, field, price, canAutoExecute):
+        logging.info('GatewayMessageListener:tickSize. val->[%s]' % message_value)
+
 def test_client(kwargs):
-    contractTuple = ('USO', 'STK', 'SMART', 'USD', '', 0.0, '')
+    contractTuple = ('HSI', 'FUT', 'HKFE', 'HKD', '20170330', 0, '')
     contract = ContractHelper.makeContract(contractTuple)    
     print kwargs 
     cm = TWS_client_manager(kwargs)
-    cl = AbstractGatewayListener('gw_client_message_listener')
+    cl = GatewayMessageListener('gw_client_message_listener')
     
     cm.add_listener_topics(cl, kwargs['topics'])
     cm.start_manager()
@@ -407,7 +410,7 @@ if __name__ == '__main__':
     logconfig['format'] = '%(asctime)s %(levelname)-8s %(message)s'    
     logging.basicConfig(**logconfig)        
     
-    print ContractHelper.kvstring2object('{"m_conId": 0, "m_symbol": "USO", "m_secType": "STK", "m_includeExpired": false, "m_right": "", "m_expiry": "", "m_currency": "USD", "m_exchange": "SMART", "m_strike": 0.0}', Contract)
-    #test_client(kwargs)
+    
+    test_client(kwargs)
     
      

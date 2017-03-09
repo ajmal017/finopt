@@ -18,11 +18,11 @@ from misc2.helpers import ContractHelper
 class Wrapger(EWrapper):
     def tickPrice(self, tickerId, field, price, canAutoExecute):
         """ generated source for method tickPrice """
-
+        print vars()
    
     def tickSize(self, tickerId, field, size):
         """ generated source for method tickSize """
-
+        print vars()
    
     def tickOptionComputation(self, tickerId, field, impliedVol, delta, optPrice, pvDividend, gamma, vega, theta, undPrice):
         """ generated source for method tickOptionComputation """
@@ -191,7 +191,7 @@ def test_IB():
     es.eConnect('localhost', 4001, 5555)
     print es.isConnected()
     
-    contractTuple = ('GOOG', 'STK', 'SMART', 'USD', '', 0.0, '')
+    contractTuple = ('HSI', 'FUT', 'HKFE', 'HKD', '20170330', 0, '')
     contract = ContractHelper.makeContract(contractTuple)
     es.reqMktData(0, contract, '', False) 
                 
