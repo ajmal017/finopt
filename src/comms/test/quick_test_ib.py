@@ -192,9 +192,16 @@ def test_IB():
     print 'disconnecting...'
     es.eDisconnect()
 
+class x:
+    def f1(self, a, b, c, d):
+        print vars()
 
 if __name__ == '__main__':
     
 
 
-    test_IB()    
+    #test_IB()
+    y = x()
+    y.f1(1, 2, {4:5}, [77,88])
+    vv = {'a': 1, 'c': {4: 5}, 'b': 2, 'd': [6,77, 88]}    
+    y.f1(**vv)
