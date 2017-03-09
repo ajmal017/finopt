@@ -80,7 +80,7 @@ class ClientRequestHandler(BaseMessageListener):
         self.tws_connect.requestFA(1)
     
     
-    def reqMktData(self, sm_contract):
+    def reqMktData(self, event, sm_contract):
         logging.info('ClientRequestHandler received reqMktData request: %s' % sm_contract)
         try:
             #self.contract_subscription_mgr.reqMktData(ContractHelper.kvstring2contract(sm_contract))

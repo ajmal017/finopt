@@ -13,6 +13,7 @@ from threading import Lock
 from ib.ext.Contract import Contract
 from ib.ext.EWrapper import EWrapper
 from ib.ext.EClientSocket import EClientSocket
+from misc2.helpers import ContractHelper
 
 class Wrapger(EWrapper):
     def tickPrice(self, tickerId, field, price, canAutoExecute):
@@ -175,6 +176,7 @@ class Wrapger(EWrapper):
 
     def error(self, id=None, errorCode=None, errorMsg=None):
         """ generated source for method accountSummaryEnd """
+        print errorMsg
 
     def error_0(self, strvalue=None):
         """ generated source for method accountSummaryEnd """
@@ -186,9 +188,14 @@ class Wrapger(EWrapper):
 def test_IB():
     ew = Wrapger()
     es = EClientSocket(ew)
-    es.eConnect('localhost', 7496, 5555)
+    es.eConnect('localhost', 4001, 5555)
     print es.isConnected()
-    sleep(2)
+    
+    contractTuple = ('GOOG', 'STK', 'SMART', 'USD', '', 0.0, '')
+    contract = ContractHelper.makeContract(contractTuple)
+    es.reqMktData(0, contract, '', False) 
+                
+    sleep(5)
     print 'disconnecting...'
     es.eDisconnect()
 
@@ -200,8 +207,8 @@ if __name__ == '__main__':
     
 
 
-    #test_IB()
-    y = x()
-    y.f1(1, 2, {4:5}, [77,88])
-    vv = {'a': 1, 'c': {4: 5}, 'b': 2, 'd': [6,77, 88]}    
-    y.f1(**vv)
+    test_IB()
+#     y = x()
+#     y.f1(1, 2, {4:5}, [77,88])
+#     vv = {'a': 1, 'c': {4: 5}, 'b': 2, 'd': [6,77, 88]}    
+#     y.f1(**vv)

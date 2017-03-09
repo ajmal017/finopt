@@ -102,8 +102,6 @@ class TWS_gateway():
 #             self.ibh.register_listener([self.on_ib_conn_broken])
 #             self.ibh.run()  
 
-        logging.info('start TWS_event_handler. Entering processing loop...')
-        self.gw_message_handler.start_prosumer()
 
         logging.info('instantiating listeners...cli_req_handler')        
         self.cli_req_handler = ClientRequestHandler('client_request_handler', self)
@@ -112,6 +110,10 @@ class TWS_gateway():
         logging.info('registering messages to listen...')
         self.gw_message_handler.add_listeners([self.cli_req_handler])
         self.gw_message_handler.add_listener_topics(self.contract_subscription_mgr, ['reqMktData'])
+
+        logging.info('start TWS_event_handler. Start prosumer processing loop...')
+        self.gw_message_handler.start_prosumer()
+
 
         logging.info('**** Completed initialization sequence. ****')
         self.main_loop()

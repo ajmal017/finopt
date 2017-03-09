@@ -195,7 +195,7 @@ class BaseConsumer(threading.Thread, Publisher):
         self.done = True
     
     def run(self):
-        print '%s:%s started' % (self.kwargs['group_id'], self.name)
+        logging.info('BaseConsumer:run. %s:%s started' % (self.kwargs['group_id'], self.name))
         
         if self.kwargs['clear_offsets'] == True:
             self.clear_offsets()
@@ -240,7 +240,7 @@ class BaseConsumer(threading.Thread, Publisher):
             if self.rs.keys(self.consumer_topic(topic)):
                 self.my_topics[topic] = json.loads(self.rs.get(self.consumer_topic(topic)))
 
-        print self.my_topics
+        logging.info('BaseConsumer:run. Topics subscribed: %s' % self.my_topics)
         
             
         consumer.subscribe(self.my_topics.keys())
@@ -284,7 +284,7 @@ class BaseConsumer(threading.Thread, Publisher):
                       
                 """
                 if self.my_topics[message.topic][str(message.partition)] > message.offset:
-                    print '********************** old message...discarding %s %d' % (message.topic, message.offset)
+                    logging.info('BaseConsumer ********************** old message...discarding %s %d' % (message.topic, message.offset))
                 else:
                     #if self.my_topics[message.topic][str(message.partition)] == message.offset:
                     # if the stored offset in redis equals to the current offset

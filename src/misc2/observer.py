@@ -37,6 +37,7 @@ class Publisher:
     def dispatch(self, event, params=None):
         
         for subscriber, callback in self.get_subscribers(event).items():
+            print 'observer:: subscriber**** %s' % subscriber
             callback(event, params)
             
 #############################################################

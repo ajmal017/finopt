@@ -15,6 +15,7 @@ class SubscriptionManager(BaseMessageListener):
     def __init__(self, name, tws_gateway):
         BaseMessageListener.__init__(self, name)
         self.tws_connect = tws_gateway.tws_connection
+        self.producer = tws_gateway.gw_message_handler
         self.handle = []    
         # contract key map to contract ID (index of the handle array)
         self.tickerId = {}
@@ -56,9 +57,9 @@ class SubscriptionManager(BaseMessageListener):
 #             
 
             
-    def reqMktData(self, kvs_contract):
+    def reqMktData(self, event, message):
                   
-        contract = ContractHelper.kvstring2object(kvs_contract, Contract)
+        contract = ContractHelper.kvstring2object(message['value'], Contract)
         #logging.info('SubscriptionManager: reqMktData')
   
         def add_subscription(contract):
