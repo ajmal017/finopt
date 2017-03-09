@@ -1,5 +1,6 @@
 #!/bin/bash
-ROOT=$FINOPT_HOME
+FINOPT_HOME=~/ironfly-workspace/finopt/src
 export PYTHONPATH=$FINOPT_HOME:$PYTHONPATH
-# real time mode
-python $FINOPT_HOME/comms/tws_gateway.py $FINOPT_HOME/config/app.cfg
+
+python $FINOPT_HOME/comms/ibgw/tws_gateway.py $FINOPT_HOME/config/tws_gateway.cfg 
+

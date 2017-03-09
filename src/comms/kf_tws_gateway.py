@@ -43,12 +43,7 @@ class TWS_event_handler(EWrapper):
     TICKER_GAP = 1000
     producer = None
     
-    def __init__(self, producer):
-        
-        #client = KafkaClient()#{'bootstrap_servers': '%s:%s' % (host, port)})
-        #self.producer = SimpleProducer(client, async=False)
-        #self.producer = KafkaProducer(bootstrap_servers='%s:%s' % (host, port))    
-        #logging.info('TWS_event_handler: __init__ Creating kafka client producer at %s:%s' % (host, port))
+    def __init__(self, producer):        
         self.producer = producer
  
  
@@ -60,7 +55,7 @@ class TWS_event_handler(EWrapper):
             dict = self.tick_process_message(message, mapping)     
             if message == 'gw_subscriptions' or message == 'gw_subscription_changed':   
                 logging.info('TWS_event_handler: broadcast event: %s [%s]' % (dict['typeName'], dict))
-            self.producer.send(message, self.producer.message_dumps(dict))    
+            self.producer.send_message(message, self.producer.message_dumps(dict))    
         except:
             logging.error('broadcast_event: exception while encoding IB event to client:  [%s]' % message)
             logging.error(traceback.format_exc())
@@ -71,7 +66,7 @@ class TWS_event_handler(EWrapper):
     
     def tick_process_message(self, message_name, items):
         
-        t = {}
+
         t = items.copy()
         # if the tickerId is in the snapshot range
         # deduct the gap to derive the original tickerId
@@ -167,8 +162,11 @@ class TWS_event_handler(EWrapper):
         self.broadcast_event('connectionClosed', {})
 
     def error(self, id=None, errorCode=None, errorMsg=None):
-        logging.error(self.tick_process_message('error', vars()))
-        self.broadcast_event('error', vars())
+        try:
+            logging.error(self.tick_process_message('error', vars()))
+            self.broadcast_event('error', vars())
+        except:
+            pass
 
     def error_0(self, strvalue=None):
         logging.error(self.tick_process_message('error_0', vars()))
@@ -247,7 +245,7 @@ class TWS_event_handler(EWrapper):
 
 
 
-class TWS_gateway(threading.Thread):
+class TWS_gateway():
 
     
     # monitor IB connection / heart beat
@@ -261,6 +259,8 @@ class TWS_gateway(threading.Thread):
       'redis_host': 'localhost',
       'redis_port': 6379,
       'redis_db': 0,
+      'tws_host': 'localhost',
+      'tws_api_port': 8496,
       'group_id': 'TWS_GW',
       'session_timeout_ms': 10000,
       'clear_offsets':  False,
@@ -272,16 +272,13 @@ class TWS_gateway(threading.Thread):
         
 
              
-        super(TWS_gateway, self).__init__()
+        
         self.kwargs = copy.copy(TWS_gateway.TWS_GW_DEFAULT_CONFIG)
         for key in self.kwargs:
             if key in kwargs:
                 self.kwargs[key] = kwargs.pop(key)        
         self.kwargs.update(kwargs)        
         
-        # convert some config string values to object 
-        self.kwargs['topics'] = list(eval(self.kwargs['topics']))
-        self.ib_order_transmit = self.kwargs['order_transmit']
         
 
 
@@ -298,6 +295,7 @@ class TWS_gateway(threading.Thread):
         '''
 
         logging.info('starting up TWS_gateway...')
+        self.ib_order_transmit = self.kwargs['order_transmit']
         logging.info('Order straight through (no-touch) flag = %s' % ('True' if self.ib_order_transmit == True else 'False'))
         
         
@@ -306,21 +304,18 @@ class TWS_gateway(threading.Thread):
         
         logging.info('starting up gateway message handler - kafka Prosumer...')        
         self.gw_message_handler = Prosumer(name='tws_gw_prosumer', kwargs=self.kwargs)
-
         
-        logging.info('starting up TWS_event_handler...')        
+        logging.info('initializing TWS_event_handler...')        
         self.tws_event_handler = TWS_event_handler(self.gw_message_handler)
         
         logging.info('starting up IB EClientSocket...')
         self.tws_connection = EClientSocket(self.tws_event_handler)
-
-
-        
         
         logging.info('establishing TWS gateway connectivity...')
-        if not self.eConnect():
+        if not self.connect_tws():
             logging.error('TWS_gateway: unable to establish connection to IB %s:%d' % 
                           (self.kwargs['tws_host'], self.kwargs['tws_api_port']))
+            self.disconnect_tws()
             sys.exit(-1)
         else:
             # start heart beat monitor
@@ -331,22 +326,24 @@ class TWS_gateway(threading.Thread):
 #             self.ibh.register_listener([self.on_ib_conn_broken])
 #             self.ibh.run()  
 
-
+        logging.info('start TWS_event_handler. Entering processing loop...')
+        self.gw_message_handler.start_prosumer()
 
         logging.info('instantiating listeners...cli_req_handler')        
-        self.cli_req_handler = ClientRequestHandler('client_request_handler', self.gw_message_handler)
+        self.cli_req_handler = ClientRequestHandler('client_request_handler', self)
         logging.info('instantiating listeners subscription manager...')
         self.initialize_subscription_mgr()
         logging.info('registering messages to listen...')
         self.gw_message_handler.add_listeners([self.cli_req_handler])
-        self.gw_message_handler.add_listener_topics(self.contract_subscription_mgr, 'reqMktData')
+        self.gw_message_handler.add_listener_topics(self.contract_subscription_mgr, ['reqMktData'])
 
-        logging.info('Completed initialization sequence.')
-
+        logging.info('**** Completed initialization sequence. ****')
+        self.main_loop()
+        
 
     def initialize_subscription_mgr(self):
         
-        self.contract_subscription_mgr = SubscriptionManager(self, self.gw_message_handler)
+        self.contract_subscription_mgr = SubscriptionManager(self, self)
         self.contract_subscription_mgr.register_persistence_callback(self.persist_subscriptions)
         
         
@@ -392,32 +389,18 @@ class TWS_gateway(threading.Thread):
             sys.exit(-1)
             
 
-    def eConnect(self):
-        logging.info('TWS_gateway - eConnect. Connecting to %s:%s App Id: %s' % 
-                     (self.kwargs['tws_host'], self.kwargs['tws_api_port'], self.kwargs['name']))
-        self.tws_connection.eConnect(self.kwargs['tws_host'], self.kwargs['tws_api_port'], self.kwargs['name'])
+    def connect_tws(self):
+        logging.info('TWS_gateway - eConnect. Connecting to %s:%d App Id: %d...' % 
+                     (self.kwargs['tws_host'], self.kwargs['tws_api_port'], self.kwargs['tws_app_id']))
+        self.tws_connection.eConnect(self.kwargs['tws_host'], self.kwargs['tws_api_port'], self.kwargs['tws_app_id'])
+        
         return self.tws_connection.isConnected()
 
-    def eDisconnect(self, value=None):
+    def disconnect_tws(self, value=None):
         sleep(2)
         self.tws_connection.eDisconnect()
 
-    def run(self):
 
-
-        for message in self.gw_message_handler:
-             
-            logging.info("%s:%d:%d: key=%s value=%s" % (message.topic, message.partition,
-                                         message.offset, message.key,
-                                         message.value))
- 
-#             print ("TWS_gateway: received client request %s:%d:%d: key=%s value=%s" % (message.topic, message.partition,
-#                                          message.offset, message.key,
-#                                          message.value))
-             
-
-            getattr(self, message.topic, None)(message.value)
-            #self.cli_request_handler.task_done(message)
 
 
     def on_ib_conn_broken(self, msg):
@@ -445,10 +428,24 @@ class TWS_gateway(threading.Thread):
             self.tlock.release()          
         
 
+    def main_loop(self):
+        try:
+            logging.info('TWS_gateway:main_loop ***** accepting console input...')
+            while True: 
+                
+                time.sleep(.45)
+                
+        except (KeyboardInterrupt, SystemExit):
+                logging.error('TWS_gateway: caught user interrupt. Shutting down...')
+                self.gw_message_handler.set_stop()
+                self.gw_message_handler.join()
+                logging.info('TWS_gateway: Service shut down complete...')
+                sys.exit(0)        
+
 class ClientRequestHandler(BaseMessageListener):
     
     def __init__(self, name, tws_gateway):
-        BaseMessageListener.__init__(self, name, tws_gateway)
+        BaseMessageListener.__init__(self, name)
         self.tws_connect = tws_gateway.tws_connection
             
 
@@ -581,7 +578,7 @@ class SubscriptionManager(BaseMessageListener):
     persist_f = None
     
     def __init__(self, name, tws_gateway):
-        BaseMessageListener.__init__(self, name, tws_gateway)
+        BaseMessageListener.__init__(self, name)
         self.tws_connect = tws_gateway.tws_connection
         self.handle = []    
         # contract key map to contract ID (index of the handle array)
@@ -752,6 +749,8 @@ def test_subscription():
     print s.is_subscribed(c), ContractHelper.printContract(s.itemAt(s.is_subscribed(c)))
     
     
+
+    
 class ConfigMap():
     
     def kwargs_from_file(self, path):
@@ -763,8 +762,13 @@ class ConfigMap():
         for section in cfg.sections():
             optval_list = map(lambda o: (o, cfg.get(section, o)), cfg.options(section)) 
             for ov in optval_list:
-                kwargs[ov[0]] = ov[1]
-        
+                try:
+                    
+                    kwargs[ov[0]] = eval(ov[1])
+                except:
+                    continue
+                
+        #logging.debug('ConfigMap: %s' % kwargs)
         return kwargs
         
     
@@ -774,19 +778,21 @@ if __name__ == '__main__':
         print("Usage: %s <config file>" % sys.argv[0])
         exit(-1)    
 
+
+
     cfg_path= sys.argv[1:]
     kwargs = ConfigMap().kwargs_from_file(cfg_path)
    
       
-    logconfig = eval(kwargs['logconfig'])
+    logconfig = kwargs['logconfig']
     logconfig['format'] = '%(asctime)s %(levelname)-8s %(message)s'    
     logging.basicConfig(**logconfig)        
     
     
     app = TWS_gateway(kwargs)
-    app.start()
+    
      
-    print 'TWS_gateway started.'
+
 #     
 
 
