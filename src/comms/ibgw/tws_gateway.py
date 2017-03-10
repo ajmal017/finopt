@@ -48,15 +48,13 @@ class TWS_gateway():
         
 
              
-        
+       
+        temp_kwargs = copy.copy(kwargs)
         self.kwargs = copy.copy(TWS_gateway.TWS_GW_DEFAULT_CONFIG)
         for key in self.kwargs:
-            if key in kwargs:
-                self.kwargs[key] = kwargs.pop(key)        
-        self.kwargs.update(kwargs)        
-        
-        
-
+            if key in temp_kwargs:
+                self.kwargs[key] = temp_kwargs.pop(key)        
+        self.kwargs.update(temp_kwargs)    
 
         '''
             TWS_gateway start up sequence
@@ -109,7 +107,7 @@ class TWS_gateway():
         self.initialize_subscription_mgr()
         logging.info('registering messages to listen...')
         self.gw_message_handler.add_listeners([self.cli_req_handler])
-        self.gw_message_handler.add_listener_topics(self.contract_subscription_mgr, ['reqMktData'])
+        self.gw_message_handler.add_listener_topics(self.contract_subscription_mgr, self.kwargs['subscription_manager.topics'])
 
         logging.info('start TWS_event_handler. Start prosumer processing loop...')
         self.gw_message_handler.start_prosumer()

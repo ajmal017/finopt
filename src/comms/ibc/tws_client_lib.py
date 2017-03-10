@@ -73,10 +73,8 @@ class GatewayCommandWrapper():
     
         
 
-    def gw_req_subscriptions(self, event, items):
+    def gw_req_subscriptions(self):
         
-        logging.info("[%s] received gw_req_subscriptions content:[%s]" % (self.name, items))
-        vars= self.producer.message_loads(items['value'])
         self.producer.send_message('gw_req_subscriptions', self.producer.message_dumps(None))
 
 
@@ -140,7 +138,11 @@ class TWS_client_manager(GatewayCommandWrapper):
         
         logging.info('**** Completed initialization sequence. ****')
         
-        
+    def is_stopped(self):
+        return self.gw_message_handler.is_stopped()
+    
+    def stop_manager(self):
+        self.gw_message_handler.set_stop()
 
     def start_manager(self):
         logging.info('start gw_message_handler. Entering processing loop...')
@@ -335,6 +337,9 @@ class AbstractGatewayListener(BaseMessageListener):
     def gw_subscriptions(self, event, message_value):
         raise NotImplementedException        
       
+    def error(self, event, message_value):
+        raise NotImplementedException
+    
     def on_kb_reached_last_offset(self, event, message_value):  # event, items):
         logging.info("[%s] received on_kb_reached_last_offset content: [%s]" % (self.name, message_value))
         print "on_kb_reached_last_offset [%s] %s" % (self.name, message_value)
@@ -366,21 +371,26 @@ class GatewayMessageListener(AbstractGatewayListener):
         AbstractGatewayListener.__init__(self, name)
              
     def tickPrice(self, event, message_value):  # tickerId, field, price, canAutoExecute):
-        logging.info('GatewayMessageListener:tickPrice. val->[%s]' % message_value)
+        logging.info('GatewayMessageListener:%s. val->[%s]' % (event, message_value))
 
     def tickSize(self, event, message_value):  # tickerId, field, price, canAutoExecute):
-        logging.info('GatewayMessageListener:tickSize. val->[%s]' % message_value)
+        logging.info('GatewayMessageListener:%s. val->[%s]' % (event, message_value))
+        
+    def error(self, event, message_value):
+        logging.info('GatewayMessageListener:%s. val->[%s]' % (event, message_value))  
 
 def test_client(kwargs):
-    contractTuple = ('HSI', 'FUT', 'HKFE', 'HKD', '20170330', 0, '')
-    contract = ContractHelper.makeContract(contractTuple)    
+    contractTuples = [('HSI', 'FUT', 'HKFE', 'HKD', '20170330', 0, ''),
+                      ('USD', 'CASH', 'IDEALPRO', 'JPY', '', 0, ''),]
+                      
+        
     print kwargs 
     cm = TWS_client_manager(kwargs)
     cl = GatewayMessageListener('gw_client_message_listener')
     
     cm.add_listener_topics(cl, kwargs['topics'])
     cm.start_manager()
-    cm.reqMktData(contract)
+    map(lambda c: cm.reqMktData(ContractHelper.makeContract(c)), contractTuples)
     try:
         logging.info('TWS_gateway:main_loop ***** accepting console input...')
         while True: 
@@ -390,7 +400,7 @@ def test_client(kwargs):
     except (KeyboardInterrupt, SystemExit):
         logging.error('TWS_client_manager: caught user interrupt. Shutting down...')
         cm.gw_message_handler.set_stop()
-        cm.join()
+        
         logging.info('TWS_client_manager: Service shut down complete...')
            
         

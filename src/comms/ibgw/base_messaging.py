@@ -90,7 +90,7 @@ class BaseProducer(threading.Thread, Subscriber):
             
             
             logging.info ('******** BaseProducer exit done.')
-            
+            producer.close(1)
                 
         except NoBrokersAvailable:
             logging.error("NoBrokersAvailable: Has kafka started?")
@@ -302,7 +302,7 @@ class BaseConsumer(threading.Thread, Publisher):
                 logging.debug('BaseConsumer:run StopIteration Caught. No new message arriving...')
                 continue
             
-            
+        consumer.close()   
         logging.info ('******** BaseConsumer exit done.')
 
 
@@ -386,7 +386,12 @@ class Prosumer(BaseProducer):
         
     
     def add_listener_topics(self, listener, topics):
-        map(lambda e: self.kconsumer.register(e, listener, getattr(listener, e)), topics)
+        try:
+            map(lambda e: self.kconsumer.register(e, listener, getattr(listener, e)), topics)
+        except AttributeError as e:
+            logging.error("Prosumer:add_listener_topics. Function not implemented in the listener. %s" % e)
+            raise NotImplementedException
+            
         
     def add_listeners(self, listeners):
         
@@ -395,12 +400,17 @@ class Prosumer(BaseProducer):
         
     
 
+    def is_stopped(self):
+        return self.stopped
     
     def set_stop(self):
         BaseProducer.set_stop(self)
         self.kconsumer.set_stop()
+        logging.info('Prosumer:set_stop. Pending kconsumer to shutdown in 2s...')
+        self.stopped = True
     
     def start_prosumer(self):
+        self.stopped = False
         self.kconsumer.start()
         self.start()
         

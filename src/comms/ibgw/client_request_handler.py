@@ -23,24 +23,24 @@ class ClientRequestHandler(BaseMessageListener):
 
     
     
-    def reqAccountUpdates(self, value=None):
+    def reqAccountUpdates(self, event, value=None):
         logging.info('ClientRequestHandler - reqAccountUpdates value=%s' % value)
         self.tws_connect.reqAccountUpdates(1, '')
     
-    def reqAccountSummary(self, value):
+    def reqAccountSummary(self, event, value):
         logging.info('ClientRequestHandler - reqAccountSummary value=%s' % value)
         
         vals = map(lambda x: x.encode('ascii') if isinstance(x, unicode) else x, json.loads(value))
         self.tws_connect.reqAccountSummary(vals[0], vals[1], vals[2])
         
-    def reqOpenOrders(self, value=None):
+    def reqOpenOrders(self, event, value=None):
         self.tws_connect.reqOpenOrders()
     
-    def reqPositions(self, value=None):
+    def reqPositions(self, event, value=None):
         self.tws_connect.reqPositions()
         
         
-    def reqExecutions(self, value):
+    def reqExecutions(self, event, value):
         try:
             filt = ExecutionFilter() if value == '' else ExecutionFilterHelper.kvstring2object(value, ExecutionFilter)
             self.tws_connect.reqExecutions(0, filt)
@@ -48,35 +48,35 @@ class ClientRequestHandler(BaseMessageListener):
             logging.error(traceback.format_exc())
     
     
-    def reqIds(self, value=None):
+    def reqIds(self, event, value=None):
         self.tws_connect.reqIds(1)
     
     
-    def reqNewsBulletins(self):
+    def reqNewsBulletins(self, event):
         self.tws_connect.reqNewsBulletins(1)
     
     
-    def cancelNewsBulletins(self):
+    def cancelNewsBulletins(self, event ):
         self.tws_connect.cancelNewsBulletins()
     
     
-    def setServerLogLevel(self):
+    def setServerLogLevel(self, event):
         self.tws_connect.setServerLogLevel(3)
     
     
-    def reqAutoOpenOrders(self):
+    def reqAutoOpenOrders(self, event):
         self.tws_connect.reqAutoOpenOrders(1)
     
     
-    def reqAllOpenOrders(self):
+    def reqAllOpenOrders(self, event):
         self.tws_connect.reqAllOpenOrders()
     
     
-    def reqManagedAccts(self):
+    def reqManagedAccts(self, event):
         self.tws_connect.reqManagedAccts()
     
     
-    def requestFA(self):
+    def requestFA(self, event):
         self.tws_connect.requestFA(1)
     
     
@@ -88,7 +88,7 @@ class ClientRequestHandler(BaseMessageListener):
         except:
             pass
     
-    def reqHistoricalData(self):
+    def reqHistoricalData(self, event):
         contract = Contract()
         contract.m_symbol = 'QQQQ'
         contract.m_secType = 'STK'
@@ -105,7 +105,7 @@ class ClientRequestHandler(BaseMessageListener):
             formatDate=1)
     
     
-    def placeOrder(self, value=None):
+    def placeOrder(self, event, value=None):
         logging.info('TWS_gateway - placeOrder value=%s' % value)
         try:
             vals = json.loads(value)
@@ -128,17 +128,6 @@ class ClientRequestHandler(BaseMessageListener):
 
     
     
-    """
-       Client requests to TWS_gateway
-    """
-    def gw_req_subscriptions(self, value=None):
-        
-        #subm = map(lambda i: ContractHelper.contract2kvstring(self.contract_subscription_mgr.handle[i]), range(len(self.contract_subscription_mgr.handle)))
-        #subm = map(lambda i: ContractHelper.object2kvstring(self.contract_subscription_mgr.handle[i]), range(len(self.contract_subscription_mgr.handle)))
-        subm = map(lambda i: (i, ContractHelper.object2kvstring(self.contract_subscription_mgr.handle[i])), range(len(self.contract_subscription_mgr.handle)))
-        
-        print subm
-        if subm:
-            self.producer.send_message('gw_subscriptions', self.produce.message_dumps({'subscriptions': subm}))
-            
+    def gw_req_subscriptions(self, event, value=None):
+        logging.info('TWS_gateway - gw_req_subscriptions')
             

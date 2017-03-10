@@ -24,7 +24,10 @@ class SubscriptionManager(BaseMessageListener):
         
     def load_subscription(self, contracts):
         for c in contracts:
-            self.reqMktData(c)
+            #print self.tws_connect.isConnected() 
+            print '%s' % (ContractHelper.printContract(c))
+            self.reqMktData('internal', {'value': ContractHelper.contract2kvstring(c)}) 
+            
             
         self.dump()
     
@@ -40,21 +43,6 @@ class SubscriptionManager(BaseMessageListener):
             # check for true false instead of using implicit comparsion
             return self.tickerId[ckey]
     
-
-#     def reqMktDataxx(self, contract):
-#         print '---------------'
-#         contractTuple = ('USO', 'STK', 'SMART', 'USD', '', 0.0, '')
-#         stkContract = self.makeStkContract(contractTuple)     
-#         stkContract.m_includeExpired = False       
-#         self.parent.connection.reqMktData(1, stkContract, '', False)     
-# 
-#         contractTuple = ('IBM', 'STK', 'SMART', 'USD', '', 0.0, '')
-#         stkContract = self.makeStkContract(contractTuple)
-#         stkContract.m_includeExpired = False
-#         print stkContract   
-#         print stkContract.__dict__         
-#         self.parent.connection.reqMktData(2, stkContract, '', False)     
-#             
 
             
     def reqMktData(self, event, message):
@@ -95,24 +83,28 @@ class SubscriptionManager(BaseMessageListener):
         #
         # instruct gateway to broadcast new id has been assigned to a new contract
         #
-        self.producer.send_message('gw_notify_subscription_changed', self.producer.message_dumps({id: ContractHelper.object2kvstring(contract)}))
+        self.producer.send_message('gw_subscription_changed', self.producer.message_dumps({id: ContractHelper.object2kvstring(contract)}))
         #>>>self.parent.gw_notify_subscription_changed({id: ContractHelper.object2kvstring(contract)})
-        logging.info('SubscriptionManager reqMktData: gw_notify_subscription_changed: %d:%s' % (id, ContractHelper.makeRedisKeyEx(contract)))
+        logging.info('SubscriptionManager reqMktData: gw_subscription_changed: %d:%s' % (id, ContractHelper.makeRedisKeyEx(contract)))
+        
+    """
+       Client requests to TWS_gateway
+    """
+    def gw_req_subscriptions(self, event, message):
+        
+        #subm = map(lambda i: ContractHelper.contract2kvstring(self.contract_subscription_mgr.handle[i]), range(len(self.contract_subscription_mgr.handle)))
+        #subm = map(lambda i: ContractHelper.object2kvstring(self.contract_subscription_mgr.handle[i]), range(len(self.contract_subscription_mgr.handle)))
+        subm = map(lambda i: (i, ContractHelper.object2kvstring(self.handle[i])),
+                    range(len(self.handle)))
         
         
+        if subm:
+            
+            logging.info('SubscriptionManager:gw_req_subscriptions-------\n%s' % ''.join('\n%s:%s' % (str(v[0]).rjust(6), v[1]) for v in subm))
+            self.producer.send_message('gw_subscriptions', self.producer.message_dumps({'subscriptions': subm}))
         
-#     def makeStkContract(self, contractTuple):
-#         newContract = Contract()
-#         newContract.m_symbol = contractTuple[0]
-#         newContract.m_secType = contractTuple[1]
-#         newContract.m_exchange = contractTuple[2]
-#         newContract.m_currency = contractTuple[3]
-#         newContract.m_expiry = contractTuple[4]
-#         newContract.m_strike = contractTuple[5]
-#         newContract.m_right = contractTuple[6]
-#         print 'Contract Values:%s,%s,%s,%s,%s,%s,%s:' % contractTuple
-#         return newContract        
-   
+        
+
     # use only after a broken connection is restored
     # to re request market data 
     def force_resubscription(self):
