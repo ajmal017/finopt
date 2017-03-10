@@ -519,7 +519,6 @@ def test_prosumer2(mode):
                 pB.join()    
     
     
-
     
 
 class TestProducer(BaseProducer):

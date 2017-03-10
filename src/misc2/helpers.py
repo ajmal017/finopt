@@ -4,6 +4,7 @@
 import json
 import logging
 import threading
+import ConfigParser
 from ib.ext.Contract import Contract
 from ib.ext.Order import Order
 from ib.ext.ExecutionFilter import ExecutionFilter
@@ -194,4 +195,22 @@ def dict2str(dict):
     return '{'  + ', '.join('"%s" : %s' % (k, '"%s"' % v if type(v) == str else v) for k, v in dict.iteritems()) + '}'   
     
 
+class ConfigMap():
+    
+    def kwargs_from_file(self, path):
+        cfg = ConfigParser.ConfigParser()            
+        if len(cfg.read(path)) == 0: 
+            raise ValueError, "Failed to open config file [%s]" % path 
 
+        kwargs = {}
+        for section in cfg.sections():
+            optval_list = map(lambda o: (o, cfg.get(section, o)), cfg.options(section)) 
+            for ov in optval_list:
+                try:
+                    
+                    kwargs[ov[0]] = eval(ov[1])
+                except:
+                    continue
+                
+        #logging.debug('ConfigMap: %s' % kwargs)
+        return kwargs
