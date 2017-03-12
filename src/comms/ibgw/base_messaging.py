@@ -143,11 +143,7 @@ class BaseConsumer(threading.Thread, Publisher):
         return
     
     
-    # no use: doesn't work
-    def seek_to_last_read_offset(self, consumer):
-        for t in self.my_topics.keys():
-            po = json.loads(self.rs.get(t))
-            consumer.seek(TopicPartition(topic=t, partition=po['partition']), po['offset'])
+
     
     """
      each consumer has its own set of topics offsets stored in redis
@@ -187,7 +183,6 @@ class BaseConsumer(threading.Thread, Publisher):
             self.rs.delete(self.consumer_topic(t))
             
              
-        #raise NotImplementedException
     
     
     def persist_offsets(self, topic, partition, offset):
