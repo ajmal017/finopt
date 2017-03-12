@@ -26,7 +26,7 @@ class Producer(threading.Thread):
     def run(self):
         try:
             producer = KafkaProducer(bootstrap_servers='localhost:9092')
-            topics = ['my-topic', 'my-topic2']
+            topics = ['my_topic', 'my_topic2']
             i = 0
             while True:
                 #today = datetime.date.today()
@@ -99,9 +99,11 @@ class BaseProducer(threading.Thread, Subscriber):
 class BaseConsumer(threading.Thread, Publisher):
     
     #KB_EVENT = "on_kb_event"
+    SLOW_CONSUMER_CHECK_EVERY = 50
+    SLOW_CONSUMER_QUALIFY_NUM = 500
     KB_REACHED_LAST_OFFSET = "on_kb_reached_last_offset"
     
-    #my_topics =  {'my-topic':{}, 'my-topic2':{}}    
+    #my_topics =  {'my_topic':{}, 'my_topic2':{}}    
 
     def __init__(self, group=None, target=None, name=None,
                  args=(), kwargs=None, verbose=None):
@@ -116,9 +118,10 @@ class BaseConsumer(threading.Thread, Publisher):
             redis_db
             group_id
             consumer_id: name 
-            topics: a list of topic strings
-            session_timeout_ms: 
+            topics- a list of topic strings
+            session_timeout_ms 
             consumer_timeout_ms
+            seek_to_end- a list of topics that only wants the latest message
         """
         
         
@@ -127,6 +130,10 @@ class BaseConsumer(threading.Thread, Publisher):
         self.args = args
         self.kwargs = kwargs
         self.rs = Redis(self.kwargs['redis_host'], self.kwargs['redis_port'], self.kwargs['redis_db'])
+        try:
+            self.kwargs['seek_to_end']
+        except KeyError:
+            self.kwargs['seek_to_end'] = []
         self.my_topics = {}
         for t in self.kwargs['topics']:
             self.my_topics[t]= {} 
@@ -144,10 +151,10 @@ class BaseConsumer(threading.Thread, Publisher):
     
     """
      each consumer has its own set of topics offsets stored in redis
-     for consumer A and consumer B (with different group_ids) subscribing to the same my-topic, each 
+     for consumer A and consumer B (with different group_ids) subscribing to the same my_topic, each 
      each of them will need to keep track of its own offsets
      to make the redis key unique by consumer, the key is created by topic + '@' + consumer name
-     example: my-topic@consumerA
+     example: my_topic@consumerA
      
      offsets = { topic-consumer_name:
                      {
@@ -245,38 +252,74 @@ class BaseConsumer(threading.Thread, Publisher):
             
         consumer.subscribe(self.my_topics.keys())
 
-        
-        #consumer.seek_to_end(TopicPartition(topic='my-topic', partition=0))
+        #consumer.seek_to_end(TopicPartition(topic='my_topic', partition=0))
 
         self.done = False
+       
+            
         while self.done <> True:
             try:
                 message = consumer.next()
                 
-                #time.sleep(0.25)
-                if message.offset % 50 == 0:
-                    logging.info( "[%s]:highwater:%d offset:%d part:%d <%s>" % (self.name, consumer.highwater(TopicPartition(message.topic, message.partition)),
-                                                                             message.offset, message.partition, message.value))
                 
-    #             for t, ps in map(lambda t: (t, consumer.partitions_for_topic(t)), self.my_topics.keys()):
-    #                 print "t:%s %s" % (t,  ','.join('p:%d, offset:%d' % (p, consumer.position(TopicPartition(topic=t, partition=p))) for p in ps)) # consumer.position(TopicPartition(topic=t, partition=p)))
+                # the next if block is there to serve information purpose only
+                # it may be useful to detect slow consumer situation
+                if message.offset % BaseConsumer.SLOW_CONSUMER_QUALIFY_NUM == 0:
+                    highwater = consumer.highwater(TopicPartition(message.topic, message.partition))
+                    logging.info( "BaseConsumer [%s]:highwater:%d offset:%d part:%d <%s>" %  (self.name, highwater, message.offset, message.partition, message.value))
+                    
+                    if highwater - message.offset >= BaseConsumer.SLOW_CONSUMER_QUALIFY_NUM:
+                        logging.warn("BaseConsumer:run Slow consumer detected! current: %d, highwater:%d, gap:%d" %
+                                        (message.offset, highwater, highwater - message.offset))
+                # the next block is designed to handle the first time the
+                # consumer encounters a topic partition it hasnt' seen yet
+                try:
+                    # the try catch block ensures that on the first run
+                    # the except block is executed once and only once, thereafter since the 
+                    # dictionary object keys are assigned the exception will never
+                    # be caught again
+                    # 
+                    # the try catch is supposed to be faster than a if-else block...
+                    # 
+                    # the try statement below has no meaning, it is there merely to ensure that 
+                    # the block fails on the first run
+                    self.my_topics[message.topic][str(message.partition)] 
+                except KeyError:
+
+                    highwater = consumer.highwater(TopicPartition(message.topic, message.partition))
+                    logging.info( "*** On first iteration: [Topic:%s:Part:%d:Offset:%d]: Number of messages lagging behind= %d. Highwater:%d" 
+                                  % (message.topic, message.partition, message.offset, highwater - message.offset, highwater))
+                                                                                                
+                    for t, ps in map(lambda t: (t, consumer.partitions_for_topic(t)), self.my_topics.keys()):
+                        logging.info ("*** On first iteration: Topic Partition Table: topic:[%s] %s" % (t.rjust(20),  
+                                                         ','.join('partition:%d, offset:%d' % (p, consumer.position(TopicPartition(topic=t, partition=p))) for p in ps)
+                                                         ))
+                        
+                    self.persist_offsets(message.topic, message.partition, message.offset)
+                    self.my_topics[message.topic] = json.loads(self.rs.get(self.consumer_topic(message.topic)))
+                        
+                        
+                    if message.topic in self.kwargs['seek_to_end']:
+                        logging.info("*** On first iteration: [Topic:%s:Part:%d:Offset:%d]: Attempting to seek to latest message ..." 
+                                     % (message.topic, message.partition, message.offset))
+                        consumer.seek_to_end((TopicPartition(topic=message.topic, partition= message.partition)))
+                        continue
                 
                 # if this is the first time the consumer is run
                 # it contains no offsets in the redis map, so it has 
                 # 0 elements in the map,
                 # then insert a new offset in redis and populate
-                # the local my_topics dict
-                
-                if len(self.my_topics[message.topic]) == 0:
-                    self.persist_offsets(message.topic, message.partition, message.offset)
-                    self.my_topics[message.topic] = json.loads(self.rs.get(self.consumer_topic(message.topic)))
-                    #continue
+                # the local my_topics dict                
+#                 if len(self.my_topics[message.topic]) == 0:
+#                     self.persist_offsets(message.topic, message.partition, message.offset)
+#                     self.my_topics[message.topic] = json.loads(self.rs.get(self.consumer_topic(message.topic)))
+#                     #continue
                     
                 """
                     the message.value received from kafaproducer is expected to contain 
                     plain text encoded as a json string
                     the content of message.value is not altered. it's content is stored in a dict object 
-                    with key = 'value' along with additional kafa metadata
+                    with key = 'value' and enriched with additional kafa metadata
                                     
                      
                     it is the subscriber's job to interpret the content stored in the 'value' key. Typically
@@ -325,10 +368,22 @@ class SimpleMessageListener(BaseMessageListener):
     
     def __init__(self, name):
         BaseMessageListener.__init__(self, name)
+        self.cnt_my_topic = 0
+        self.cnt_my_topic2 = 0
     
 #     def on_kb_event(self, param):
 #         print "on_kb_event [%s] %s" % (self.name, param)
-    
+    def my_topic(self, param):
+        if self.cnt_my_topic % 50 == 0:
+            print "SimpleMessageListener:my_topic. %s" % param
+            self.cnt_my_topic += 1
+
+    def my_topic2(self, param):
+        if self.cnt_my_topic2 % 50 == 0:
+            print "SimpleMessageListener:my_topic2. %s" % param
+            self.cnt_my_topic2 += 1
+
+        
     def on_kb_reached_last_offset(self, param):
         print "on_kb_reached_last_offset [%s] %s" % (self.name, param)
 
@@ -525,10 +580,19 @@ class TestProducer(BaseProducer):
     pass
 
 def test_base_proconsumer(mode):
-
+    '''
+        This example demonstrates
+        
+        1) use of consumer_timeout_ms to break out from the consumer.next loop
+        2) how to trap ctrl-c and break out of the running threads
+        3) using Queue to store calls to producer.send_message
+        4) using redis to store the consumer last processed offsets
+        5) use of try-catch block to implement seek_to_latest offset
+        6) inherit and implement MessageListener to subscribe messages dispatched by the consumer 
+    '''
     if mode == 'P':
         #Producer().start()
-        topics = ['my-topic', 'my-topic2']
+        topics = ['my_topic', 'my_topic2']
         tp = TestProducer(name = 'testproducer', kwargs={
                                              'bootstrap_host':'localhost', 'bootstrap_port':9092,
                                              'topics': topics})
@@ -537,26 +601,39 @@ def test_base_proconsumer(mode):
         while True:
             
             #today = datetime.date.today()
-            s = "%d %s test %s" % (i, topics[i%2], time.strftime("%b %d %Y %H:%M:%S"))
-            logging.info(s)
-            tp.send_message(topics[i%2], s)
-            
-            time.sleep(.45)
-            i=i+1
-        
+            try:
+                s = "%d %s test %s" % (i, topics[i%2], time.strftime("%b %d %Y %H:%M:%S"))
+                logging.info(s)
+                tp.send_message(topics[i%2], s)
+                
+                time.sleep(.25)
+                i=i+1
+            except (KeyboardInterrupt, SystemExit):
+                logging.error('caught user interrupt')
+                tp.set_stop()
+                tp.join()
+                sys.exit(-1)
+                    
         
     else:
         
         bc = BaseConsumer(name='bc', kwargs={'redis_host':'localhost', 'redis_port':6379, 'redis_db':0,
                                              'bootstrap_host':'localhost', 'bootstrap_port':9092,
-                                             'group_id':'gid', 'session_timeout_ms':10000, 'topics': ['my-topic', 'my-topic2']})
+                                             'group_id':'gid', 'session_timeout_ms':10000, 'topics': ['my_topic', 'my_topic2'],
+                                             'clear_offsets': True, 'consumer_timeout_ms':1000,
+                                             # uncomment the next line to process messages from since the program was last shut down
+                                             # if seek_to_end is present, for the topic specified the consumer will begin
+                                             # sending the latest message to the listener
+                                             # note that the list only specifies my_topic to receive the latest
+                                             # but not my_topic2. Observe the different behavior by checking the message offset 
+                                             # in the program log
+                                             'seek_to_end': ['my_topic'],            
+                                             }) 
         #bml = BaseMessageListener('bml')
         sml = SimpleMessageListener('simple')
-        #bc.register(BaseConsumer.KB_EVENT, bml)
-        #bc.register(BaseConsumer.KB_REACHED_LAST_OFFSET, bml)
-        bc.register(BaseConsumer.KB_EVENT, sml)
         bc.register(BaseConsumer.KB_REACHED_LAST_OFFSET, sml)
-        
+        bc.register('my_topic', sml)
+        bc.register('my_topic2', sml)
         bc.start()
 
 
