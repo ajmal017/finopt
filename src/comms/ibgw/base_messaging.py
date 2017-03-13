@@ -79,7 +79,8 @@ class BaseProducer(threading.Thread, Subscriber):
             while self.done <> True:
                 #today = datetime.date.today()
                 
-                if not self.event_q.empty():
+                #if not self.event_q.empty():
+                while not self.event_q.empty():
                     topic, plain_text = self.event_q.get()
                     #s = "BaseProducer topic:[%s] msg:[%s]" % (i, topics[i%2], time.strftime("%b %d %Y %H:%M:%S"))
                     logging.info("BaseProducer topic:[%s] msg:[%s]" % (topic, plain_text))
