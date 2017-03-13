@@ -5,7 +5,7 @@ import logging
 import json
 
 from ib.ext.Contract import Contract
-
+from optparse import OptionParser
 from misc2.helpers import ContractHelper
 from comms.ibgw.base_messaging import Prosumer
 from comms.tws_protocol_helper import TWS_Protocol
@@ -83,7 +83,20 @@ if __name__ == '__main__':
       'topics': ['position', 'positionEnd', 'gw_subscriptions', 'gw_subscription_changed']
       }
 
-   
+    usage = "usage: %prog [options]"
+    parser = OptionParser(usage=usage)
+    parser.add_option("-c", "--clear_offsets", action="store_true", dest="clear_offsets",
+                      help="delete all redis offsets used by this program")
+    parser.add_option("-g", "--group_id",
+                      action="store", dest="group_id", 
+                      help="assign group_id to this running instance")
+    
+    (options, args) = parser.parse_args()
+    for option, value in options.__dict__.iteritems():
+        if value <> None:
+            kwargs[option] = value
+            
+    #print kwargs    
       
     logconfig = kwargs['logconfig']
     logconfig['format'] = '%(asctime)s %(levelname)-8s %(message)s'    

@@ -4,14 +4,14 @@
 import sys
 import copy
 from time import sleep, strftime
-import ConfigParser
 import logging
 import json
 
 from ib.ext.Contract import Contract
 from ib.ext.EClientSocket import EClientSocket
 
-from misc2.helpers import ContractHelper
+from misc2.helpers import ContractHelper, ConfigMap
+from optparse import OptionParser
 from comms.ibgw.base_messaging import Prosumer
 from comms.ibgw.tws_event_handler import TWS_event_handler
 from comms.ibgw.client_request_handler import ClientRequestHandler
@@ -119,38 +119,12 @@ class TWS_gateway():
 
     def initialize_subscription_mgr(self):
         
-        self.contract_subscription_mgr = SubscriptionManager(self, self)
-        self.contract_subscription_mgr.register_persistence_callback(self.persist_subscriptions)
+        
+        self.contract_subscription_mgr = SubscriptionManager(self.kwargs['name'], self.tws_connection, 
+                                                             self.gw_message_handler, 
+                                                             self.get_redis_conn(), self.kwargs['subscription_manager.subscriptions.redis_key'])
         
         
-        key = self.kwargs["subscription_manager.subscriptions.redis_key"]
-        if self.rs.get(key):
-            #contracts = map(lambda x: ContractHelper.kvstring2contract(x), json.loads(self.rs.get(key)))
-            
-            def is_outstanding(c):
-                
-                today = strftime('%Y%m%d') 
-                if c.m_expiry < today:
-                    logging.info('initialize_subscription_mgr: ignoring expired contract %s%s%s' % (c.m_expiry, c.m_strike, c.m_right))
-                    return False
-                return True
-            
-            contracts = filter(lambda x: is_outstanding(x), 
-                               map(lambda x: ContractHelper.kvstring2object(x, Contract), json.loads(self.rs.get(key))))
-            
-            
-            
-            
-            self.contract_subscription_mgr.load_subscription(contracts)
-        
-
-    def persist_subscriptions(self, contracts):
-         
-        key = self.kwargs["subscription_manager.subscriptions.redis_key"]
-        #cs = json.dumps(map(lambda x: ContractHelper.contract2kvstring(x) if x <> None else None, contracts))
-        cs = json.dumps(map(lambda x: ContractHelper.object2kvstring(x) if x <> None else None, contracts))
-        logging.debug('Tws_gateway: updating subscription table to redis store %s' % cs)
-        self.rs.set(key, cs)
 
 
     def initialize_redis(self):
@@ -164,6 +138,8 @@ class TWS_gateway():
             logging.error('aborting...')
             sys.exit(-1)
             
+    def get_redis_conn(self):
+        return self.rs
 
     def connect_tws(self):
         if type(self.kwargs['tws_app_id']) <> int:
@@ -207,13 +183,26 @@ class TWS_gateway():
         finally:
             self.tlock.release()          
         
+        
+    
+    def persist_subscription_table(self):
+        self.pcounter = (self.pcounter + 1) % 10
+        if (self.pcounter >= 8):
+            self.contract_subscription_mgr.persist_subscriptions()
+           
+        
 
     def main_loop(self):
         try:
             logging.info('TWS_gateway:main_loop ***** accepting console input...')
+            
+            
+            self.pcounter = 0
             while True: 
                 
-                sleep(.45)
+                sleep(.5)
+                self.persist_subscription_table()
+                
                 
         except (KeyboardInterrupt, SystemExit):
                 logging.error('TWS_gateway: caught user interrupt. Shutting down...')
@@ -225,43 +214,34 @@ class TWS_gateway():
 
 
     
-class ConfigMap():
-    
-    def kwargs_from_file(self, path):
-        cfg = ConfigParser.ConfigParser()            
-        if len(cfg.read(path)) == 0: 
-            raise ValueError, "Failed to open config file [%s]" % path 
 
-        kwargs = {}
-        for section in cfg.sections():
-            optval_list = map(lambda o: (o, cfg.get(section, o)), cfg.options(section)) 
-            for ov in optval_list:
-                try:
-                    
-                    kwargs[ov[0]] = eval(ov[1])
-                except:
-                    continue
-                
-        #logging.debug('ConfigMap: %s' % kwargs)
-        return kwargs
         
     
 if __name__ == '__main__':
+
+
+    usage = "usage: %prog [options]"
+    parser = OptionParser(usage=usage)
+    parser.add_option("-c", "--clear_offsets", action="store_true", dest="clear_offsets",
+                      help="delete all redis offsets used by this program")
+    parser.add_option("-f", "--config_file",
+                      action="store", dest="config_file", 
+                      help="path to the config file")
     
-    if len(sys.argv) != 2:
-        print("Usage: %s <config file>" % sys.argv[0])
-        exit(-1)    
+    (options, args) = parser.parse_args()
+    
+    kwargs = ConfigMap().kwargs_from_file(options.config_file)
+    for option, value in options.__dict__.iteritems():
+        
+        if value <> None:
+            kwargs[option] = value
 
 
-
-    cfg_path= sys.argv[1:]
-    kwargs = ConfigMap().kwargs_from_file(cfg_path)
-   
-      
     logconfig = kwargs['logconfig']
     logconfig['format'] = '%(asctime)s %(levelname)-8s %(message)s'    
     logging.basicConfig(**logconfig)        
-    
+
+    logging.debug('config settings: %s' % kwargs)
     
     app = TWS_gateway(kwargs)
     
