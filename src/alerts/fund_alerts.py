@@ -112,8 +112,8 @@ def bct_funds():
     
 def send_daily_alert():
     user='cigarbar@gmail.com'
-    pwd='taipeii0i'
-    recipient='larry1chan@gmail.com'
+    pwd=''
+    recipient='@gmail.com'
     
     body = '%s\n%s\n%s' % (allianz(), cn_huaxia(), bct_funds() )
     subject='Daily fund price' 
