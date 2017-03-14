@@ -317,26 +317,7 @@ class OCConsumer(Subscriber, AbstractGatewayListener):
         AbstractGatewayListener.__init__(self, name)
         
     
-    def get_id_contracts(self, db=False):
-        if db:
-            try:
-                id_contracts = json.loads(self.rs.get(self.subscription_key))
-                
-                def utf2asc(x):
-                    return x if isinstance(x, unicode) else x
-                
-                return map(lambda x: (x[0], ContractHelper.kvstring2contract(utf2asc(x[1]))), id_contracts)
-            except TypeError:
-                logging.error('SubscriptionManager:get_id_contracts. Exception when trying to get id_contracts from redis ***')
-                return None
-        else:
-            return map(lambda x: (x[0], x[1]), 
-                                list(self.idContractMap['id_contract'].iteritems()))
 
-    # return id:contract_strings
-    def get_id_kvs_contracts(self, db):
-        return map(lambda x:(x[0], ContractHelper.contract2kvstring(x[1])), self.get_id_contracts(db))    
-    
     def dump(self):
             #print ', '.join('[%s:%s]' % (k, v['ticker_id'])) 
         logging.debug('OCConsumer-symbols: [Key: Ticker ID: # options objects]: ---->\n%s' % (',\n'.join('[%s:%d:%d]' % (k, v['ticker_id'],len(v['syms'])) for k,v in self.symbols.iteritems())))
@@ -379,24 +360,18 @@ class OCConsumer(Subscriber, AbstractGatewayListener):
 
 
     def get_id_contracts(self, message_value):
-        if db:
-            try:
-                id_contracts = json.loads(self.rs.get(self.subscription_key))
-                
-                def utf2asc(x):
-                    return x if isinstance(x, unicode) else x
-                
-                return map(lambda x: (x[0], ContractHelper.kvstring2contract(utf2asc(x[1]))), id_contracts)
-            except TypeError:
-                logging.error('SubscriptionManager:get_id_contracts. Exception when trying to get id_contracts from redis ***')
-                return None
-        else:
-            return map(lambda x: (x[0], x[1]), 
-                                list(self.idContractMap['id_contract'].iteritems()))
+        try:
+            id_contracts = json.loads(message_value)
+            
+            def utf2asc(x):
+                return x if isinstance(x, unicode) else x
+            
+            return map(lambda x: (x[0], ContractHelper.kvstring2contract(utf2asc(x[1]))), id_contracts)
+        except TypeError:
+            logging.error('SubscriptionManager:get_id_contracts. Exception when trying to get id_contracts from redis ***')
+            return None
 
-    # return id:contract_strings
-    def get_id_kvs_contracts(self, ):
-        return map(lambda x:(x[0], ContractHelper.contract2kvstring(x[1])), self.get_id_contracts(db))
+
     
     
     

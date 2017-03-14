@@ -20,8 +20,9 @@ class TWS_Protocol:
     gatewayMethods = ('gw_req_subscriptions',)
     gatewayEvents = ('gw_subscriptions', 'gw_subscription_changed')
     
-    oceMethods = ()
-    oceEvents = ('optionAnalytics','optionsSnapshot')
+    aeMethods = ('ae_req_greeks')
+    aeEvents = ('ae_req_ack', 'ae_greeks','ae_greeks_snapshot')
+    
     
     
     
