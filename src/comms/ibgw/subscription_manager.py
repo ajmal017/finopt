@@ -225,7 +225,20 @@ class SubscriptionManager(BaseMessageListener):
             self.producer.send_message('gw_subscriptions', self.producer.message_dumps({'subscriptions': ic}))
         
        
+<<<<<<< Upstream, based on origin/ironfly
+=======
+       
+
+       
+
+       
+>>>>>>> fec2a94 synchronized changes
 
 
 
+<<<<<<< Upstream, based on origin/ironfly
+=======
+
+    
+>>>>>>> fec2a94 synchronized changes
     
