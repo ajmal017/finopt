@@ -47,7 +47,7 @@ def test_client(kwargs):
     cm.add_listener_topics(cl, kwargs['topics'])
     cm.start_manager()
     cm.reqPositions()
-    cm.gw_req_subscriptions()
+    cm.gw_req_subscriptions(sender_id=kwargs['name'])
     try:
         logging.info('TWS_gateway:main_loop ***** accepting console input...')
         while not cm.is_stopped(): 

@@ -217,28 +217,13 @@ class SubscriptionManager(BaseMessageListener):
        Client requests to TWS_gateway
     """
     def gw_req_subscriptions(self, event, message):
-        
+     
+        from_id = json.loads(message['value'])['sender_id']
         ic = self.get_id_kvs_contracts(db=False)
+        print self.producer.message_dumps({'subscriptions': ic, 'sender_id':self.name, 'target_id':from_id})
         if ic:
              
             logging.info('SubscriptionManager:gw_req_subscriptions-------\n%s' % ic)
-            self.producer.send_message('gw_subscriptions', self.producer.message_dumps({'subscriptions': ic}))
+            self.producer.send_message('gw_subscriptions', self.producer.message_dumps({'subscriptions': ic, 'sender_id':self.name, 'target_id':from_id}))
         
        
-<<<<<<< Upstream, based on origin/ironfly
-=======
-       
-
-       
-
-       
->>>>>>> fec2a94 synchronized changes
-
-
-
-<<<<<<< Upstream, based on origin/ironfly
-=======
-
-    
->>>>>>> fec2a94 synchronized changes
-    

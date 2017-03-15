@@ -65,9 +65,8 @@ class GatewayCommandWrapper():
     
         
 
-    def gw_req_subscriptions(self):
-        
-        self.producer.send_message('gw_req_subscriptions', self.producer.message_dumps(None))
+    def gw_req_subscriptions(self, sender_id):
+        self.producer.send_message('gw_req_subscriptions', self.producer.message_dumps({'sender_id': sender_id}))
         
         
         

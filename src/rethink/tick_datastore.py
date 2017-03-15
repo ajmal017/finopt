@@ -6,7 +6,7 @@ from misc2.observer import NotImplementedException
 from misc2.helpers import ContractHelper
 from comms.ibc.base_client_messaging import AbstractGatewayListener
 
-class TickDataStore(Publisher, AbstractGatewayListener):
+class TickDataStore(Publisher):
     """
     
     Data structure:
@@ -43,28 +43,28 @@ class TickDataStore(Publisher, AbstractGatewayListener):
     """
     
 
-    TICK_PRICE_UPDATED = 'tds_price_updated'
-    NEW_SYMBOL_ADDED = 'tds_new_symbol_added'
-    TDS_EVENTS = [TICK_PRICE_UPDATED, NEW_SYMBOL_ADDED] 
+    EVENT_TICK_UPDATED = 'tds_event_tick_updated'
+    EVENT_NEW_SYMBOL_ADDED = 'tds_event_new_symbol_added'
+    TDS_EVENTS = [EVENT_TICK_UPDATED, EVENT_NEW_SYMBOL_ADDED] 
 
     
     def __init__(self, name):
         
-        AbstractGatewayListener.__init__(self, name)
+
         self.tickers = {}
         self.symbols = {}
         self.lock = RLock()
-        
+        Publisher.__init__(self, TickDataStore.TDS_EVENTS)
         self.first_run = True
         
         
     def register_listener(self, l):
-        map(lambda e: self.register(e, l, l.tds_price_updated), TickDataStore.TDS_EVENTS)
+        map(lambda e: self.register(e, l, getattr(l, e)), TickDataStore.TDS_EVENTS)
 
     def dump(self):
             # print ', '.join('[%s:%s]' % (k, v['ticker_id'])) 
-        logging.debug('TickDataStore-symbols: [Key: Ticker ID: # options objects]: ---->\n%s' % (',\n'.join('[%s:%d:%d]' % (k, v['ticker_id'], len(v['syms'])) for k, v in self.symbols.iteritems())))
-        logging.debug('TickDataStore-tickers: %s' % self.tickers)
+        logging.info('TickDataStore-symbols: [Key: Ticker ID: # options objects]: ---->\n%s' % (',\n'.join('[%s:%d:%d]' % (k, v['ticker_id'], len(v['syms'])) for k, v in self.symbols.iteritems())))
+        logging.info('TickDataStore-tickers: %s' % self.tickers)
     
      
     
@@ -79,7 +79,7 @@ class TickDataStore(Publisher, AbstractGatewayListener):
     
             # defer the dispatch at the end of this method        
             if key not in self.symbols:
-                self.dispatch(TickDataStore.NEW_SYMBOL_ADDED, symbol)
+                self.dispatch(TickDataStore.EVENT_NEW_SYMBOL_ADDED, symbol)
         finally:
             self.lock.release()
             
@@ -88,7 +88,7 @@ class TickDataStore(Publisher, AbstractGatewayListener):
     
        
         
-    def update_symbol_price(self, event, message_value):   
+    def set_symbol_price(self, event, message_value):   
         
         # 'value': '{"tickerId": 0, "size": 3, "field": 3}'
         items = json.loads(message_value)
@@ -105,21 +105,21 @@ class TickDataStore(Publisher, AbstractGatewayListener):
             pass
         finally:
             self.lock.release()
-            self.dispatch(TickDataStore.TICK_PRICE_UPDATED, message_value)
+            self.dispatch(TickDataStore.EVENT_TICK_UPDATED, message_value)
             
-    def error(self, event, message_value):
-        logging.info('TickDataStore:%s. val->[%s]' % (event, message_value))  
 
-
-    
-    def gw_subscription_changed(self, event, message_value):
-        logging.info('TickDataStore:%s. val->[%s]' % (event, message_value))
-        self.update_datastore(message_value)
- 
 
     def update_datastore(self, subscription_message_value):
-        
-        def set_values(idc):
+        '''
+        sample value:
+        {
+        'partition': 0, 'value': '{"target_id": "analytics_engine", "sender_id": "tws_gateway_server", 
+        "subscriptions": [[0, "{\\"m_conId\\": 0, \\"m_right\\": \\"\\", \\"m_symbol\\": \\"HSI\\", \\"m_secType\\": \\"FUT\\", 
+        \\"m_includeExpired\\": false, \\"m_expiry\\": \\"20170330\\", \\"m_currency\\": \\"HKD\\", \\"m_exchange\\": \\"HKFE\\", \\"m_strike\\": 0}"]]}', 
+        'offset': 13
+        }
+        '''
+        def set_values2(idc):
             
             
             key = ContractHelper.makeRedisKeyEx(idc[1])
@@ -143,10 +143,12 @@ class TickDataStore(Publisher, AbstractGatewayListener):
                 return x if isinstance(x, unicode) else x
         
             self.lock.acquire()
-            items = json.loads(subscription_message_value)    
-            id_contracts = map(lambda x: (x[0], ContractHelper.kvstring2contract(utf2asc(x[1]))), items)
-        
-            map(lambda idc: set_values, id_contracts)    
+            
+            items = json.loads(subscription_message_value['value'])
+            logging.info('TickDataStore:update_datastore. items: %s ' % items)
+            id_contracts = map(lambda x: (x[0], ContractHelper.kvstring2contract(utf2asc(x[1]))), items['subscriptions'])
+            map(lambda idc: set_values2, id_contracts)   
+            self.dump()
         except TypeError:
             logging.error('TickDataStore:gw_subscriptions. Exception when trying to get id:contracts.')
             return None       
@@ -154,30 +156,8 @@ class TickDataStore(Publisher, AbstractGatewayListener):
             self.lock.release()     
         
             
-    def gw_subscriptions(self, event, message_value):
-        logging.info('TickDataStore:%s. val->[%s]' % (event, message_value))
-        self.update_datastore(message_value)
-        if self.first_run:
-            self.dispatch(TickDataStore.TDS_INIT_COMPLETE, {})
-            self.first_run = False
-            
-    
-        """
-        {0: {u'm_conId': 0, u'm_right': u'', u'm_symbol': u'QQQ', 
-        u'm_secType': u'STK', u'm_includeExpired': False, 
-        u'm_expiry': u'', u'm_currency': u'USD', u'm_exchange': u'SMART', u'm_strike': 0}, 
-        1: {u'm_conId': 0, u'm_right': u'C', u'm_symbol': u'QQQ', u'm_secType': u'OPT', 
-        u'm_includeExpired': False, u'm_multiplier': 100, u'm_expiry': u'20170217', u'm_currency': u'USD', u'm_exchange': u'SMART', u'm_strike': 125.0}, 
-        2: {u'm_conId': 0, u'm_right': u'P', u'm_symbol': u'QQQ', u'm_secType': u'OPT', u'm_includeExpired': False, u'm_multiplier': 100, 
-        u'm_expiry': u'20170217', u'm_currency': u'USD', u'm_exchange': u'SMART', u'm_strike': 125.0}, 
-        ...
-         
-        78: {u'm_conId': 0, u'm_right': u'P', u'm_symbol': u'QQQ', u'm_secType': u'OPT', 
-        u'm_includeExpired': False, u'm_multiplier': 100, u'm_expiry': u'20170217', 
-        u'm_currency': u'USD', u'm_exchange': u'SMART', u'm_strike': 115.5}}
-        tickPrice>> [0:QQQ--0.00--STK-USD-SMART-102] bid_q=-1.0000 [2017-01-28 12:08:49.587014]
 
-        """
+
 
         
         

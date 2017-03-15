@@ -349,6 +349,8 @@ class BaseConsumer(threading.Thread, Publisher):
 
 class BaseMessageListener(Subscriber):
     
+    def __init__(self, name):
+        self.name = name
     
     
     def update(self, event, param=none):
@@ -474,9 +476,13 @@ class Prosumer(BaseProducer):
     def message_dumps(self, obj_msg):
         return json.dumps(obj_msg)
 
+
+
     
 class SubscriptionListener(BaseMessageListener):
-    
+    '''
+    test code used by test cases
+    '''
     
     def __init__(self, name, producer):
         BaseMessageListener.__init__(self, name)
