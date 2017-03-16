@@ -288,8 +288,8 @@ class BaseConsumer(threading.Thread, Publisher):
                                   % (message.topic, message.partition, message.offset, gap, highwater))
                                                                                                 
                     for t, ps in map(lambda t: (t, consumer.partitions_for_topic(t)), self.my_topics.keys()):
-                        logging.info ("*** On first iteration: Topic Partition Table: topic:[%s] %s" % (t.rjust(20),  
-                                                         ','.join('partition:%d, offset:%d' % (p, consumer.position(TopicPartition(topic=t, partition=p))) for p in ps)
+                        logging.info ("*** On first iteration: T/P Table: topic:[%s] %s" % (t.rjust(25),  
+                                                         ','.join('part:%d, off:%d' % (p, consumer.position(TopicPartition(topic=t, partition=p))) for p in ps)
                                                          ))
                         
                     self.persist_offsets(message.topic, message.partition, message.offset)

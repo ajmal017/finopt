@@ -40,8 +40,11 @@ class TWS_event_handler(EWrapper):
         # deduct the gap to derive the original tickerId
         # --- check logic in subscription manager
         try:
+            
             if (t['tickerId']  >= TWS_event_handler.TICKER_GAP):
+                #print 'tick_process_message************************ SNAPSHOT %d' % t['tickerId']
                 t['tickerId'] = t['tickerId']  - TWS_event_handler.TICKER_GAP
+                
         except (KeyError, ):
             pass          
             

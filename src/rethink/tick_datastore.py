@@ -65,9 +65,10 @@ class TickDataStore(Publisher):
             # print ', '.join('[%s:%s]' % (k, v['ticker_id'])) 
         logging.info('TickDataStore-symbols:\nkey : ticker : object cnt---->\n%s' % ('\n'.join('[%s :  %d : %d]' % 
                                                                                                 (k, v['ticker_id'], len(v['syms'])) for k, v in self.symbols.iteritems())))
-        logging.info('TickDataStore-tickers:\nticker: object%s' % ('\n'.join('%s:%s' % (str(k).ljust(4), 
-                                                                          ContractHelper.makeRedisKeyEx(v))) for k, v in self.tickers.iteritems()))
+        logging.info('TickDataStore-tickers:\nticker: object\n%s' % ('\n'.join('%s:%s' % (str(k).ljust(4), v) for k, v in self.tickers.iteritems())
+                                                                   ))
     
+        
      
     
     def add_symbol(self, symbol):
@@ -78,12 +79,16 @@ class TickDataStore(Publisher):
             if key not in self.symbols:
                 self.symbols[key] = {'ticker_id':-1, 'syms': []}
                 dispatch = True
-                
+            else:
+                ticker_id = self.symbols[key]['ticker_id']
+                self.tickers[ticker_id] = key
             self.symbols[key]['syms'].append(symbol)        
     
             # defer the dispatch at the end of this method        
             if dispatch:
                 self.dispatch(TickDataStore.EVENT_NEW_SYMBOL_ADDED, symbol)
+        except KeyError:
+            logging.error('TickDataStore: add_symbol. Exception when adding symbol:%s' % ContractHelper.makeRedisKeyEx(symbol.get_contract()))
         finally:            
             self.lock.release()
             
@@ -92,42 +97,29 @@ class TickDataStore(Publisher):
     
        
         
-    def set_symbol_price(self, event, message_value):   
+    def set_symbol_price(self, items):   
         
-        # 'value': '{"tickerId": 0, "size": 3, "field": 3}'
+        # message_value: dict: '{"tickerId": 0, "size": 3, "field": 3}'
         
-        items = json.loads(message_value['value'])
+        
         tid = items['tickerId']
-
+        logging.debug('set_symbol_price: -------------------')
         try:
             self.lock.acquire()
             contract_key = self.tickers[tid]
-            # print contract_key
+            logging.debug('set_symbol_price: -------------------tick id:%d symbol list length=%d' % (tid, len(self.symbols[contract_key]['syms'])))
             map(lambda e: e.set_tick_value(items['field'], items['price']), self.symbols[contract_key]['syms'])
             
         except KeyError:
             # contract not set up in the datastore, ignore message
+            logging.error('set_symbol_price: KeyError: %d' % tid)
+            self.dump()
             pass
         finally:
             self.lock.release()
-            self.dispatch(TickDataStore.EVENT_TICK_UPDATED, message_value)
+            self.dispatch(TickDataStore.EVENT_TICK_UPDATED, items)
             
-    def set_datastore_values(self, idc):
-        
 
-        key = ContractHelper.makeRedisKeyEx(idc[1])
-        if key in self.symbols and idc[0] <> self.symbols[key]['ticker_id']:
-            # if this condition is met, one should delete the old entry
-            # and move all object references to the new key/ticker_id
-            raise
-        
-        self.tickers[idc[0]] = key
-        try:
-            self.symbols[key]['ticker_id'] = idc[0]
-        except KeyError:
-            self.symbols[key] = {'ticker_id': idc[0],
-                                   'syms': []}
-        return key
 
     def update_datastore(self, subscription_message_value):
         '''
@@ -139,7 +131,25 @@ class TickDataStore(Publisher):
         'offset': 13
         }
         '''
-
+        def set_datastore_values(idc):
+            
+            
+            key = ContractHelper.makeRedisKeyEx(idc[1])
+            if key in self.symbols and idc[0] <> self.symbols[key]['ticker_id']:
+                # if this condition is met, one should delete the old entry
+                # and move all object references to the new key/ticker_id
+                if self.symbols[key]['ticker_id'] <> -1:
+                    raise
+            
+            self.tickers[idc[0]] = key
+            try:
+                self.symbols[key]['ticker_id'] = idc[0]
+                
+            except KeyError:
+                self.symbols[key] = {'ticker_id': idc[0], 'syms': []}
+            
+            self.dump()
+            return key
                 
 
         
@@ -152,7 +162,7 @@ class TickDataStore(Publisher):
             items = json.loads(subscription_message_value['value'])
             logging.info('TickDataStore:update_datastore. items: %s ' % items)
             id_contracts = map(lambda x: (x[0], ContractHelper.kvstring2contract(utf2asc(x[1]))), items['subscriptions'])
-               
+            map(set_datastore_values, id_contracts)
             self.dump()
         except TypeError:
             logging.error('TickDataStore:gw_subscriptions. Exception when trying to get id:contracts.')

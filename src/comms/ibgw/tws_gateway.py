@@ -40,7 +40,8 @@ class TWS_gateway():
       'session_timeout_ms': 10000,
       'clear_offsets':  False,
       'order_transmit': False,
-      'topics': list(TWS_Protocol.topicMethods) + list(TWS_Protocol.gatewayMethods)
+      'topics': list(TWS_Protocol.topicMethods) + list(TWS_Protocol.gatewayMethods),
+      'reset_db_subscriptions': False
       }
                
     
@@ -122,7 +123,7 @@ class TWS_gateway():
         
         self.contract_subscription_mgr = SubscriptionManager(self.kwargs['name'], self.tws_connection, 
                                                              self.gw_message_handler, 
-                                                             self.get_redis_conn(), self.kwargs['subscription_manager.subscriptions.redis_key'])
+                                                             self.get_redis_conn(), self.kwargs)
         
         
 
@@ -224,6 +225,9 @@ if __name__ == '__main__':
     parser = OptionParser(usage=usage)
     parser.add_option("-c", "--clear_offsets", action="store_true", dest="clear_offsets",
                       help="delete all redis offsets used by this program")
+    parser.add_option("-r", "--reset_db_subscriptions", action="store_true", dest="reset_db_subscriptions",
+                      help="delete subscriptions entries in redis used by this program")
+    
     parser.add_option("-f", "--config_file",
                       action="store", dest="config_file", 
                       help="path to the config file")
@@ -241,7 +245,7 @@ if __name__ == '__main__':
     logconfig['format'] = '%(asctime)s %(levelname)-8s %(message)s'    
     logging.basicConfig(**logconfig)        
 
-    logging.debug('config settings: %s' % kwargs)
+    logging.info('config settings: %s' % kwargs)
     
     app = TWS_gateway(kwargs)
     

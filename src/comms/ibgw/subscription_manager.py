@@ -15,13 +15,16 @@ class SubscriptionManager(BaseMessageListener):
     
     TICKER_GAP = 1000
     
-    def __init__(self, name, tws_connection, producer, rs_conn, subscription_key):
+    def __init__(self, name, tws_connection, producer, rs_conn, kwargs):
         BaseMessageListener.__init__(self, name)
         
         self.tws_connect = tws_connection
         self.producer = producer
         self.rs = rs_conn
-        self.subscription_key = subscription_key
+        self.subscription_key = kwargs['subscription_manager.subscriptions.redis_key']
+        
+        
+        self.reset_subscriptions(kwargs['reset_db_subscriptions'])
 
         #self.handle = []
         # contract key map to contract ID (index of the handle array)
@@ -44,8 +47,10 @@ class SubscriptionManager(BaseMessageListener):
         self.load_subscriptions()
         
             
-
-        
+    def reset_subscriptions(self, reset_db):
+        if reset_db:
+            logging.warn('SubscriptionManager:reset_subscriptions. Delete subscription entry in redis')
+            self.rs.delete(self.subscription_key)
         
     def load_subscriptions(self):
         '''
@@ -103,10 +108,13 @@ class SubscriptionManager(BaseMessageListener):
             # the call to TWS will return a snapshot follow 
             # by the subscription being cancelled. Add 1000 to avoid clashing 
             # with other subscription ids.  
+            print 'request_market_data: %d' % (id + TWS_event_handler.TICKER_GAP)
             self.tws_connect.reqMktData(id + TWS_event_handler.TICKER_GAP, contract, '', True)
         else:
             self.tws_connect.reqMktData(id, contract, '', False)
-            
+#
+#         self.tws_connect.reqMktData(id + TWS_event_handler.TICKER_GAP, contract, '', True)
+#         self.tws_connect.reqMktData(id, contract, '', False)
     
     # returns -1 if not found, else the key id (which could be a zero value)
     def is_subscribed(self, contract):
@@ -159,7 +167,17 @@ class SubscriptionManager(BaseMessageListener):
         #
         # instruct gateway to broadcast new id has been assigned to a new contract
         #
-        self.producer.send_message('gw_subscription_changed', self.producer.message_dumps({id: ContractHelper.object2kvstring(contract)}))
+        '''
+        sample value for gw_ga:
+        {
+        'partition': 0, 'value': '{"target_id": "analytics_engine", "sender_id": "tws_gateway_server", 
+        "subscriptions": [[0, "{\\"m_conId\\": 0, \\"m_right\\": \\"\\", \\"m_symbol\\": \\"HSI\\", \\"m_secType\\": \\"FUT\\", 
+        \\"m_includeExpired\\": false, \\"m_expiry\\": \\"20170330\\", \\"m_currency\\": \\"HKD\\", \\"m_exchange\\": \\"HKFE\\", \\"m_strike\\": 0}"]]}', 
+        'offset': 13
+        }
+        '''      
+        subscription_array =  {'subscriptions': [[id, ContractHelper.object2kvstring(contract)]] }
+        self.producer.send_message('gw_subscription_changed', self.producer.message_dumps( subscription_array   ))
         logging.info('SubscriptionManager:reqMktData. Publish gw_subscription_changed: %d:%s' % (id, ContractHelper.makeRedisKeyEx(contract)))
         
         
@@ -223,10 +241,8 @@ class SubscriptionManager(BaseMessageListener):
             from_id = '<empty_sender_id>'
             
         ic = self.get_id_kvs_contracts(db=False)
-        #print self.producer.message_dumps({'subscriptions': ic, 'sender_id':self.name, 'target_id':from_id})
-        if ic:
-             
-            logging.info('SubscriptionManager:gw_req_subscriptions-------\n%s' % ic)
-            self.producer.send_message('gw_subscriptions', self.producer.message_dumps({'subscriptions': ic, 'sender_id':self.name, 'target_id':from_id}))
+    
         
+        self.producer.send_message('gw_subscriptions', self.producer.message_dumps({'subscriptions': ic , 'sender_id':self.name, 'target_id':from_id}))
+        logging.info('SubscriptionManager:gw_req_subscriptions-------\n%s' % self.producer.message_dumps({'subscriptions': ic , 'sender_id':self.name, 'target_id':from_id}))
        
