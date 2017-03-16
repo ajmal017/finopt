@@ -217,10 +217,13 @@ class SubscriptionManager(BaseMessageListener):
        Client requests to TWS_gateway
     """
     def gw_req_subscriptions(self, event, message):
-     
-        from_id = json.loads(message['value'])['sender_id']
+        try:
+            from_id = json.loads(message['value'])['sender_id']
+        except:
+            from_id = '<empty_sender_id>'
+            
         ic = self.get_id_kvs_contracts(db=False)
-        print self.producer.message_dumps({'subscriptions': ic, 'sender_id':self.name, 'target_id':from_id})
+        #print self.producer.message_dumps({'subscriptions': ic, 'sender_id':self.name, 'target_id':from_id})
         if ic:
              
             logging.info('SubscriptionManager:gw_req_subscriptions-------\n%s' % ic)

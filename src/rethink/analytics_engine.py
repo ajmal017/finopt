@@ -4,6 +4,8 @@ import copy
 from optparse import OptionParser
 from time import sleep
 from misc2.observer import Subscriber
+from misc2.helpers import ContractHelper
+from finopt.options_chain import OptionsChain
 from rethink.tick_datastore import TickDataStore
 from comms.ibc.tws_client_lib import TWS_client_manager, AbstractGatewayListener
 
@@ -33,10 +35,26 @@ class AnalyticsEngine(Subscriber, AbstractGatewayListener):
         self.option_chains = {}
         
     
+    def test_oc(self):
+        expiry = '20170330'
+        contractTuple = ('HSI', 'FUT', 'HKFE', 'HKD', '', 0, expiry)
+        contract = ContractHelper.makeContract(contractTuple)  
+        oc2 = OptionsChain('qqq-%s' % expiry)
+        oc2.set_option_structure(contract, 200, 50, 0.0012, 0.0328, expiry)        
+    
+        oc2.build_chain(24119, 0.03, 0.22)
+        oc2.pretty_print()        
+
+        for o in oc2.get_option_chain():
+            self.tds.add_symbol(o)
+    
+    
     def start_engine(self):
         self.twsc.start_manager()
         self.request_subscrptions()
-
+        
+        self.test_oc()
+        
         try:
             logging.info('AnalyticsEngine:main_loop ***** accepting console input...')
             while True: 
@@ -60,11 +78,13 @@ class AnalyticsEngine(Subscriber, AbstractGatewayListener):
     #
     # tds call backs
     #
-    def tds_event_new_symbol_added(self, event, items):
-        pass
+    def tds_event_new_symbol_added(self, event, symbol):
+       
+        logging.info('tds_event_new_symbol_added. %s' % ContractHelper.object2kvstring(symbol.get_contract()))
+        self.twsc.reqMktData(symbol.get_contract())
     
     def tds_event_tick_updated(self, event, items):
-        pass
+        logging.info('tds_event_tick_updated. %s' % items)
     
     #
     # external ae requests
@@ -79,7 +99,7 @@ class AnalyticsEngine(Subscriber, AbstractGatewayListener):
     #
     def gw_subscription_changed(self, event, message_value):
         logging.info('AnalyticsEngine:%s. val->[%s]' % (event, message_value))
- 
+        self.tds.update_datastore(message_value)
              
     def gw_subscriptions(self, event, message_value):
         logging.info('AnalyticsEngine:%s. val->[%s]' % (event, message_value))
@@ -92,7 +112,7 @@ class AnalyticsEngine(Subscriber, AbstractGatewayListener):
     # tws events     
     #
     def tickPrice(self, event, message_value):   
-        self.tds.update_symbol_price(event, message_value)
+        self.tds.set_symbol_price(event, message_value)
 
  
     def error(self, event, message_value):
@@ -117,7 +137,7 @@ if __name__ == '__main__':
       'session_timeout_ms': 10000,
       'clear_offsets':  False,
       'logconfig': {'level': logging.INFO},
-      'topics': ['gw_subscriptions', 'gw_subscription_changed'],
+      'topics': ['tickPrice', 'gw_subscriptions', 'gw_subscription_changed'],
       'seek_to_end':['tickSize', 'tickPrice']
       }
 
@@ -134,7 +154,7 @@ if __name__ == '__main__':
         if value <> None:
             kwargs[option] = value
             
-    #print kwargs    
+  
       
     logconfig = kwargs['logconfig']
     logconfig['format'] = '%(asctime)s %(levelname)-8s %(message)s'    

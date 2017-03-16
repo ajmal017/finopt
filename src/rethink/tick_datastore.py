@@ -63,24 +63,28 @@ class TickDataStore(Publisher):
 
     def dump(self):
             # print ', '.join('[%s:%s]' % (k, v['ticker_id'])) 
-        logging.info('TickDataStore-symbols: [Key: Ticker ID: # options objects]: ---->\n%s' % (',\n'.join('[%s:%d:%d]' % (k, v['ticker_id'], len(v['syms'])) for k, v in self.symbols.iteritems())))
-        logging.info('TickDataStore-tickers: %s' % self.tickers)
+        logging.info('TickDataStore-symbols:\nkey : ticker : object cnt---->\n%s' % ('\n'.join('[%s :  %d : %d]' % 
+                                                                                                (k, v['ticker_id'], len(v['syms'])) for k, v in self.symbols.iteritems())))
+        logging.info('TickDataStore-tickers:\nticker: object%s' % ('\n'.join('%s:%s' % (str(k).ljust(4), 
+                                                                          ContractHelper.makeRedisKeyEx(v))) for k, v in self.tickers.iteritems()))
     
      
     
     def add_symbol(self, symbol):
         try:
+            dispatch = False
             self.lock.acquire()
             key = symbol.get_key()
             if key not in self.symbols:
                 self.symbols[key] = {'ticker_id':-1, 'syms': []}
+                dispatch = True
                 
             self.symbols[key]['syms'].append(symbol)        
     
             # defer the dispatch at the end of this method        
-            if key not in self.symbols:
+            if dispatch:
                 self.dispatch(TickDataStore.EVENT_NEW_SYMBOL_ADDED, symbol)
-        finally:
+        finally:            
             self.lock.release()
             
     def del_symbol(self, symbol):
@@ -91,7 +95,8 @@ class TickDataStore(Publisher):
     def set_symbol_price(self, event, message_value):   
         
         # 'value': '{"tickerId": 0, "size": 3, "field": 3}'
-        items = json.loads(message_value)
+        
+        items = json.loads(message_value['value'])
         tid = items['tickerId']
 
         try:
@@ -107,7 +112,22 @@ class TickDataStore(Publisher):
             self.lock.release()
             self.dispatch(TickDataStore.EVENT_TICK_UPDATED, message_value)
             
+    def set_datastore_values(self, idc):
+        
 
+        key = ContractHelper.makeRedisKeyEx(idc[1])
+        if key in self.symbols and idc[0] <> self.symbols[key]['ticker_id']:
+            # if this condition is met, one should delete the old entry
+            # and move all object references to the new key/ticker_id
+            raise
+        
+        self.tickers[idc[0]] = key
+        try:
+            self.symbols[key]['ticker_id'] = idc[0]
+        except KeyError:
+            self.symbols[key] = {'ticker_id': idc[0],
+                                   'syms': []}
+        return key
 
     def update_datastore(self, subscription_message_value):
         '''
@@ -119,22 +139,7 @@ class TickDataStore(Publisher):
         'offset': 13
         }
         '''
-        def set_values2(idc):
-            
-            
-            key = ContractHelper.makeRedisKeyEx(idc[1])
-            
-            if key in self.symbols and idc[0] <> self.symbols[key]['ticker_id']:
-                # if this condition is met, one should delete the old entry
-                # and move all object references to the new key/ticker_id
-                raise
-            
-            self.tickers[idc[0]] = key
-            try:
-                self.symbols[key]['ticker_id'] = idc[0]
-            except KeyError:
-                self.symbols[key] = {'ticker_id': idc[0],
-                                       'syms': []}
+
                 
 
         
@@ -147,7 +152,7 @@ class TickDataStore(Publisher):
             items = json.loads(subscription_message_value['value'])
             logging.info('TickDataStore:update_datastore. items: %s ' % items)
             id_contracts = map(lambda x: (x[0], ContractHelper.kvstring2contract(utf2asc(x[1]))), items['subscriptions'])
-            map(lambda idc: set_values2, id_contracts)   
+               
             self.dump()
         except TypeError:
             logging.error('TickDataStore:gw_subscriptions. Exception when trying to get id:contracts.')
