@@ -107,13 +107,16 @@ class TickDataStore(Publisher):
         try:
             self.lock.acquire()
             contract_key = self.tickers[tid]
-            logging.debug('set_symbol_price: -------------------tick id:%d symbol list length=%d' % (tid, len(self.symbols[contract_key]['syms'])))
+            if (tid == 10):
+                logging.info('set_symbol_price %s' % items)
+            logging.debug('set_symbol_price: -------------------tick id:%d symbol list length=%d %s' % (tid, len(self.symbols[contract_key]['syms']), 
+                                                                                            contract_key))
             map(lambda e: e.set_tick_value(items['field'], items['price']), self.symbols[contract_key]['syms'])
             
         except KeyError:
             # contract not set up in the datastore, ignore message
             logging.error('set_symbol_price: KeyError: %d' % tid)
-            self.dump()
+            #self.dump()
             pass
         finally:
             self.lock.release()

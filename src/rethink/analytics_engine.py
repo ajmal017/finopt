@@ -36,27 +36,28 @@ class AnalyticsEngine(Subscriber, AbstractGatewayListener):
         
     
     def test_oc(self, oc2):
-#         expiry = '20170330'
-#         contractTuple = ('HSI', 'FUT', 'HKFE', 'HKD', '', 0, expiry)
+        expiry = '20170330'
+        contractTuple = ('HSI', 'FUT', 'HKFE', 'HKD', '', 0, expiry)
+        contract = ContractHelper.makeContract(contractTuple)  
+ 
+        oc2.set_option_structure(contract, 200, 50, 0.0012, 0.0328, expiry)        
+     
+        oc2.build_chain(24119, 0.03, 0.22)
+        
+#         expiry='20170324'
+#         contractTuple = ('QQQ', 'STK', 'SMART', 'USD', '', 0, '')
 #         contract = ContractHelper.makeContract(contractTuple)  
 # 
-#         oc2.set_option_structure(contract, 200, 50, 0.0012, 0.0328, expiry)        
+#         oc2.set_option_structure(contract, 0.5, 100, 0.0012, 0.0328, expiry)        
 #     
-#         oc2.build_chain(24119, 0.02, 0.22)
-        
-        expiry='20170324'
-        contractTuple = ('QQQ', 'STK', 'SMART', 'USD', '', 0, '')
-        contract = ContractHelper.makeContract(contractTuple)  
-
-        oc2.set_option_structure(contract, 0.5, 100, 0.0012, 0.0328, expiry)        
-    
-        oc2.build_chain(132.11, 0.02, 0.22)
+#         oc2.build_chain(132.11, 0.02, 0.22)
         
         
         oc2.pretty_print()        
 
         for o in oc2.get_option_chain():
             self.tds.add_symbol(o)
+        self.tds.add_symbol(oc2.get_underlying())
     
     
     def start_engine(self):
@@ -69,8 +70,9 @@ class AnalyticsEngine(Subscriber, AbstractGatewayListener):
             logging.info('AnalyticsEngine:main_loop ***** accepting console input...')
             while True: 
             
-                sleep(3.0)
+
                 oc2.pretty_print()
+                sleep(10.0)
             
         except (KeyboardInterrupt, SystemExit):
             logging.error('AnalyticsEngine: caught user interrupt. Shutting down...')
@@ -110,6 +112,9 @@ class AnalyticsEngine(Subscriber, AbstractGatewayListener):
         #(int tickerId, int field, double impliedVol, double delta, double optPrice, double pvDividend, double gamma, double vega, double theta, double undPrice) 
         pass
     
+    def ae_req_tds_internal(self, event, message_value):
+        logging.info('received ae_req_tds_internal')
+        self.tds.dump()
     
     #
     # gateway events
@@ -159,8 +164,9 @@ if __name__ == '__main__':
       'session_timeout_ms': 10000,
       'clear_offsets':  True,
       'logconfig': {'level': logging.INFO, 'filemode': 'w', 'filename': '/tmp/ae.log'},
-      'topics': ['tickPrice', 'gw_subscriptions', 'gw_subscription_changed'],
-      'seek_to_end':['tickSize', 'tickPrice']
+      'topics': ['tickPrice', 'gw_subscriptions', 'gw_subscription_changed', 'ae_req_tds_internal'],
+      'seek_to_end': ['*'],
+      #'seek_to_end':['tickSize', 'tickPrice','gw_subscriptions', 'gw_subscription_changed']
       }
 
     usage = "usage: %prog [options]"

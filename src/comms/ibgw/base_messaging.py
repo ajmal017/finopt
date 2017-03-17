@@ -17,6 +17,7 @@ from redis import Redis
 
 from misc2.observer import Subscriber, Publisher
 from numpy.distutils.fcompiler import none
+from types import NoneType
 
 
 
@@ -288,15 +289,19 @@ class BaseConsumer(threading.Thread, Publisher):
                                   % (message.topic, message.partition, message.offset, gap, highwater))
                                                                                                 
                     for t, ps in map(lambda t: (t, consumer.partitions_for_topic(t)), self.my_topics.keys()):
-                        logging.info ("*** On first iteration: T/P Table: topic:[%s] %s" % (t.rjust(25),  
-                                                         ','.join('part:%d, off:%d' % (p, consumer.position(TopicPartition(topic=t, partition=p))) for p in ps)
-                                                         ))
+                        try:
+                            logging.info ("*** On first iteration: T/P Table: topic:[%s] %s" % (t.rjust(25),  
+                                                             ','.join('part:%d, off:%d' % (p, consumer.position(TopicPartition(topic=t, partition=p))) for p in ps)
+                                                             ))
+                        except TypeError:
+                            logging.warn ('*** On first iteration: [*** %s not registered in kafka topics yet ***]. This message should go away the next time the program is run.' % t)
+                            continue
                         
                     self.persist_offsets(message.topic, message.partition, message.offset)
                     self.my_topics[message.topic] = json.loads(self.rs.get(self.consumer_topic(message.topic)))
                         
                         
-                    if message.topic in self.kwargs['seek_to_end']:
+                    if '*' in self.kwargs['seek_to_end'] or message.topic in self.kwargs['seek_to_end']:
                         
                         # if there is no gap                          
                         if gap == 1:
