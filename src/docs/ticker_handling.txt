@@ -1,0 +1,50 @@
+ticker handling 
+===============
+
+
+Case 1: Request market data snapshot
+------------------------------------
+
+1. (client) Symbol <-> 2. (client messaging) Contract-key <-> 3. (server messaging) Contract-key <-> 4. (tws) ticker_id
+
+
+1. Create symbol
+- contract = ContractTuple(....)
+- symbol = Symbol(contract) 
+
+2. Request market data
+- object:contract-key
+- reqMktData(ContractHelper(symbol.getContract(), snapshot=True)
+- encode message object for kafka transport {'contract':contract, 'snapshot':snapshot}
+- TWS_client_manager(GatewayCommandWrapper) -> reqMktData(encoded message object)
+- GatewayCommandWrapper -> producer.send_message('reqMktData', json_message_str)
+
+3. Process request
+- prosumer/ BaseConsumer -> enrich message value in message['value'] key
+- ClientRequestHandler(BaseMessageListener) -> reqMktData -> subscription_mgr.reqMktData(contract_object, snapshot)
+
+4. map id:key 
+- tws_connection -> reqMktData(id + 1000|id, contract, True|False)
+
+Case 2: Receive market data
+
+5. tws <-> 6. server messaging <-> 7. client messaging <-> 8. client
+
+5. Receive tickPrice
+- TWS_event_handler(EWrapper) -> tickPrice -> remap id:contract-key
+- update vars() by replacing tickId with contract-key 
+6
+- self.broadcast_event('tickPrice', vars())
+- self.producer.send_message(message, self.producer.message_dumps(dict))
+
+
+7 
+- baseconsumer (**json.loads(text_message))
+- Inherit AbstractGatewayListener(BaseMessageListener) / tickPrice(tickerId, field, price, canAutoExecute):
+
+
+     
+
+
+
+
