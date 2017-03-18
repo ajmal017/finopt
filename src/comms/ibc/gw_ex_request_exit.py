@@ -36,7 +36,8 @@ class MessageListener(AbstractGatewayListener):
         logging.info('MessageListener:%s. val->[%s]' % (event, message_value))
         
 
-    
+    def tickPrice(self, event, contract_key, field, price, canAutoExecute):
+        logging.info('MessageListener: %s' % vars())
 
 
 def test_client(kwargs):

@@ -26,20 +26,22 @@ Case 1: Request market data snapshot
 4. map id:key 
 - tws_connection -> reqMktData(id + 1000|id, contract, True|False)
 
-Case 2: Receive market data
+Case 2: Receive market data from TWS
 
 5. tws <-> 6. server messaging <-> 7. client messaging <-> 8. client
 
-5. Receive tickPrice
-- TWS_event_handler(EWrapper) -> tickPrice -> remap id:contract-key
-- update vars() by replacing tickId with contract-key 
+5. Receive tickPrice 
+- comms.ibgw.tws_event_handler TWS_event_handler(EWrapper) -> tickPrice -> remap id:contract-key
+- update vars() by replacing tickId with contract-key subscrition_manager.get_contract_by_id
 6
-- self.broadcast_event('tickPrice', vars())
+- tws_event_handler->self.broadcast_event('tickPrice', {self.subscription_manger.get_contract_by_id(tickerId),
+                                           field, price, canAutoExecute})
 - self.producer.send_message(message, self.producer.message_dumps(dict))
 
 
-7 
-- baseconsumer (**json.loads(text_message))
+7
+-  
+- baseconsumer: self.dispatch(message.topic, **self.extract_message_content(message))
 - Inherit AbstractGatewayListener(BaseMessageListener) / tickPrice(tickerId, field, price, canAutoExecute):
 
 

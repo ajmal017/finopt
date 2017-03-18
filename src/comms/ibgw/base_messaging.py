@@ -194,6 +194,9 @@ class BaseConsumer(threading.Thread, Publisher):
     
     def enrich_message(self, message):
         return {'value': message.value, 'partition':message.partition, 'offset': message.offset}
+        
+    def extract_message_content(self, message):
+        return message.value
     
     def set_stop(self):
         self.done = True
@@ -306,7 +309,8 @@ class BaseConsumer(threading.Thread, Publisher):
                         # if there is no gap                          
                         if gap == 1:
                             # the message is valid for dispatching and not to be skipped
-                            self.dispatch(message.topic, self.enrich_message(message))
+                            #self.dispatch(message.topic, self.enrich_message(message))
+                            self.dispatch(message.topic, **self.extract_message_content(message))
                             logging.debug('*** On first iteration: Gap=%d Dispatch this valid message to the listener <%s>' % (gap, message.value))
                         else: # gap exists
                             logging.info("*** On first iteration: [Topic:%s:Part:%d:Offset:%d]: Gap:%d Attempting to seek to latest message ..." 
@@ -337,12 +341,14 @@ class BaseConsumer(threading.Thread, Publisher):
                     # both saved value in redis and current offset are both 0
                     if self.my_topics[message.topic][str(message.partition)] == message.offset and message.offset <> 0:
                         self.dispatch(BaseConsumer.KB_REACHED_LAST_OFFSET, self.enrich_message(message))
-                        self.dispatch(message.topic, self.enrich_message(message))
+                        #self.dispatch(message.topic, self.enrich_message(message))
+                        self.dispatch(message.topic, **self.extract_message_content(message))
                         logging.info('********************** reached the last message previously processed %s %d' % (message.topic, message.offset))
                     else:
                         self.persist_offsets(message.topic, message.partition, message.offset)
                         #self.dispatch(BaseConsumer.KB_EVENT, {'message': message})
-                        self.dispatch(message.topic, self.enrich_message(message))
+                        #self.dispatch(message.topic, self.enrich_message(message))
+                        self.dispatch(message.topic, **self.extract_message_content(message))
             except StopIteration:
                 logging.debug('BaseConsumer:run StopIteration Caught. No new message arriving...')
                 continue

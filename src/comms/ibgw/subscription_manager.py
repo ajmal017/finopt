@@ -46,6 +46,9 @@ class SubscriptionManager(BaseMessageListener):
 
         self.load_subscriptions()
         
+    
+    def get_contract_by_id(self, id):
+        return self.idContractMap['id_contract']
             
     def reset_subscriptions(self, reset_db):
         if reset_db:
@@ -143,7 +146,8 @@ class SubscriptionManager(BaseMessageListener):
             
     def reqMktData(self, event, message):
                   
-        contract = ContractHelper.kvstring2object(message['value'], Contract)
+        contract = ContractHelper.kvstring2object(message['contract'], Contract)
+        snapshot = message['snapshot']
         #logging.info('SubscriptionManager: reqMktData')
   
         id = self.is_subscribed(contract)
@@ -154,14 +158,16 @@ class SubscriptionManager(BaseMessageListener):
             # the conId must be set to zero when calling TWS reqMktData
             # otherwise TWS will fail to subscribe the contract
             contract.m_conId = 0
+            self.request_market_data(id, contract, True)
             self.request_market_data(id, contract, False) 
             self.is_dirty = True
                 
             logging.info('SubscriptionManager:reqMktData. Requesting market data, id = %d, contract = %s' % (id, ContractHelper.makeRedisKeyEx(contract)))
         
-        else:    
-            self.request_market_data(id, contract, True)
-            logging.info('SubscriptionManager:reqMktData. contract already subscribed. Request snapshot = %d, contract = %s' % (id, ContractHelper.makeRedisKeyEx(contract)))
+        else:  
+            self.request_market_data(id, contract, snapshot)
+            logging.info('SubscriptionManager:reqMktData. Request id: %d, contract = %s snapshot=%s' % 
+                         (id, ContractHelper.makeRedisKeyEx(contract), snapshot))
         #self.dump()
 
         #
@@ -176,9 +182,9 @@ class SubscriptionManager(BaseMessageListener):
         'offset': 13
         }
         '''      
-        subscription_array =  {'subscriptions': [[id, ContractHelper.object2kvstring(contract)]] }
-        self.producer.send_message('gw_subscription_changed', self.producer.message_dumps( subscription_array   ))
-        logging.info('SubscriptionManager:reqMktData. Publish gw_subscription_changed: %d:%s' % (id, ContractHelper.makeRedisKeyEx(contract)))
+#         subscription_array =  {'subscriptions': [[id, ContractHelper.object2kvstring(contract)]] }
+#         self.producer.send_message('gw_subscription_changed', self.producer.message_dumps( subscription_array   ))
+#         logging.info('SubscriptionManager:reqMktData. Publish gw_subscription_changed: %d:%s' % (id, ContractHelper.makeRedisKeyEx(contract)))
         
         
         

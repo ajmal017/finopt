@@ -53,8 +53,11 @@ class GatewayCommandWrapper():
     def reqExecutions(self, exec_filter=None):
         self.producer.send_message('reqExecutions', ExecutionFilterHelper.object2kvstring(exec_filter) if exec_filter <> None else '')
 
-    def reqMktData(self, contract):
-        self.producer.send_message('reqMktData', ContractHelper.object2kvstring(contract))
+#     def reqMktData(self, contract):
+#         self.producer.send_message('reqMktData', ContractHelper.object2kvstring(contract))
+    def reqMktData(self, contract, snapshot=False):
+        self.producer.send_message('reqMktData', {'contract': ContractHelper.object2kvstring(contract), 
+                                                  'snapshot': snapshot})        
         
     def reqAccountSummary(self, reqId, group, tags):
         self.producer.send_message('reqAccountSummary', self.producer.message_dumps([reqId, group, tags]))
