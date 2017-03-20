@@ -39,11 +39,12 @@ class Publisher:
     def dispatch(self, event, params=None):
         
         for subscriber, callback in self.get_subscribers(event).items():
+            callback(event, **params)
             #print 'observer:: subscriber**** %s' % subscriber
-            try:
-                callback(event, **params)
-            except TypeError:
-                logging.error (sys.exc_info()[0])
+#             try:
+#                 callback(event, **params)
+#             except TypeError:
+#                 logging.error (sys.exc_info()[0])
             
 #############################################################
 # Test classes to demo usage of Publisher and Subscriber

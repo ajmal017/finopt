@@ -44,11 +44,12 @@ class SubscriptionManager(BaseMessageListener):
         # flag to indicate whether to save changes when persist_subscriptions is called       
         self.is_dirty = False
 
+        logging.warn('***** TEMPORARILY skip loading subscriptions from redis!!!')
         self.load_subscriptions()
         
     
     def get_contract_by_id(self, id):
-        return self.idContractMap['id_contract']
+        return self.idContractMap['id_contract'][id]
             
     def reset_subscriptions(self, reset_db):
         if reset_db:
@@ -150,7 +151,8 @@ class SubscriptionManager(BaseMessageListener):
 #         contract = ContractHelper.kvstring2object(message['contract'], Contract)
 #         snapshot = message['snapshot']
         #logging.info('SubscriptionManager: reqMktData')
-  
+
+        contract = ContractHelper.kvstring2object(contract, Contract)
         id = self.is_subscribed(contract)
         if id == -1: # not found
             

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 import logging
-
+import json
 
 from ib.ext.Contract import Contract
 from misc2.helpers import ContractHelper, ExecutionFilterHelper, OrderHelper
@@ -56,8 +56,8 @@ class GatewayCommandWrapper():
 #     def reqMktData(self, contract):
 #         self.producer.send_message('reqMktData', ContractHelper.object2kvstring(contract))
     def reqMktData(self, contract, snapshot=False):
-        self.producer.send_message('reqMktData', {'contract': ContractHelper.object2kvstring(contract), 
-                                                  'snapshot': snapshot})        
+        self.producer.send_message('reqMktData', json.dumps({'contract': ContractHelper.object2kvstring(contract), 
+                                                  'snapshot': snapshot}))        
         
     def reqAccountSummary(self, reqId, group, tags):
         self.producer.send_message('reqAccountSummary', self.producer.message_dumps([reqId, group, tags]))

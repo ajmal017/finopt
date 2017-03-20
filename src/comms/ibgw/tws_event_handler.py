@@ -26,6 +26,7 @@ class TWS_event_handler(EWrapper):
             dict = self.tick_process_message(message, mapping)     
             if message == 'gw_subscriptions' or message == 'gw_subscription_changed':   
                 logging.info('TWS_event_handler: broadcast event: %s [%s]' % (dict['typeName'], dict))
+            logging.info('broadcast_event %s' % dict)
             self.producer.send_message(message, self.producer.message_dumps(dict))    
         except:
             logging.error('broadcast_event: exception while encoding IB event to client:  [%s]' % message)
@@ -73,8 +74,8 @@ class TWS_event_handler(EWrapper):
     
     def tickPrice(self, tickerId, field, price, canAutoExecute):
         logging.info('TWS_event_handler:tickPrice. %d<->%s' % (tickerId,self.subscription_manger.get_contract_by_id(tickerId) ))
-        self.broadcast_event('tickPrice', {self.subscription_manger.get_contract_by_id(tickerId),
-                                           field, price, canAutoExecute})
+        self.broadcast_event('tickPrice', {'contract_key': self.subscription_manger.get_contract_by_id(tickerId), 
+                                           'field': field, 'price': price, 'canAutoExecute': canAutoExecute})
 
     def tickSize(self, tickerId, field, size):
         

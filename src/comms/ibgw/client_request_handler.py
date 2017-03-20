@@ -82,11 +82,11 @@ class ClientRequestHandler(BaseMessageListener):
     
     def reqMktData(self, event, contract, snapshot):
         logging.info('ClientRequestHandler received reqMktData request: %s' % contract)
-        try:
-            #self.contract_subscription_mgr.reqMktData(ContractHelper.kvstring2contract(sm_contract))
-            self.contract_subscription_mgr.reqMktData(ContractHelper.kvstring2object(contract, Contract))
-        except:
-            pass
+#         try:
+#             #self.contract_subscription_mgr.reqMktData(ContractHelper.kvstring2contract(sm_contract))
+#             self.contract_subscription_mgr.reqMktData(ContractHelper.kvstring2object(contract, Contract))
+#         except:
+#             pass
     
     def reqHistoricalData(self, event):
         contract = Contract()
