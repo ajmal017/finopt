@@ -80,7 +80,7 @@ class AbstractGatewayListener(BaseMessageListener):
         BaseMessageListener.__init__(self, name)
         
     
-    def tickPrice(self, event, message_value):  # tickerId, field, price, canAutoExecute):
+    def tickPrice(self, event, contract_key, field, price, canAutoExecute):  # tickerId, field, price, canAutoExecute):
         """ generated source for method tickPrice """
         raise NotImplementedException
    

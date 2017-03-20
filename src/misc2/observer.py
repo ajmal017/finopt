@@ -1,4 +1,6 @@
 import json
+import sys
+import logging
 
 class NotImplementedException(Exception):
     def __init__(self, value):
@@ -38,7 +40,10 @@ class Publisher:
         
         for subscriber, callback in self.get_subscribers(event).items():
             #print 'observer:: subscriber**** %s' % subscriber
-            callback(event, params)
+            try:
+                callback(event, **params)
+            except TypeError:
+                logging.error (sys.exc_info()[0])
             
 #############################################################
 # Test classes to demo usage of Publisher and Subscriber

@@ -47,7 +47,9 @@ def test_client(kwargs):
     
     cm.add_listener_topics(cl, kwargs['topics'])
     cm.start_manager()
-    cm.gw_message_handler.send_message('ae_req_tds_internal', '')
+    contractTuples = [('HSI', 'FUT', 'HKFE', 'HKD', '20170330', 0, '')]#
+    
+    cm.reqMktData(ContractHelper.makeContract(contractTuples[0]), True)
     try:
         logging.info('TWS_gateway:main_loop ***** accepting console input...')
         while not cm.is_stopped(): 
@@ -78,9 +80,10 @@ if __name__ == '__main__':
       'tws_app_id': 38868,
       'group_id': 'EX_REQUEST',
       'session_timeout_ms': 10000,
-      'clear_offsets':  False,
+      'clear_offsets':  True,
       'logconfig': {'level': logging.INFO},
-      'topics': ['positionEnd']
+      'topics': ['tickPrice'],
+      'seek_to_end': ['tickPrice']
       }
 
     usage = "usage: %prog [options]"
@@ -96,7 +99,7 @@ if __name__ == '__main__':
         if value <> None:
             kwargs[option] = value
             
-    #print kwargs    
+    print kwargs    
       
     logconfig = kwargs['logconfig']
     logconfig['format'] = '%(asctime)s %(levelname)-8s %(message)s'    

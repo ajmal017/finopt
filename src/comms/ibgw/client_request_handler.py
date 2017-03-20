@@ -80,11 +80,11 @@ class ClientRequestHandler(BaseMessageListener):
         self.tws_connect.requestFA(1)
     
     
-    def reqMktData(self, event, sm_contract):
-        logging.info('ClientRequestHandler received reqMktData request: %s' % sm_contract)
+    def reqMktData(self, event, contract, snapshot):
+        logging.info('ClientRequestHandler received reqMktData request: %s' % contract)
         try:
             #self.contract_subscription_mgr.reqMktData(ContractHelper.kvstring2contract(sm_contract))
-            self.contract_subscription_mgr.reqMktData(ContractHelper.kvstring2object(sm_contract, Contract))
+            self.contract_subscription_mgr.reqMktData(ContractHelper.kvstring2object(contract, Contract))
         except:
             pass
     

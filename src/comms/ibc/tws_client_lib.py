@@ -112,8 +112,9 @@ class GatewayMessageListener(AbstractGatewayListener):
     def __init__(self, name):
         AbstractGatewayListener.__init__(self, name)
              
-    def tickPrice(self, event, message_value):  # tickerId, field, price, canAutoExecute):
-        logging.info('GatewayMessageListener:%s. val->[%s]' % (event, message_value))
+    #def tickPrice(self, event, message_value):  # tickerId, field, price, canAutoExecute):
+    def tickPrice(self, event, contract_key, field, price, canAutoExecute):  # tickerId, field, price, canAutoExecute):    
+        logging.info('GatewayMessageListener:%s. val->[%s]' % (event, vars()))
 
     def tickSize(self, event, message_value):  # tickerId, field, price, canAutoExecute):
         logging.info('GatewayMessageListener:%s. val->[%s]' % (event, message_value))

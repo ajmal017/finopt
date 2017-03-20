@@ -20,7 +20,7 @@ Case 1: Request market data snapshot
 - GatewayCommandWrapper -> producer.send_message('reqMktData', json_message_str)
 
 3. Process request
-- prosumer/ BaseConsumer -> enrich message value in message['value'] key
+- prosumer/ BaseConsumer baseconsumer: self.dispatch(message.topic, **self.extract_message_content(message))
 - ClientRequestHandler(BaseMessageListener) -> reqMktData -> subscription_mgr.reqMktData(contract_object, snapshot)
 
 4. map id:key 

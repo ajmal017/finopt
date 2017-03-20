@@ -126,7 +126,7 @@ class TWS_gateway():
                                                              self.get_redis_conn(), self.kwargs)
         
         
-
+        self.tws_event_handler.set_subscription_manager(self.contract_subscription_mgr)
 
     def initialize_redis(self):
 

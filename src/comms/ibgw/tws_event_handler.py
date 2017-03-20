@@ -4,7 +4,7 @@ from time import strftime
 import logging
 import traceback
 from ib.ext.EWrapper import EWrapper
-from comms.ibgw import subscription_manager
+
 
         
 class TWS_event_handler(EWrapper):
@@ -12,12 +12,13 @@ class TWS_event_handler(EWrapper):
     TICKER_GAP = 1000
     producer = None
     
-    def __init__(self, producer, subscription_manager):        
+    def __init__(self, producer):        
         self.producer = producer
+        
+ 
+ 
+    def set_subscription_manager(self, subscription_manager):
         self.subscription_manger = subscription_manager
- 
- 
-
  
     def broadcast_event(self, message, mapping):
 
@@ -71,7 +72,7 @@ class TWS_event_handler(EWrapper):
                 
     
     def tickPrice(self, tickerId, field, price, canAutoExecute):
-        
+        logging.info('TWS_event_handler:tickPrice. %d<->%s' % (tickerId,self.subscription_manger.get_contract_by_id(tickerId) ))
         self.broadcast_event('tickPrice', {self.subscription_manger.get_contract_by_id(tickerId),
                                            field, price, canAutoExecute})
 

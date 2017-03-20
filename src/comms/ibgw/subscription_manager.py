@@ -144,10 +144,11 @@ class SubscriptionManager(BaseMessageListener):
         return self.idContractMap['next_id']
 
             
-    def reqMktData(self, event, message):
+    #def reqMktData(self, event, message):
+    def reqMktData(self, event, contract, snapshot):        
                   
-        contract = ContractHelper.kvstring2object(message['contract'], Contract)
-        snapshot = message['snapshot']
+#         contract = ContractHelper.kvstring2object(message['contract'], Contract)
+#         snapshot = message['snapshot']
         #logging.info('SubscriptionManager: reqMktData')
   
         id = self.is_subscribed(contract)
