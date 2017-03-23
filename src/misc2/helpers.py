@@ -186,6 +186,24 @@ class ContractHelper(BaseHelper):
     def is_equal(c1, c2):
         return ContractHelper.makeRedisKeyEx(c1) == ContractHelper.makeRedisKeyEx(c2) 
 
+    @staticmethod
+    def makeContractfromRedisKeyEx(key):
+        
+        def utf2asc(x):
+            return x.encode('ascii') if isinstance(x, unicode) else x
+                
+                #return map(lambda x: (x[0], ContractHelper.kvstring2contract(utf2asc(x[1]))), id_contracts)
+        
+        toks = utf2asc(key).split('-')
+        c = Contract()
+        c.m_symbol = toks[0]
+        c.m_expiry = toks[1]
+        c.m_strike = float(toks[2])
+        c.m_right = toks[3]
+        c.m_secType = toks[4]
+        c.m_currency = toks[5]
+        c.m_exchange = toks[6]               
+        return c 
     
 # def str2dict(s):
 #     return ast.literal_eval(s)

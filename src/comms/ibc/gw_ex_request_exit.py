@@ -3,6 +3,7 @@
 from time import sleep, strftime
 import logging
 import json
+import sys
 
 from ib.ext.Contract import Contract
 from optparse import OptionParser
@@ -10,22 +11,26 @@ from misc2.helpers import ContractHelper
 from comms.ibgw.base_messaging import Prosumer
 from comms.tws_protocol_helper import TWS_Protocol
 from comms.ibc.tws_client_lib import TWS_client_manager, AbstractGatewayListener
+from QuantLib._QuantLib import VanillaOption_priceCurve
+from rethink.tick_datastore import TickDataStore
+from finopt.instrument import Symbol
 
          
 class MessageListener(AbstractGatewayListener):   
-    def __init__(self, name, parent):
+    def __init__(self, name, tick_ds):
         AbstractGatewayListener.__init__(self, name)
-        self.parent = parent
+        self.tick_ds = tick_ds
 
-    def position(self, event, message_value):  # account, contract, pos, avgCost):
-        logging.info('MessageListener:%s. val->[%s]' % (event, message_value))
+    def position(self, event, account, contract, pos, avgCost):
+        #logging.info('MessageListener:%s. val->[%s]' % (event, vars()))
+        logging.info('MessageListener: %s %s %d %8.2f' % (account, ContractHelper.kv2contract(contract).m_symbol, pos, avgCost))
    
-    def positionEnd(self, event, message_value):
-        logging.info('MessageListener:%s. val->[%s]' % (event, message_value))
+    def positionEnd(self, event):
+        logging.info('MessageListener:%s. val->[%s]' % (event, vars()))
         #self.parent.stop_manager()
         
-    def error(self, event, message_value):
-        logging.info('MessageListener:%s. val->[%s]' % (event, message_value))  
+    def error(self, event, id, errorCode, errorMsg):
+        logging.info('MessageListener:%s. val->[%s]' % (event, vars()))  
 
 
     def gw_subscriptions(self, event, message_value):
@@ -37,24 +42,43 @@ class MessageListener(AbstractGatewayListener):
         
 
     def tickPrice(self, event, contract_key, field, price, canAutoExecute):
-        logging.info('MessageListener: %s' % vars())
+        #logging.info('MessageListener:%s. %s %d %8.2f' % (event, contract_key, field, price))
+        self.tick_ds.set_symbol_tick_price(contract_key, field, price, canAutoExecute)
+
+    def tickSize(self, event, contract_key, field, size):
+        self.tick_ds.set_symbol_tick_price(contract_key, field, size, 0)
+        #logging.info('MessageListener:%s. %s: %d %8.2f' % (event, contract_key, field, size))
+        
+
 
 
 def test_client(kwargs):
 
+    ts = TickDataStore(kwargs['name'])
     cm = TWS_client_manager(kwargs)
-    cl = MessageListener('gw_client_message_listener', cm)
+    cl = MessageListener('gw_client_message_listener', ts)
     
     cm.add_listener_topics(cl, kwargs['topics'])
     cm.start_manager()
-    contractTuples = [('HSI', 'FUT', 'HKFE', 'HKD', '20170330', 0, '')]#
-    
-    cm.reqMktData(ContractHelper.makeContract(contractTuples[0]), True)
+    contractTuples = [('HSI', 'FUT', 'HKFE', 'HKD', '20170330', 0, ''),
+                      ('USD', 'CASH', 'IDEALPRO', 'JPY', '', 0, ''),
+                      ('AUD', 'CASH', 'IDEALPRO', 'USD', '', 0, ''),
+                      ('QQQ', 'STK', 'SMART', 'USD', '', 0, ''),
+                      ]
+                          
+                              
+    map(lambda x: cm.reqMktData(ContractHelper.makeContract(x), False), contractTuples)
+    syms = map(lambda x: Symbol(ContractHelper.makeContract(x)), contractTuples)
+    map(lambda x: ts.add_symbol(x), syms)
+    #cm.reqPositions()
+    #cm.reqMktData(ContractHelper.makeContract(contractTuples[1]), False)
     try:
         logging.info('TWS_gateway:main_loop ***** accepting console input...')
         while not cm.is_stopped(): 
         
             sleep(.45)
+            read_ch = raw_input("Enter command:")
+            ts.dump()
         
     except (KeyboardInterrupt, SystemExit):
         logging.error('TWS_client_manager: caught user interrupt. Shutting down...')
@@ -80,10 +104,10 @@ if __name__ == '__main__':
       'tws_app_id': 38868,
       'group_id': 'EX_REQUEST',
       'session_timeout_ms': 10000,
-      'clear_offsets':  True,
+      'clear_offsets':  False,
       'logconfig': {'level': logging.INFO},
-      'topics': ['tickPrice'],
-      'seek_to_end': ['tickPrice']
+      'topics': ['tickSize', 'tickPrice',  'position', 'positionEnd'],
+      'seek_to_end': ['tickPrice', 'tickSize','position', 'positionEnd'],
       }
 
     usage = "usage: %prog [options]"
@@ -93,8 +117,17 @@ if __name__ == '__main__':
     parser.add_option("-g", "--group_id",
                       action="store", dest="group_id", 
                       help="assign group_id to this running instance")
+    parser.add_option("-n", "--name",
+                      action="store", dest="name", 
+                      help="assign an identifier to this running instance")
+    
+    
     
     (options, args) = parser.parse_args()
+    if options.name == None or options.group_id == None:
+        print "Name or Group id was not specified. Use -h to see all options. Exiting..."
+        sys.exit()
+        
     for option, value in options.__dict__.iteritems():
         if value <> None:
             kwargs[option] = value

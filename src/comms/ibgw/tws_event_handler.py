@@ -75,25 +75,32 @@ class TWS_event_handler(EWrapper):
     def tickPrice(self, tickerId, field, price, canAutoExecute):
         logging.info('TWS_event_handler:tickPrice. %d<->%s' % (tickerId,self.subscription_manger.get_contract_by_id(tickerId) ))
         self.broadcast_event('tickPrice', {'contract_key': self.subscription_manger.get_contract_by_id(tickerId), 
-                                           'field': field, 'price': price, 'canAutoExecute': canAutoExecute})
-
+                                          'field': field, 'price': price, 'canAutoExecute': canAutoExecute})
+        #pass
+    
     def tickSize(self, tickerId, field, size):
-        
-        self.broadcast_event('tickSize', vars()) #vars())
-
+         logging.info('TWS_event_handler:tickSize. %d<->%s' % (tickerId,self.subscription_manger.get_contract_by_id(tickerId) ))
+         self.broadcast_event('tickSize', {'contract_key': self.subscription_manger.get_contract_by_id(tickerId), 
+                                            'field': field, 'size': size})
+        #pass
+    
+    
     def tickOptionComputation(self, tickerId, field, impliedVol, delta, optPrice, pvDividend, gamma, vega, theta, undPrice):
         
         #self.broadcast_event('tickOptionComputation', self.tick_process_message(vars())) #vars())
         pass
 
     def tickGeneric(self, tickerId, tickType, value):
-        self.broadcast_event('tickGeneric', vars()) 
+        #self.broadcast_event('tickGeneric', vars())
+        pass 
 
     def tickString(self, tickerId, tickType, value):
-        self.broadcast_event('tickString', vars()) 
+        #self.broadcast_event('tickString', vars())
+        pass 
 
     def tickEFP(self, tickerId, tickType, basisPoints, formattedBasisPoints, impliedFuture, holdDays, futureExpiry, dividendImpact, dividendsToExpiry):
-        self.broadcast_event('tickEFP', vars())
+        #self.broadcast_event('tickEFP', vars())
+        pass
 
     def orderStatus(self, orderId, status, filled, remaining, avgFillPrice, permId, parentId, lastFillPrice, clientId, whyHeId):
         self.broadcast_event('orderStatus', vars())
@@ -140,7 +147,9 @@ class TWS_event_handler(EWrapper):
     def error(self, id=None, errorCode=None, errorMsg=None):
         try:
             logging.error(self.tick_process_message('error', vars()))
-            self.broadcast_event('error', vars())
+            self.broadcast_event('error', {'id': id, 
+                                           'errorCode': errorCode, 'errorMsg': errorMsg})
+
         except:
             pass
 
@@ -208,7 +217,9 @@ class TWS_event_handler(EWrapper):
 
 
     def position(self, account, contract, pos, avgCost):
+        #self.broadcast_event('position', vars())
         self.broadcast_event('position', vars())
+        
 
     def positionEnd(self):
         self.broadcast_event('positionEnd', vars())

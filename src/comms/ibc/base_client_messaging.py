@@ -84,7 +84,7 @@ class AbstractGatewayListener(BaseMessageListener):
         """ generated source for method tickPrice """
         raise NotImplementedException
    
-    def tickSize(self, event, message_value):  # tickerId, field, size):
+    def tickSize(self, event, contract_key, tickerId, field, size):
         """ generated source for method tickSize """
         raise NotImplementedException
    
@@ -220,11 +220,11 @@ class AbstractGatewayListener(BaseMessageListener):
         """ generated source for method commissionReport """
         raise NotImplementedException
    
-    def position(self, event, message_value):  # account, contract, pos, avgCost):
+    def position(self, event, account, contract, pos, avgCost):
         """ generated source for method position """
         raise NotImplementedException
    
-    def positionEnd(self, event, message_value):
+    def positionEnd(self, event): #, message_value):
         """ generated source for method positionEnd """
         raise NotImplementedException
    
@@ -243,7 +243,7 @@ class AbstractGatewayListener(BaseMessageListener):
     def gw_subscriptions(self, event, message_value):
         raise NotImplementedException        
       
-    def error(self, event, message_value):
+    def error(self, id=None, errorCode=None, errorMsg=None):
         raise NotImplementedException
     
     def on_kb_reached_last_offset(self, event, message_value):  # event, items):

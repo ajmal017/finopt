@@ -197,8 +197,12 @@ class BaseConsumer(threading.Thread, Publisher):
         return {'value': message.value, 'partition':message.partition, 'offset': message.offset}
         
     def extract_message_content(self, message):
-        logging.info('BaseConsumer: extract_message_content. %s %s' % (type(message), message))
-        return json.loads(message.value)
+        #logging.info('BaseConsumer: extract_message_content. %s %s' % (type(message), message))
+        try:
+            return json.loads(message.value)
+        except ValueError:
+            logging.info('extract_message_content exception: %s' % message)
+            return {}
     
     def set_stop(self):
         self.done = True
@@ -263,7 +267,7 @@ class BaseConsumer(threading.Thread, Publisher):
             try:
                 message = consumer.next()
                 
-                
+
                 # the next if block is there to serve information purpose only
                 # it may be useful to detect slow consumer situation
                 if message.offset % BaseConsumer.SLOW_CONSUMER_QUALIFY_NUM == 0:

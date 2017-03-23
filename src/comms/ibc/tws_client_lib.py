@@ -67,7 +67,7 @@ class TWS_client_manager(GatewayCommandWrapper):
         self.initialize_redis()
         
         logging.info('starting up gateway message handler - kafka Prosumer...')        
-        self.gw_message_handler = Prosumer(name='tws_cli_prosumer', kwargs=self.kwargs)
+        self.gw_message_handler = Prosumer(name=self.kwargs['name'], kwargs=self.kwargs)
         GatewayCommandWrapper.__init__(self, self.gw_message_handler)        
 
 

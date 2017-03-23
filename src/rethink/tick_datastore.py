@@ -5,6 +5,8 @@ from misc2.observer import Publisher
 from misc2.observer import NotImplementedException
 from misc2.helpers import ContractHelper
 from comms.ibc.base_client_messaging import AbstractGatewayListener
+from numpy import disp
+import symbol
 
 class TickDataStore(Publisher):
     """
@@ -44,15 +46,16 @@ class TickDataStore(Publisher):
     
 
     EVENT_TICK_UPDATED = 'tds_event_tick_updated'
-    EVENT_NEW_SYMBOL_ADDED = 'tds_event_new_symbol_added'
-    TDS_EVENTS = [EVENT_TICK_UPDATED, EVENT_NEW_SYMBOL_ADDED] 
+    EVENT_SYMBOL_ADDED = 'tds_event_symbol_added'
+    EVENT_SYMBOL_DELETED = 'tds_event_symbol_deleted'
+    TDS_EVENTS = [EVENT_TICK_UPDATED, EVENT_SYMBOL_ADDED, EVENT_SYMBOL_DELETED] 
 
     
     def __init__(self, name):
         
-
-        self.tickers = {}
         self.symbols = {}
+        
+        
         self.lock = RLock()
         Publisher.__init__(self, TickDataStore.TDS_EVENTS)
         self.first_run = True
@@ -62,65 +65,116 @@ class TickDataStore(Publisher):
         map(lambda e: self.register(e, l, getattr(l, e)), TickDataStore.TDS_EVENTS)
 
     def dump(self):
-            # print ', '.join('[%s:%s]' % (k, v['ticker_id'])) 
-        logging.info('TickDataStore-symbols:\nkey : ticker : object cnt---->\n%s' % ('\n'.join('[%s :  %d : %d]' % 
-                                                                                                (k, v['ticker_id'], len(v['syms'])) for k, v in self.symbols.iteritems())))
-        logging.info('TickDataStore-tickers:\nticker: object\n%s' % ('\n'.join('%s:%s' % (str(k).ljust(4), v) for k, v in self.tickers.iteritems())
-                                                                   ))
     
         
-     
+        def format_tick_val(val, fmt):
+            if val == None:
+                length = len(fmt % (0))
+                return ' ' * length
+            
+            return fmt % (val) 
+        
+        # last, bidq, bid, ask, askq, imvol, delta, theta
+        fmt_spec = '%8.2f'
+        fmt_spec2 = '%8.4f'
+        fmt_specq = '%8d'
+        
+        
+        def get_field(sym, fld_id):
+            try:
+                return sym[0].get_tick_value(fld_id)
+            except:
+                return ''
+
+        
+        fmt_sym = map(lambda x: (x[0], '%s,%s,%s,%s,%s' % (
+                                            format_tick_val(get_field(x[1]['syms'],4), fmt_spec),
+                                            format_tick_val(get_field(x[1]['syms'],0), fmt_specq),                                                                                                                  
+                                            format_tick_val(get_field(x[1]['syms'],1), fmt_spec),
+                                            format_tick_val(get_field(x[1]['syms'],2), fmt_spec), 
+                                            format_tick_val(get_field(x[1]['syms'],3), fmt_specq),
+                                            
+                                            )), [(k,v) for k, v in self.symbols.iteritems()])        
+        
+
+        for e in fmt_sym:
+            print('[%s]%s' % (e[0].ljust(50), e[1]))
+
+    def is_symbol_in_list(self, symbol, list):
+    
+        for s in list:
+            if s is symbol:
+                return True
+        
+        return False
+    
+    
     
     def add_symbol(self, symbol):
         try:
-            dispatch = False
+            dispatch = True
             self.lock.acquire()
             key = symbol.get_key()
             if key not in self.symbols:
-                self.symbols[key] = {'ticker_id':-1, 'syms': []}
-                dispatch = True
+                self.symbols[key] = {'syms': [symbol]}
+
             else:
-                ticker_id = self.symbols[key]['ticker_id']
-                self.tickers[ticker_id] = key
-            self.symbols[key]['syms'].append(symbol)        
+                if not self.is_symbol_in_list(symbol, self.symbols[key]['syms']): 
+                    self.symbols[key]['syms'].append(symbol)        
     
-            # defer the dispatch at the end of this method        
-            if dispatch:
-                self.dispatch(TickDataStore.EVENT_NEW_SYMBOL_ADDED, symbol)
         except KeyError:
-            logging.error('TickDataStore: add_symbol. Exception when adding symbol:%s' % ContractHelper.makeRedisKeyEx(symbol.get_contract()))
+            dispatch = False
+            logging.error('TickDataStore: add_symbol. Exception when adding symbol:%s' % key)
         finally:            
-            self.lock.release()
+            self.lock.release()        
+            if dispatch:
+                self.dispatch(TickDataStore.EVENT_SYMBOL_ADDED, symbol)
+            
             
     def del_symbol(self, symbol):
-        raise NotImplementedException     
+           
+        try:
+            dispatch = True
+            self.lock.acquire()
+            key = symbol.get_key()
+            if key not in self.symbols:
+                return
+            else:
+                for s in self.symbols[key]['syms']:
+                    if s is symbol:
+                        self.symbols[key]['syms'].remove(s)
+                    
+        except KeyError:
+            dispatch = False
+            logging.error('TickDataStore: del_symbol. Exception when deleting symbol:%s' % key)
+        finally:            
+            self.lock.release()   
+            if dispatch:
+               self.dispatch(TickDataStore.EVENT_SYMBOL_DELETED, symbol)                 
+                                    
     
        
         
-    def set_symbol_price(self, items):   
+    def set_symbol_tick_price(self, contract_key, field, price, canAutoExecute):   
         
         # message_value: dict: '{"tickerId": 0, "size": 3, "field": 3}'
         
         
-        tid = items['tickerId']
+        
         logging.debug('set_symbol_price: -------------------')
         try:
             self.lock.acquire()
-            contract_key = self.tickers[tid]
-            if (tid == 10):
-                logging.info('set_symbol_price %s' % items)
-            logging.debug('set_symbol_price: -------------------tick id:%d symbol list length=%d %s' % (tid, len(self.symbols[contract_key]['syms']), 
-                                                                                            contract_key))
-            map(lambda e: e.set_tick_value(items['field'], items['price']), self.symbols[contract_key]['syms'])
+            if contract_key in self.symbols:
+                map(lambda e: e.set_tick_value(field, price), self.symbols[contract_key]['syms'])
             
-        except KeyError:
+        except:
             # contract not set up in the datastore, ignore message
-            logging.error('set_symbol_price: KeyError: %d' % tid)
+            logging.error('set_symbol_price: exception occured to: %s' % contract_key)
             #self.dump()
             pass
         finally:
             self.lock.release()
-            self.dispatch(TickDataStore.EVENT_TICK_UPDATED, items)
+            self.dispatch(TickDataStore.EVENT_TICK_UPDATED, vars())
             
 
 

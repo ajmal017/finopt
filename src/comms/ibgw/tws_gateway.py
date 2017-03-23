@@ -18,6 +18,7 @@ from comms.ibgw.client_request_handler import ClientRequestHandler
 from comms.ibgw.subscription_manager import SubscriptionManager
 from comms.tws_protocol_helper import TWS_Protocol 
 import redis
+import threading
          
 class TWS_gateway():
 
@@ -84,7 +85,27 @@ class TWS_gateway():
         self.tws_event_handler = TWS_event_handler(self.gw_message_handler)
         
         logging.info('starting up IB EClientSocket...')
+         
+        
         self.tws_connection = EClientSocket(self.tws_event_handler)
+#         class th(threading.Thread):
+#             def __init__(self, evet ):
+#                 threading.Thread.__init__(self)
+#                 
+#                 self.tc = EClientSocket(evet)
+#                 
+#             def get_conn(self):
+#                 return self.tc
+#             def run(self):
+#                 while 1:
+#                     sleep(0.05)
+#                     
+#         
+#         ti = th(self.tws_event_handler)
+#         self.tws_connection = ti.get_conn()
+#         ti.start()
+        
+        
         
         logging.info('establishing TWS gateway connectivity...')
         if not self.connect_tws():
@@ -115,6 +136,7 @@ class TWS_gateway():
 
 
         logging.info('**** Completed initialization sequence. ****')
+        
         self.main_loop()
         
 

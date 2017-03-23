@@ -188,13 +188,14 @@ class Wrapger(EWrapper):
 def test_IB():
     ew = Wrapger()
     es = EClientSocket(ew)
-    es.eConnect('localhost', 4001, 5555)
+    es.eConnect('localhost', 7496, 5555)
     print es.isConnected()
     
     contractTuple = ('HSI', 'FUT', 'HKFE', 'HKD', '20170330', 0, '')
     contract = ContractHelper.makeContract(contractTuple)
-    es.reqMktData(0, contract, '', False) 
-                
+    es.reqMktData(1000, contract, '', True) 
+    es.reqMktData(0, contract, '', True)
+
     sleep(5)
     print 'disconnecting...'
     es.eDisconnect()
