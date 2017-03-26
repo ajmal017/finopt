@@ -5,15 +5,16 @@ from optparse import OptionParser
 from time import sleep
 from misc2.observer import Subscriber
 from misc2.helpers import ContractHelper
-from finopt.options_chain import OptionsChain
+from finopt.instrument import Symbol
+from rethink.option_chain import OptionsChain
 from rethink.tick_datastore import TickDataStore
 from comms.ibc.tws_client_lib import TWS_client_manager, AbstractGatewayListener
+from comms.ibgw.base_messaging import BaseMessageListener
 
 
 
 
-
-class AnalyticsEngine(Subscriber, AbstractGatewayListener):
+class AnalyticsEngine(AbstractGatewayListener):
 
     AE_OPTIONS_CONFIG = {
         'underlying_substitution': {'IND': 'FUT'},
@@ -39,9 +40,9 @@ class AnalyticsEngine(Subscriber, AbstractGatewayListener):
         expiry = '20170330'
         contractTuple = ('HSI', 'FUT', 'HKFE', 'HKD', '', 0, expiry)
         contract = ContractHelper.makeContract(contractTuple)  
- 
+        
         oc2.set_option_structure(contract, 200, 50, 0.0012, 0.0328, expiry)        
-     
+        
         oc2.build_chain(24119, 0.03, 0.22)
         
 #         expiry='20170324'
@@ -58,12 +59,13 @@ class AnalyticsEngine(Subscriber, AbstractGatewayListener):
         for o in oc2.get_option_chain():
             self.tds.add_symbol(o)
         self.tds.add_symbol(oc2.get_underlying())
-    
+        
     
     def start_engine(self):
         self.twsc.start_manager()
-        self.request_subscrptions()
         oc2 = OptionsChain('oc2')
+        oc2.register_listener(self)
+        
         self.test_oc(oc2)
         
         try:
@@ -71,8 +73,9 @@ class AnalyticsEngine(Subscriber, AbstractGatewayListener):
             while True: 
             
 
+                read_ch = raw_input("Enter command:")
                 oc2.pretty_print()
-                sleep(10.0)
+                sleep(0.45)
             
         except (KeyboardInterrupt, SystemExit):
             logging.error('AnalyticsEngine: caught user interrupt. Shutting down...')
@@ -81,30 +84,41 @@ class AnalyticsEngine(Subscriber, AbstractGatewayListener):
             logging.info('AnalyticsEngine: Service shut down complete...')               
     
     
-    def request_subscrptions(self):
-        self.initial_run = True
-        self.twsc.gw_req_subscriptions(self.kwargs['name'])
-        while self.initial_run:
-            sleep(0.5)
-
+    #         EVENT_OPTION_UPDATED = 'oc_option_updated'
+    #         EVENT_UNDERLYING_ADDED = 'oc_underlying_added
+    def oc_option_updated(self, event, update_mode, name, instrument):        
+        logging.info('oc_option_updated. %s %s' % (event, vars()))
+        self.tds.add_symbol(instrument)
+        self.twsc.reqMktData(instrument.get_contract(), True)
+        
+    
+    def oc_underlying_added(self, event, update_mode, name, instrument):
+        
+        logging.info('oc_underlying_added. %s %s' % (event, vars()))
+        self.tds.add_symbol(instrument)
+        self.twsc.reqMktData(instrument.get_contract(), True)
 
     #
     # tds call backs
     #
-    def tds_event_new_symbol_added(self, event, symbol):
-       
-        #logging.info('tds_event_new_symbol_added. %s' % ContractHelper.object2kvstring(symbol.get_contract()))
-        self.twsc.reqMktData(symbol.get_contract())
+    #     
+    #         EVENT_TICK_UPDATED = 'tds_event_tick_updated'
+    #         EVENT_SYMBOL_ADDED = 'tds_event_symbol_added'
+    #         EVENT_SYMBOL_DELETED = 'tds_event_symbol_deleted'    
     
-    def tds_event_tick_updated(self, event, items):
+    def tds_event_symbol_added(self, event, update_mode, name, instrument):
+       pass
+        #logging.info('tds_event_new_symbol_added. %s' % ContractHelper.object2kvstring(symbol.get_contract()))
+        
+    
+    def tds_event_tick_updated(self, event, contract_key, field, price, canAutoExecute):
         #tds_event_tick_updated:
         # dict object: {'partition': 0, 'value': '{"field": 7, "price": 35.0, "canAutoExecute": 0, "tickerId": 10}', 'offset': 527}
         #logging.info('tds_event_tick_updated. %s' % items)
         pass
-        # this is a callback after tick price is updated in tds
-        # do not call update again as it will go into an endless loop
-        # function probably to take out later....
-    
+
+    def tds_event_symbol_deleted(self, event, update_mode, name, instrument):
+        pass
     #
     # external ae requests
     #
@@ -119,28 +133,14 @@ class AnalyticsEngine(Subscriber, AbstractGatewayListener):
     #
     # gateway events
     #
-    def gw_subscription_changed(self, event, message_value):
-        #pass
-        logging.info('AnalyticsEngine:%s. val->[%s]' % (event, message_value))
-        self.tds.update_datastore(message_value)
-             
-    def gw_subscriptions(self, event, message_value):
-        logging.info('AnalyticsEngine:%s. Received event.' % (event))
 
-        if self.initial_run:
-            self.tds.update_datastore(message_value)
-            self.initial_run = False
+    def tickPrice(self, event, contract_key, field, price, canAutoExecute):
+        logging.info('MessageListener:%s. %s %d %8.2f' % (event, contract_key, field, price))
+        self.tds.set_symbol_tick_price(contract_key, field, price, canAutoExecute)
 
-    #            
-    # tws events     
-    #
-    def tickPrice(self, event, message_value):   
-        #
-        # dict: {'partition': 0, 'value': '{"field": 2, "price": 0.65, "canAutoExecute": 1, "tickerId": 1}', 'offset': 2151}
-        #
-        self.tds.set_symbol_price(json.loads(message_value['value']))
-        #pass
-
+    def tickSize(self, event, contract_key, field, size):
+        self.tds.set_symbol_tick_price(contract_key, field, size, 0)
+        #logging.info('MessageListener:%s. %s: %d %8.2f' % (event, contract_key, field, size))
  
     def error(self, event, message_value):
         logging.info('AnalyticsEngine:%s. val->[%s]' % (event, message_value))         
@@ -162,9 +162,9 @@ if __name__ == '__main__':
       'tws_app_id': 38868,
       'group_id': 'AE',
       'session_timeout_ms': 10000,
-      'clear_offsets':  True,
+      'clear_offsets':  False,
       'logconfig': {'level': logging.INFO, 'filemode': 'w', 'filename': '/tmp/ae.log'},
-      'topics': ['tickPrice', 'gw_subscriptions', 'gw_subscription_changed', 'ae_req_tds_internal'],
+      'topics': ['tickPrice'],
       'seek_to_end': ['*'],
       #'seek_to_end':['tickSize', 'tickPrice','gw_subscriptions', 'gw_subscription_changed']
       }

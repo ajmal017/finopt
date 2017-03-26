@@ -6,7 +6,8 @@ from misc2.helpers import ContractHelper, dict2str
 from finopt.instrument import Symbol, Option
 from comms.ibc.base_client_messaging import AbstractGatewayListener
 from misc2.observer import Publisher, Subscriber 
-#from misc2.helpers import ContractHelper, OrderHelper, ExecutionFilterHelper
+from misc2.observer import NotImplementedException
+
 
 from time import sleep
 import finopt.optcal
@@ -21,24 +22,48 @@ class OptionsChain(Publisher):
     # options is a list containing Option object
     options = None
     
-    id = None
+    name = None
     div = 0.0
     rate = 0.0
     expiry = None
     trade_vol = None
     #iv = optcal.cal_implvol(spot, contract.m_strike, contract.m_right, today, contract.m_expiry, rate, div, vol, premium)
     
-    option_chain_events = ('on_option_added', 'on_option_deleted', 'on_option_updated')
     
-    def __init__(self, id):
-        self.id = id
+    
+    '''
+        EVENT_OPTION_UPDATED 
+        
+        param = {'update_mode': A|D|U <- add/udpate/delete,
+                 'name': name_of_this_oc,
+                 'instrument: the option associated with this event 
+                }
+                
+        EVENT_UNDERLYING_ADDED
+        param = {'update_mode':
+                 'name':
+                 'instrument': 
+                
+    '''
+    EVENT_OPTION_UPDATED = 'oc_option_updated'
+    EVENT_UNDERLYING_ADDED = 'oc_underlying_added'
+    OC_EVENTS = [EVENT_OPTION_UPDATED, EVENT_UNDERLYING_ADDED]     
+    
+    def __init__(self, name):
+        self.name = name
         self.options = []
-        Publisher.__init__(self, OptionsChain.option_chain_events)
+        Publisher.__init__(self, OptionsChain.OC_EVENTS)
         
 
+    def register_listener(self, listener):
+        try:
+            map(lambda e: self.register(e, listener, getattr(listener, e)), OptionsChain.OC_EVENTS)
+        except AttributeError as e:
+            logging.error("OptionsChain:add_listener_topics. Function not implemented in the listener. %s" % e)
+            raise NotImplementedException        
     
-    def get_id(self):
-        return self.id
+    def get_name(self):
+        return self.name
     
     def get_underlying(self):
         return self.underlying
@@ -86,7 +111,10 @@ class OptionsChain(Publisher):
         #     notify listener(s) the option's underlying
         #     allowing the listeners to store the reference to OptionsChain underlying 
         #
-        self.dispatch(OptionsChain.option_chain_events[0], self.get_underlying())
+        self.dispatch(OptionsChain.EVENT_UNDERLYING_ADDED, {'update_mode': 'A', 
+                                                            'name': self.name,
+                                                            'instrument' : self.get_underlying()}
+                      )
         #
         #
         #
@@ -157,7 +185,10 @@ class OptionsChain(Publisher):
         #
         # 
         self.options.append(option)
-        self.dispatch(OptionsChain.option_chain_events[0], option)
+        self.dispatch(OptionsChain.EVENT_OPTION_UPDATED, {'update_mode': 'A', 
+                                                            'name': self.name,
+                                                            'instrument' : option}
+                      )
     
     
     def pretty_print(self):
@@ -179,6 +210,10 @@ class OptionsChain(Publisher):
         fmt_spec = '%8.2f'
         fmt_spec2 = '%8.4f'
         fmt_specq = '%8d'
+        
+        # last is 4
+        # close is 9
+        #fmt_call = map(lambda x: (x[0], '%s,%s,%s,%s,%s,%s,%s,%s' % (format_tick_val(x[1].get_tick_value(9), fmt_spec),
         fmt_call = map(lambda x: (x[0], '%s,%s,%s,%s,%s,%s,%s,%s' % (format_tick_val(x[1].get_tick_value(4), fmt_spec),
                                                format_tick_val(x[1].get_tick_value(0), fmt_specq),
                                                format_tick_val(x[1].get_tick_value(1), fmt_spec),
@@ -203,7 +238,7 @@ class OptionsChain(Publisher):
                                   format_tick_val(self.get_underlying().get_tick_value(0), fmt_specq),
                                            format_tick_val(self.get_underlying().get_tick_value(1), fmt_spec),
                                            format_tick_val(self.get_underlying().get_tick_value(2), fmt_spec),
-                                           format_tick_val(self.get_underlying().get_tick_value(3), fmt_spec)
+                                           format_tick_val(self.get_underlying().get_tick_value(3), fmt_specq)
                                 )
         
         #title = '%s%30s%s%s' % ('-' * 40, ContractHelper.makeRedisKeyEx(self.get_underlying().get_contract()).center(50, ' '), undlypx, '-' * 40) 

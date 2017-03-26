@@ -56,6 +56,10 @@ class GatewayCommandWrapper():
 #     def reqMktData(self, contract):
 #         self.producer.send_message('reqMktData', ContractHelper.object2kvstring(contract))
     def reqMktData(self, contract, snapshot=False):
+        # send request to TWS gateway for market data
+        # contract - typeof ib.ext.contract
+        # snapshot - True/False default is false to receive continuous updates
+        #
         self.producer.send_message('reqMktData', json.dumps({'contract': ContractHelper.object2kvstring(contract), 
                                                   'snapshot': snapshot}))        
         
@@ -236,13 +240,7 @@ class AbstractGatewayListener(BaseMessageListener):
         """ generated source for method accountSummaryEnd """
         raise NotImplementedException
 
-    def gw_subscription_changed(self, event, message_value):  # event, items):
-        raise NotImplementedException        
-#         logging.info("[%s] received gw_subscription_changed content: [%s]" % (self.name, message_value))
-        
-    def gw_subscriptions(self, event, message_value):
-        raise NotImplementedException        
-      
+     
     def error(self, id=None, errorCode=None, errorMsg=None):
         raise NotImplementedException
     
@@ -250,4 +248,4 @@ class AbstractGatewayListener(BaseMessageListener):
         logging.info("[%s] received on_kb_reached_last_offset content: [%s]" % (self.name, message_value))
         print "on_kb_reached_last_offset [%s] %s" % (self.name, message_value)
     
-        
+

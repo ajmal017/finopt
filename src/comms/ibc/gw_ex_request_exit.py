@@ -33,13 +33,7 @@ class MessageListener(AbstractGatewayListener):
         logging.info('MessageListener:%s. val->[%s]' % (event, vars()))  
 
 
-    def gw_subscriptions(self, event, message_value):
-        logging.info('MessageListener:%s. val->[%s]' % (event, message_value))
-        
-
-    def gw_subscription_changed(self, event, message_value):
-        logging.info('MessageListener:%s. val->[%s]' % (event, message_value))
-        
+      
 
     def tickPrice(self, event, contract_key, field, price, canAutoExecute):
         #logging.info('MessageListener:%s. %s %d %8.2f' % (event, contract_key, field, price))
@@ -64,6 +58,7 @@ def test_client(kwargs):
                       ('USD', 'CASH', 'IDEALPRO', 'JPY', '', 0, ''),
                       ('AUD', 'CASH', 'IDEALPRO', 'USD', '', 0, ''),
                       ('QQQ', 'STK', 'SMART', 'USD', '', 0, ''),
+                      ('YM', 'IND', 'ECBOT', 'USD', '', 0, ''),
                       ]
                           
                               
