@@ -39,14 +39,23 @@ class Symbol():
         return self.key
     
 class Option(Symbol):
+    """
+        Tick Value      Description
+        # 5001            impl vol
+        # 5002            delta
+        # 5003            gamma
+        # 5004            theta
+        # 5005            vega
+        # 5006            premium    
+    """
     
-    analytics = None
-    IMPL_VOL = 'imvol'
-    DELTA    = 'delta'
-    GAMMA    = 'gamma'
-    THETA    = 'theta'
-    VEGA     = 'vega'
-    PREMIUM  = 'npv'
+    
+    IMPL_VOL = 5001
+    DELTA    = 5002
+    GAMMA    = 5003
+    THETA    = 5004
+    VEGA     = 5005
+    PREMIUM  = 5006
     
     
     #[0,1,2,3,4,5,6,7,8,9,14,5001,5002,5003,5004,5005,5006]
@@ -60,22 +69,34 @@ class Option(Symbol):
     def set_analytics(self, imvol=None, delta=None, gamma=None, theta=None, vega=None, npv=None):
         
         
-        if self.analytics == None:
-            self.analytics = {}           
-        self.analytics[Option.IMPL_VOL] = imvol
-        self.analytics[Option.DELTA] = delta 
-        self.analytics[Option.GAMMA] = gamma
-        self.analytics[Option.THETA] = theta
-        self.analytics[Option.VEGA] = vega
-        self.analytics[Option.PREMIUM] = npv
+#         if self.analytics == None:
+#             self.analytics = {}           
+#         self.analytics[Option.IMPL_VOL] = imvol
+#         self.analytics[Option.DELTA] = delta 
+#         self.analytics[Option.GAMMA] = gamma
+#         self.analytics[Option.THETA] = theta
+#         self.analytics[Option.VEGA] = vega
+#         self.analytics[Option.PREMIUM] = npv
+        self.set_tick_value(Option.IMPL_VOL, imvol)
+        self.set_tick_value[Option.DELTA] = delta 
+        self.set_tick_value[Option.GAMMA] = gamma
+        self.set_tick_value[Option.THETA] = theta
+        self.set_tick_value[Option.VEGA] = vega
+        self.set_tick_value[Option.PREMIUM] = npv        
+        
         
         
     def get_analytics(self):
+        raise Exception
+    
         return self.analytics
     
     
     def object2kvstring(self):
         
+        raise Exception
+    
+    
         try:           
             kv = self.object2kv()
             return '{"%s":%s, "%s":%s, "%s":%s, "%s":%s}' % ('analytics', dict2str(kv['analytics']), 
@@ -89,6 +110,8 @@ class Option(Symbol):
     
     
     def object2kv(self):
+        raise Exception
+        
         try:
             analytics = self.get_analytics()
             contract =  self.get_contract()

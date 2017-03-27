@@ -1,15 +1,16 @@
 import logging
 import json
+import time, datetime
 import copy
 from optparse import OptionParser
 from time import sleep
 from misc2.observer import Subscriber
 from misc2.helpers import ContractHelper
-from finopt.instrument import Symbol
+from finopt.instrument import Symbol, Option
 from rethink.option_chain import OptionsChain
 from rethink.tick_datastore import TickDataStore
 from comms.ibc.tws_client_lib import TWS_client_manager, AbstractGatewayListener
-from comms.ibgw.base_messaging import BaseMessageListener
+
 
 
 
@@ -32,13 +33,13 @@ class AnalyticsEngine(AbstractGatewayListener):
         self.tds.register_listener(self)
         self.twsc.add_listener_topics(self, kwargs['topics'])
         
- 
+        
         self.option_chains = {}
         
     
     def test_oc(self, oc2):
         expiry = '20170330'
-        contractTuple = ('HSI', 'FUT', 'HKFE', 'HKD', '', 0, expiry)
+        contractTuple = ('HSI', 'FUT', 'HKFE', 'HKD', expiry, 0, '')
         contract = ContractHelper.makeContract(contractTuple)  
         
         oc2.set_option_structure(contract, 200, 50, 0.0012, 0.0328, expiry)        
@@ -61,12 +62,41 @@ class AnalyticsEngine(AbstractGatewayListener):
         self.tds.add_symbol(oc2.get_underlying())
         
     
+    def test_oc3(self, oc3):
+        expiry = '20170330'
+        contractTuple = ('HHI.HK', 'FUT', 'HKFE', 'HKD', expiry, 0, '')
+        contract = ContractHelper.makeContract(contractTuple)  
+        
+        oc3.set_option_structure(contract, 200, 50, 0.0012, 0.0328, expiry)        
+        
+        oc3.build_chain(10445, 0.03, 0.22)
+        
+#         expiry='20170324'
+#         contractTuple = ('QQQ', 'STK', 'SMART', 'USD', '', 0, '')
+#         contract = ContractHelper.makeContract(contractTuple)  
+# 
+#         oc2.set_option_structure(contract, 0.5, 100, 0.0012, 0.0328, expiry)        
+#     
+#         oc2.build_chain(132.11, 0.02, 0.22)
+        
+        
+        oc3.pretty_print()        
+
+        for o in oc3.get_option_chain():
+            self.tds.add_symbol(o)
+        self.tds.add_symbol(oc3.get_underlying())
+        
+    
     def start_engine(self):
         self.twsc.start_manager()
         oc2 = OptionsChain('oc2')
         oc2.register_listener(self)
-        
         self.test_oc(oc2)
+        oc3 = OptionsChain('oc3')
+        oc3.register_listener(self)
+        self.test_oc3(oc3)
+        self.option_chains[oc2.name] = oc2
+        self.option_chains[oc3.name] = oc3
         
         try:
             logging.info('AnalyticsEngine:main_loop ***** accepting console input...')
@@ -75,6 +105,8 @@ class AnalyticsEngine(AbstractGatewayListener):
 
                 read_ch = raw_input("Enter command:")
                 oc2.pretty_print()
+                oc3.pretty_print()
+                self.tds.dump()
                 sleep(0.45)
             
         except (KeyboardInterrupt, SystemExit):
@@ -111,11 +143,27 @@ class AnalyticsEngine(AbstractGatewayListener):
         #logging.info('tds_event_new_symbol_added. %s' % ContractHelper.object2kvstring(symbol.get_contract()))
         
     
-    def tds_event_tick_updated(self, event, contract_key, field, price, canAutoExecute):
-        #tds_event_tick_updated:
-        # dict object: {'partition': 0, 'value': '{"field": 7, "price": 35.0, "canAutoExecute": 0, "tickerId": 10}', 'offset': 527}
-        #logging.info('tds_event_tick_updated. %s' % items)
-        pass
+    def tds_event_tick_updated(self, event, contract_key, field, price, syms):
+        results = {}
+        for s in syms:
+            chain_id = s.get_extra_attributes(OptionsChain.CHAIN_IDENTIFIER) 
+            if chain_id  in self.option_chains.keys():
+                if 'FUT' in contract_key:
+                    results = self.option_chains[chain_id].cal_greeks_in_chain(self.kwargs['evaluation_date'])
+                else:
+                    results[ContractHelper.makeRedisKeyEx(s.get_contract())] = self.option_chains[chain_id].cal_option_greeks(s, self.kwargs['evaluation_date'])
+        
+            
+        # set_analytics(self, imvol=None, delta=None, gamma=None, theta=None, vega=None, npv=None):
+        # 
+        def update_tds_analytics(key_greeks):
+            self.tds.set_symbol_analytics(key_greeks[0], Option.IMPL_VOL, key_greeks[1][Option.IMPL_VOL])
+            self.tds.set_symbol_analytics(key_greeks[0], Option.DELTA, key_greeks[1][Option.DELTA])
+            self.tds.set_symbol_analytics(key_greeks[0], Option.GAMMA, key_greeks[1][Option.GAMMA])
+            self.tds.set_symbol_analytics(key_greeks[0], Option.THETA, key_greeks[1][Option.THETA])
+            self.tds.set_symbol_analytics(key_greeks[0], Option.VEGA, key_greeks[1][Option.VEGA])
+            
+        map(update_tds_analytics, list(results.iteritems()))
 
     def tds_event_symbol_deleted(self, event, update_mode, name, instrument):
         pass
@@ -135,11 +183,12 @@ class AnalyticsEngine(AbstractGatewayListener):
     #
 
     def tickPrice(self, event, contract_key, field, price, canAutoExecute):
-        logging.info('MessageListener:%s. %s %d %8.2f' % (event, contract_key, field, price))
+        logging.debug('MessageListener:%s. %s %d %8.2f' % (event, contract_key, field, price))
         self.tds.set_symbol_tick_price(contract_key, field, price, canAutoExecute)
 
+
     def tickSize(self, event, contract_key, field, size):
-        self.tds.set_symbol_tick_price(contract_key, field, size, 0)
+        self.tds.set_symbol_tick_size(contract_key, field, size)
         #logging.info('MessageListener:%s. %s: %d %8.2f' % (event, contract_key, field, size))
  
     def error(self, event, message_value):
@@ -164,8 +213,9 @@ if __name__ == '__main__':
       'session_timeout_ms': 10000,
       'clear_offsets':  False,
       'logconfig': {'level': logging.INFO, 'filemode': 'w', 'filename': '/tmp/ae.log'},
-      'topics': ['tickPrice'],
-      'seek_to_end': ['*'],
+      'topics': ['tickPrice', 'tickSize'],
+      'seek_to_end': ['*']
+
       #'seek_to_end':['tickSize', 'tickPrice','gw_subscriptions', 'gw_subscription_changed']
       }
 
@@ -176,11 +226,19 @@ if __name__ == '__main__':
     parser.add_option("-g", "--group_id",
                       action="store", dest="group_id", 
                       help="assign group_id to this running instance")
+    parser.add_option("-e", "--evaluation_date",
+                     action="store", dest="evaluation_date", 
+                     help="specify evaluation date for option calculations")   
     
     (options, args) = parser.parse_args()
+    if options.evaluation_date == None:
+        options.evaluation_date = time.strftime('%Y%m%d') 
+    
     for option, value in options.__dict__.iteritems():
         if value <> None:
             kwargs[option] = value
+    
+    
             
   
       

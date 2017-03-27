@@ -151,11 +151,6 @@ class TickDataStore(Publisher):
        
         
     def set_symbol_tick_price(self, contract_key, field, price, canAutoExecute):   
-        
-        # message_value: dict: '{"tickerId": 0, "size": 3, "field": 3}'
-        
-        
-        
         logging.debug('set_symbol_price: -------------------')
         try:
             self.lock.acquire()
@@ -170,13 +165,47 @@ class TickDataStore(Publisher):
         finally:
             self.lock.release()
             self.dispatch(TickDataStore.EVENT_TICK_UPDATED, {'contract_key': contract_key, 'field': field, 
-                                                             'price': price, 'canAutoExecute': canAutoExecute})
+                                                             'price': price, 'syms': self.symbols[contract_key]['syms']})
             
 
-
+    def set_symbol_analytics(self, contract_key, field, value):
+        logging.debug('set_symbol_analytics: -------------------')
+        try:
+            self.lock.acquire()
+            if contract_key in self.symbols:
+                map(lambda e: e.set_tick_value(field, value), self.symbols[contract_key]['syms'])
+            
+        except:
+            # contract not set up in the datastore, ignore message
+            logging.error('set_symbol_price: exception occured to: %s' % contract_key)
+            #self.dump()
+            pass
+        finally:
+            self.lock.release()
 
         
+    def set_symbol_tick_size(self, contract_key, field, size): 
+        
+  
+        
+        logging.debug('set_symbol_size: -------------------')
+        try:
+            self.lock.acquire()
+            if contract_key in self.symbols:
+                map(lambda e: e.set_tick_value(field, size), self.symbols[contract_key]['syms'])
             
+        except:
+            # contract not set up in the datastore, ignore message
+            logging.error('set_symbol_size: exception occured to: %s' % contract_key)
+            #self.dump()
+            pass
+        finally:
+            self.lock.release()
+            #self.dispatch(TickDataStore.EVENT_TICK_UPDATED, {'contract_key': contract_key, 'field': field, 
+            #                                                 'size': size})
+            
+        
+
 
 
 

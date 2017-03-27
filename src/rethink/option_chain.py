@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import sys, traceback
 import json
 import logging
 from ib.ext.Contract import Contract
@@ -10,7 +11,7 @@ from misc2.observer import NotImplementedException
 
 
 from time import sleep
-import finopt.optcal
+from finopt.optcal import cal_implvol
 
 
 class OptionsChain(Publisher):
@@ -29,6 +30,7 @@ class OptionsChain(Publisher):
     trade_vol = None
     #iv = optcal.cal_implvol(spot, contract.m_strike, contract.m_right, today, contract.m_expiry, rate, div, vol, premium)
     
+    CHAIN_IDENTIFIER = 'chain_identifier'
     
     
     '''
@@ -71,6 +73,7 @@ class OptionsChain(Publisher):
     def set_underlying(self, contract):
         #self.underlying = contract
         self.underlying = Symbol(contract)
+        self.underlying.set_extra_attributes(OptionsChain.CHAIN_IDENTIFIER, self.name)
 
         
         
@@ -184,6 +187,7 @@ class OptionsChain(Publisher):
         #events = ('on_option_added', 'on_option_deleted', 'on_option_updated')
         #
         # 
+        option.set_extra_attributes(OptionsChain.CHAIN_IDENTIFIER, self.name)
         self.options.append(option)
         self.dispatch(OptionsChain.EVENT_OPTION_UPDATED, {'update_mode': 'A', 
                                                             'name': self.name,
@@ -191,6 +195,28 @@ class OptionsChain(Publisher):
                       )
     
     
+    
+    def cal_greeks_in_chain(self, valuation_date):
+        
+        all_results = {}
+        for o in self.options:
+            key = ContractHelper.makeRedisKeyEx(o.get_contract())
+            greeks = self.cal_option_greeks(o, valuation_date)
+            all_results[key] = greeks
+    
+        return all_results
+    
+    def cal_option_greeks(self, o, valuation_date):
+        try:
+            uspot_last = self.get_underlying().get_tick_value(4)
+            greeks = cal_implvol(uspot_last, o.m_strike, o.m_right, valuation_date, 
+                                  o.m_expiry, self.rate, self.div, self.trade_vol, o.get_tick_value(4))
+        
+        except Exception, err:
+            logging.error(traceback.format_exc())        
+
+        return greeks
+     
     def pretty_print(self):
         sorted_opt = sorted(map(lambda i: (self.options[i].get_contract().m_strike, self.options[i]) , range(len(self.options))))
         

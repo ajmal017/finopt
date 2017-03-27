@@ -224,8 +224,79 @@ def get_HSI_last_trading_day(holidays, month, year):
 #     return map(lambda x: deduce_last_trading_day(Date.endOfMonth(Date(1, x, year) + Period("1m"))), range(1, 12))
 #     #mm_dd = deduce_last_trading_day(Date.endOfMonth(Date.todaysDate())) 
 #     #return mm_dd
+
+
+def test3(spot, strike, callput, evaldate, exdate, rate, div, vol):
+    
+    Settings.instance().evaluationDate = str2qdate(evaldate)
+    exercise = EuropeanExercise(str2qdate(exdate))
+    payoff = PlainVanillaPayoff(str2qopt_type(callput), strike)
+    option = EuropeanOption(payoff,exercise)
+    r = YieldTermStructureHandle(FlatForward(str2qdate(evaldate), rate, Actual365Fixed()))
+    q = YieldTermStructureHandle(FlatForward(str2qdate(evaldate), div, Actual365Fixed()))
+    
+    S = QuoteHandle(SimpleQuote(spot))
+#    r = YieldTermStructureHandle(FlatForward(0, HongKong(), rate, Actual365Fixed()))
+#    q = YieldTermStructureHandle(FlatForward(0, HongKong(), div, Actual365Fixed()))
+
+#    sigma = BlackVolTermStructureHandle(BlackConstantVol(0, HongKong(), vol, Actual365Fixed()))
+    sigma = BlackVolTermStructureHandle(BlackConstantVol(str2qdate(evaldate), HongKong(), vol, Actual365Fixed()))
+    process = BlackScholesMertonProcess(S,q,r,sigma)
+    engine = AnalyticEuropeanEngine(process)
+    option.setPricingEngine(engine)
+    
+    start_time = time.time()
+    
+    for i in range(100):
+        results = cal_option(spot+i, 24200, 'C', '20170327', '20170330', 0.00012, 0.0328, 0.120)
+        results = {}
+        results['npv'] = option.NPV()
+    
+        results['delta'] = option.delta()
+        results['gamma'] = option.gamma()
+        
+        results['theta'] = option.theta() / 365
+        results['vega'] = option.vega() 
+    #    results['rho'] = option.rho() 
+    
+        results['strikeSensitivity'] = option.strikeSensitivity()
+   # results['thetaPerDay'] = option.thetaPerDay()
+   # results['itmCashProbability'] = option.itmCashProbability()
+ 
+    elapsed_time = time.time() - start_time
+    print elapsed_time           
+ 
+ 
+
+    return results
     
 
+def test():
+    start_time = time.time()
+    results = cal_option(24290.0, 24200, 'C', '20170327', '20170330', 0.00012, 0.0328, 0.120)
+    elapsed_time = time.time() - start_time
+    print 'elapsed time: %5.6f' % elapsed_time
+    print ''.join ('%s=%0.4f, '%(k,v) for k, v in results.iteritems())
+    
+    start_time = time.time()
+    results = cal_implvol(24290.0, 24200, 'C', '20170327', '20170330', 0.00012, 0.0328, 0.0, results['npv'])
+    elapsed_time = time.time() - start_time
+    print 'elapsed time: %5.6f' % elapsed_time
+    print ''.join ('%s=%0.4f, '%(k,v) for k, v in results.iteritems())
+    
+    print 'end of test 1'
+    
+def test2():
+    start_time = time.time()
+    for i in range(100):
+        results = cal_option(100+i, 24200, 'C', '20170327', '20170330', 0.00012, 0.0328, 0.120)
+    elapsed_time = time.time() - start_time
+    print 'elapsed time: %5.6f' % elapsed_time
+
+    print 'end of test 2'
+    
+    
+    
 if __name__ == '__main__':
     
     
@@ -265,8 +336,9 @@ if __name__ == '__main__':
     #spot 24119.0, X 25000, right: P, evaldate: 20150812, expiry: 20150828, rate: 0.0005, div: 0.0005, vol: 0.2000, premium: 334.0000
     #spot 24149.0, X 25200, right: P, evaldate: 20150812, expiry: 20150828, rate: 0.0005, div: 0.0005, vol: 0.2000, premium: 437.5000
     
-    results = cal_option(22363.0, 22000, 'C', '20151201', '20151230', 0.00012, 0.0328, 0.198)
-    print ''.join ('%s=%0.4f, '%(k,v) for k, v in results.iteritems())
+    test()
+    test2()
+    test3(100, 24200, 'C', '20170327', '20170330', 0.00012, 0.0328, 0.120)
 #     results = cal_option(23067.0, 22000, 'P', '20151018', '20151029', 0.0009, 0.0328, 0.2918)
 #     npv1 = results['npv']
 #     v1 = 0.2918
@@ -309,26 +381,26 @@ if __name__ == '__main__':
 #     print chk.advance(Date(17, October, 2015), 1, 2)
     #print get_HSI_expiry(2016)
     
-    holidays = get_hk_holidays(2017)
-
-    
-    
-    month_names = [January,
-                February,
-                March,
-                April,
-                May,
-                June,
-                July,
-                August,
-                September,
-                October,
-                November,
-                December,
-                ] 
-    for i in month_names:
-        dd = get_HSI_last_trading_day(holidays, i, 2017)
-        print dd
-        
-    print holidays	
-    print get_HSI_last_trading_day(['20170128'], 1, 2017)
+#     holidays = get_hk_holidays(2017)
+# 
+#     
+#     
+#     month_names = [January,
+#                 February,
+#                 March,
+#                 April,
+#                 May,
+#                 June,
+#                 July,
+#                 August,
+#                 September,
+#                 October,
+#                 November,
+#                 December,
+#                 ] 
+#     for i in month_names:
+#         dd = get_HSI_last_trading_day(holidays, i, 2017)
+#         print dd
+#         
+#     print holidays	
+#     print get_HSI_last_trading_day(['20170128'], 1, 2017)
