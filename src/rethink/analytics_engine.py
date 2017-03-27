@@ -17,11 +17,7 @@ from comms.ibc.tws_client_lib import TWS_client_manager, AbstractGatewayListener
 
 class AnalyticsEngine(AbstractGatewayListener):
 
-    AE_OPTIONS_CONFIG = {
-        'underlying_substitution': {'IND': 'FUT'},
-        'underlying_sub_list': ['HSI', 'MHI']
-    }
-    
+  
     
     
     def __init__(self, kwargs):
@@ -63,13 +59,23 @@ class AnalyticsEngine(AbstractGatewayListener):
         
     
     def test_oc3(self, oc3):
-        expiry = '20170330'
-        contractTuple = ('HHI.HK', 'FUT', 'HKFE', 'HKD', expiry, 0, '')
+#         expiry = '20170330'
+#         contractTuple = ('HHI.HK', 'FUT', 'HKFE', 'HKD', expiry, 0, '')
+#         contract = ContractHelper.makeContract(contractTuple)  
+#         
+#         oc3.set_option_structure(contract, 200, 50, 0.0012, 0.0328, expiry)        
+#         
+#         oc3.build_chain(10445, 0.03, 0.22)
+
+        expiry = '20170331'
+        contractTuple = ('QQQ', 'STK', 'SMART', 'USD', '', 0, '')
+
+
         contract = ContractHelper.makeContract(contractTuple)  
         
-        oc3.set_option_structure(contract, 200, 50, 0.0012, 0.0328, expiry)        
+        oc3.set_option_structure(contract, 0.5, 100, 0.0012, 0.0328, expiry)        
         
-        oc3.build_chain(10445, 0.03, 0.22)
+        oc3.build_chain(130, 0.03, 0.22)
         
 #         expiry='20170324'
 #         contractTuple = ('QQQ', 'STK', 'SMART', 'USD', '', 0, '')
@@ -146,24 +152,35 @@ class AnalyticsEngine(AbstractGatewayListener):
     def tds_event_tick_updated(self, event, contract_key, field, price, syms):
         results = {}
         for s in syms:
-            chain_id = s.get_extra_attributes(OptionsChain.CHAIN_IDENTIFIER) 
-            if chain_id  in self.option_chains.keys():
-                if 'FUT' in contract_key:
-                    results = self.option_chains[chain_id].cal_greeks_in_chain(self.kwargs['evaluation_date'])
-                else:
-                    results[ContractHelper.makeRedisKeyEx(s.get_contract())] = self.option_chains[chain_id].cal_option_greeks(s, self.kwargs['evaluation_date'])
+            
+            if OptionsChain.CHAIN_IDENTIFIER in s.get_extra_attributes():
+                
+                chain_id = s.get_extra_attributes()[OptionsChain.CHAIN_IDENTIFIER]
+                logging.info('AnalyticsEngine:tds_event_tick_updated chain_id %s' % chain_id)
+                if chain_id  in self.option_chains.keys():
+                    if 'FUT' in contract_key or 'STK' in contract_key:
+                        results = self.option_chains[chain_id].cal_greeks_in_chain(self.kwargs['evaluation_date'])
+                    else:
+                        results[ContractHelper.makeRedisKeyEx(s.get_contract())] = self.option_chains[chain_id].cal_option_greeks(s, self.kwargs['evaluation_date'])
+                logging.info('AnalysticsEngine:tds_event_tick_updated. compute greek results %s' % results)    
+                # set_analytics(self, imvol=None, delta=None, gamma=None, theta=None, vega=None, npv=None):
+                # 
+                def update_tds_analytics(key_greeks):
+                    
+                    self.tds.set_symbol_analytics(key_greeks[0], Option.IMPL_VOL, key_greeks[1][Option.IMPL_VOL])
+                    self.tds.set_symbol_analytics(key_greeks[0], Option.DELTA, key_greeks[1][Option.DELTA])
+                    self.tds.set_symbol_analytics(key_greeks[0], Option.GAMMA, key_greeks[1][Option.GAMMA])
+                    self.tds.set_symbol_analytics(key_greeks[0], Option.THETA, key_greeks[1][Option.THETA])
+                    self.tds.set_symbol_analytics(key_greeks[0], Option.VEGA, key_greeks[1][Option.VEGA])
+                    
+                map(update_tds_analytics, list(results.iteritems()))                
+
+            else:
+                
+                continue
+             
         
-            
-        # set_analytics(self, imvol=None, delta=None, gamma=None, theta=None, vega=None, npv=None):
-        # 
-        def update_tds_analytics(key_greeks):
-            self.tds.set_symbol_analytics(key_greeks[0], Option.IMPL_VOL, key_greeks[1][Option.IMPL_VOL])
-            self.tds.set_symbol_analytics(key_greeks[0], Option.DELTA, key_greeks[1][Option.DELTA])
-            self.tds.set_symbol_analytics(key_greeks[0], Option.GAMMA, key_greeks[1][Option.GAMMA])
-            self.tds.set_symbol_analytics(key_greeks[0], Option.THETA, key_greeks[1][Option.THETA])
-            self.tds.set_symbol_analytics(key_greeks[0], Option.VEGA, key_greeks[1][Option.VEGA])
-            
-        map(update_tds_analytics, list(results.iteritems()))
+
 
     def tds_event_symbol_deleted(self, event, update_mode, name, instrument):
         pass

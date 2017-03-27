@@ -1,11 +1,12 @@
 # -*- coding: utf-8 -*-
-
 from QuantLib import *
 from bs4 import BeautifulSoup
 from urllib2 import urlopen, Request
 from time import strftime
 import time
 import traceback
+import instrument
+
 
 
 def cal_implvol(spot, strike, callput, evaldate, exdate, rate, div, vol, premium):
@@ -24,9 +25,9 @@ def cal_implvol(spot, strike, callput, evaldate, exdate, rate, div, vol, premium
     process = BlackScholesMertonProcess(S,q,r,sigma)
     im = option.impliedVolatility(premium, process)
     results = {}
-    results['imvol'] = im
+    results[instrument.Option.IMPL_VOL] = im
  
-
+    
     return results
 
 
@@ -49,13 +50,13 @@ def cal_option(spot, strike, callput, evaldate, exdate, rate, div, vol):
     option.setPricingEngine(engine)
             
     results = {}
-    results['npv'] = option.NPV()
+    results[instrument.Option.PREMIUM] = option.NPV()
 
-    results['delta'] = option.delta()
-    results['gamma'] = option.gamma()
+    results[instrument.Option.DELTA] = option.delta()
+    results[instrument.Option.GAMMA] = option.gamma()
     
-    results['theta'] = option.theta() / 365
-    results['vega'] = option.vega() 
+    results[instrument.Option.THETA] = option.theta() / 365
+    results[instrument.Option.VEGA] = option.vega() 
 #    results['rho'] = option.rho() 
 
     results['strikeSensitivity'] = option.strikeSensitivity()

@@ -156,16 +156,17 @@ class TickDataStore(Publisher):
             self.lock.acquire()
             if contract_key in self.symbols:
                 map(lambda e: e.set_tick_value(field, price), self.symbols[contract_key]['syms'])
+                self.dispatch(TickDataStore.EVENT_TICK_UPDATED, {'contract_key': contract_key, 'field': field, 
+                                                             'price': price, 'syms': self.symbols[contract_key]['syms']})                
             
         except:
             # contract not set up in the datastore, ignore message
-            logging.error('set_symbol_price: exception occured to: %s' % contract_key)
+            logging.error('set_symbol_tick_price: exception occured to: %s' % contract_key)
             #self.dump()
             pass
         finally:
             self.lock.release()
-            self.dispatch(TickDataStore.EVENT_TICK_UPDATED, {'contract_key': contract_key, 'field': field, 
-                                                             'price': price, 'syms': self.symbols[contract_key]['syms']})
+
             
 
     def set_symbol_analytics(self, contract_key, field, value):

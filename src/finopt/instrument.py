@@ -57,13 +57,15 @@ class Option(Symbol):
     VEGA     = 5005
     PREMIUM  = 5006
     
-    
+
     #[0,1,2,3,4,5,6,7,8,9,14,5001,5002,5003,5004,5005,5006]
-        
+         
+
     def __init__(self, contract):
         Symbol.__init__(self, contract)
         
-        self.set_analytics(-1.0, -1.0, -1.0, -1.0, -1.0, -1.0)
+        #self.set_analytics(-1.0, -1.0, -1.0, -1.0, -1.0, -1.0)
+        self.set_analytics(float('nan'),float('nan'),float('nan'),float('nan'),float('nan'))
 
         
     def set_analytics(self, imvol=None, delta=None, gamma=None, theta=None, vega=None, npv=None):
@@ -78,11 +80,11 @@ class Option(Symbol):
 #         self.analytics[Option.VEGA] = vega
 #         self.analytics[Option.PREMIUM] = npv
         self.set_tick_value(Option.IMPL_VOL, imvol)
-        self.set_tick_value[Option.DELTA] = delta 
-        self.set_tick_value[Option.GAMMA] = gamma
-        self.set_tick_value[Option.THETA] = theta
-        self.set_tick_value[Option.VEGA] = vega
-        self.set_tick_value[Option.PREMIUM] = npv        
+        self.set_tick_value(Option.DELTA, delta) 
+        self.set_tick_value(Option.GAMMA, gamma)
+        self.set_tick_value(Option.THETA, theta)
+        self.set_tick_value(Option.VEGA, vega)
+        self.set_tick_value(Option.PREMIUM, npv)        
         
         
         

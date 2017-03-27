@@ -11,7 +11,7 @@ from misc2.observer import NotImplementedException
 
 
 from time import sleep
-from finopt.optcal import cal_implvol
+from finopt.optcal import cal_implvol, cal_option
 
 
 class OptionsChain(Publisher):
@@ -49,7 +49,12 @@ class OptionsChain(Publisher):
     '''
     EVENT_OPTION_UPDATED = 'oc_option_updated'
     EVENT_UNDERLYING_ADDED = 'oc_underlying_added'
-    OC_EVENTS = [EVENT_OPTION_UPDATED, EVENT_UNDERLYING_ADDED]     
+    OC_EVENTS = [EVENT_OPTION_UPDATED, EVENT_UNDERLYING_ADDED]    
+    EMPTY_GREEKS =   {Option.DELTA: float('nan'), Option.GAMMA: float('nan'), 
+                      Option.THETA: float('nan'), Option.VEGA: float('nan'),
+                      Option.IMPL_VOL: float('nan'), Option.PREMIUM: float('nan')}   
+
+     
     
     def __init__(self, name):
         self.name = name
@@ -203,17 +208,41 @@ class OptionsChain(Publisher):
             key = ContractHelper.makeRedisKeyEx(o.get_contract())
             greeks = self.cal_option_greeks(o, valuation_date)
             all_results[key] = greeks
-    
+
         return all_results
     
-    def cal_option_greeks(self, o, valuation_date):
+    def cal_option_greeks(self, option, valuation_date):
+        
+        uspot_last = self.get_underlying().get_tick_value(4)
+        if uspot_last is None:
+            return OptionsChain.EMPTY_GREEKS
+        o = option.get_contract()
+        logging.info('OptionChain:cal_option_greeks. %8.4f' % uspot_last)
+
+            
+            
         try:
-            uspot_last = self.get_underlying().get_tick_value(4)
-            greeks = cal_implvol(uspot_last, o.m_strike, o.m_right, valuation_date, 
-                                  o.m_expiry, self.rate, self.div, self.trade_vol, o.get_tick_value(4))
+            iv = cal_implvol(uspot_last, o.m_strike, o.m_right, valuation_date, 
+                                  o.m_expiry, self.rate, self.div, self.trade_vol, option.get_tick_value(4))
+        except RuntimeError:
+            logging.warn('OptionChain:cal_option_greeks. Quantlib threw an error while calculating implied vol: use intrinsic: last->%8.2f strike->%8.2f right->%s sym->%s' % 
+                         (uspot_last, o.m_strike, o.m_right, o.m_symbol))
+            iv = cal_implvol(uspot_last, o.m_strike, o.m_right, valuation_date, 
+                                  o.m_expiry, self.rate, self.div, self.trade_vol, abs(uspot_last - o.m_strike))
+
+        try:                
+            greeks = cal_option(uspot_last, o.m_strike, o.m_right, valuation_date, 
+                                  o.m_expiry, self.rate, self.div, iv[Option.IMPL_VOL])
+            greeks.update(iv)
+            logging.info('OptionChain:cal_option_greeks. %s' % greeks)
         
         except Exception, err:
-            logging.error(traceback.format_exc())        
+            logging.error('OptionsChain:cal_option_greeks. Error retrieving uspot_last  greeks for option %s' % ContractHelper.makeRedisKeyEx(o))
+            logging.error(traceback.format_exc())     
+            greeks = {Option.DELTA: float('nan'), Option.GAMMA: float('nan'), 
+                      Option.THETA: float('nan'), Option.VEGA: float('nan'),
+                      Option.IMPL_VOL: float('nan'), Option.PREMIUM: float('nan')}   
+
 
         return greeks
      
@@ -245,9 +274,9 @@ class OptionsChain(Publisher):
                                                format_tick_val(x[1].get_tick_value(1), fmt_spec),
                                                format_tick_val(x[1].get_tick_value(2), fmt_spec),
                                                format_tick_val(x[1].get_tick_value(3), fmt_specq),
-                                               format_tick_val(x[1].get_analytics()[Option.IMPL_VOL], fmt_spec2),
-                                               format_tick_val(x[1].get_analytics()[Option.DELTA], fmt_spec2),
-                                               format_tick_val(x[1].get_analytics()[Option.THETA], fmt_spec2),
+                                               format_tick_val(x[1].get_tick_value(Option.IMPL_VOL), fmt_spec2),
+                                               format_tick_val(x[1].get_tick_value(Option.DELTA), fmt_spec2),
+                                               format_tick_val(x[1].get_tick_value(Option.THETA), fmt_spec2),
                                                )), sorted_call)
         
         fmt_put = map(lambda x: (x[0], '%s,%s,%s,%s,%s,%s,%s,%s' % (format_tick_val(x[1].get_tick_value(4), fmt_spec),
@@ -255,9 +284,9 @@ class OptionsChain(Publisher):
                                                format_tick_val(x[1].get_tick_value(1), fmt_spec),
                                                format_tick_val(x[1].get_tick_value(2), fmt_spec),
                                                format_tick_val(x[1].get_tick_value(3), fmt_specq),
-                                               format_tick_val(x[1].get_analytics()[Option.IMPL_VOL], fmt_spec2),
-                                               format_tick_val(x[1].get_analytics()[Option.DELTA], fmt_spec2),
-                                               format_tick_val(x[1].get_analytics()[Option.THETA], fmt_spec2),                    
+                                               format_tick_val(x[1].get_tick_value(Option.IMPL_VOL), fmt_spec2),
+                                               format_tick_val(x[1].get_tick_value(Option.DELTA), fmt_spec2),
+                                               format_tick_val(x[1].get_tick_value(Option.THETA), fmt_spec2),                    
                                                )), sorted_put)
         
         undlypx = '%s,%s,%s,%s,%s' % (format_tick_val(self.get_underlying().get_tick_value(4), fmt_spec), 
