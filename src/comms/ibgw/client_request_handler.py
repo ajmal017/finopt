@@ -4,7 +4,7 @@ import logging
 import json
 import traceback
 from time import strftime 
-from misc2.helpers import ContractHelper, OrderHelper, ExecutionFilterHelper
+from misc2.helpers import ContractHelper, OrderHelper, ExecutionFilterHelper, HelperFunctions
 from comms.ibgw.base_messaging import BaseMessageListener
 
 from ib.ext.Contract import Contract
@@ -25,13 +25,13 @@ class ClientRequestHandler(BaseMessageListener):
     
     def reqAccountUpdates(self, event, subscribe, acct_code):
         logging.info('ClientRequestHandler - reqAccountUpdates value=%s' % vars())
-        self.tws_connect.reqAccountUpdates(subscribe, acct_code)
+        self.tws_connect.reqAccountUpdates(subscribe, HelperFunctions.utf2asc(acct_code))
     
     def reqAccountSummary(self, event, value):
         logging.info('ClientRequestHandler - reqAccountSummary value=%s' % value)
-        
-        vals = map(lambda x: x.encode('ascii') if isinstance(x, unicode) else x, json.loads(value))
-        self.tws_connect.reqAccountSummary(vals[0], vals[1], vals[2])
+        #old stuff
+#         vals = map(lambda x: x.encode('ascii') if isinstance(x, unicode) else x, json.loads(value))
+#         self.tws_connect.reqAccountSummary(vals[0], vals[1], vals[2])
         
     def reqOpenOrders(self, event, value=None):
         self.tws_connect.reqOpenOrders()

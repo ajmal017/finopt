@@ -211,6 +211,11 @@ class ContractHelper(BaseHelper):
 def dict2str(dict):
     # enclose strings in double quotes
     return '{'  + ', '.join('"%s" : %s' % (k, '"%s"' % v if type(v) == str else v) for k, v in dict.iteritems()) + '}'   
+
+class HelperFunctions():
+    @staticmethod
+    def utf2asc(x):
+        return x.encode('ascii') if isinstance(x, unicode) else x
     
 
 class ConfigMap():
@@ -232,3 +237,5 @@ class ConfigMap():
                 
         #logging.debug('ConfigMap: %s' % kwargs)
         return kwargs
+    
+

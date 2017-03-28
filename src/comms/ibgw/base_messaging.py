@@ -311,7 +311,7 @@ class BaseConsumer(threading.Thread, Publisher):
                         
                         
                     if '*' in self.kwargs['seek_to_end'] or message.topic in self.kwargs['seek_to_end']:
-                        
+                        print 'baseconsumer run %s %d' % (message.top, gap)
                         # if there is no gap                          
                         if gap == 1:
                             # the message is valid for dispatching and not to be skipped
@@ -352,12 +352,13 @@ class BaseConsumer(threading.Thread, Publisher):
                         logging.info('********************** reached the last message previously processed %s %d' % (message.topic, message.offset))
                     else:
                         self.persist_offsets(message.topic, message.partition, message.offset)
-                        #self.dispatch(BaseConsumer.KB_EVENT, {'message': message})
-                        #self.dispatch(message.topic, self.enrich_message(message))
                         self.dispatch(message.topic, self.extract_message_content(message))
+                        
             except StopIteration:
                 logging.debug('BaseConsumer:run StopIteration Caught. No new message arriving...')
                 continue
+            except TypeError:
+                logging.error('BaseConsumer:run. Caught TypeError Exception while processing a message. Malformat json string? %s: %s' % (message.topic, message.value))
             
         consumer.close()   
         logging.info ('******** BaseConsumer exit done.')

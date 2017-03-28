@@ -42,13 +42,13 @@ class GatewayCommandWrapper():
         logging.error('requestFA: NOT IMPLEMENTED')
     
     def reqPositions(self):
-        self.producer.send_message('reqPositions', '')
+        self.producer.send_message('reqPositions', '{}')
         
     def reqHistoricalData(self):
         logging.error('reqHistoricalData: NOT IMPLEMENTED')
         
-    def reqAccountUpdates(self):
-        self.producer.send_message('reqAccountUpdates', '1')
+    def reqAccountUpdates(self, subscribe, acct_code):
+        self.producer.send_message('reqAccountUpdates', json.dumps({'subscribe': subscribe, 'acct_code': acct_code}))
 
     def reqExecutions(self, exec_filter=None):
         self.producer.send_message('reqExecutions', ExecutionFilterHelper.object2kvstring(exec_filter) if exec_filter <> None else '')
@@ -72,8 +72,7 @@ class GatewayCommandWrapper():
     
         
 
-    def gw_req_subscriptions(self, sender_id):
-        self.producer.send_message('gw_req_subscriptions', self.producer.message_dumps({'sender_id': sender_id}))
+
         
         
         

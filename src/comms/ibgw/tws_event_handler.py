@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 from time import strftime
+from datetime import datetime
+from misc2.helpers import ContractHelper
 import logging
 import traceback
 from ib.ext.EWrapper import EWrapper
@@ -24,7 +26,7 @@ class TWS_event_handler(EWrapper):
 
         try:
             dict = self.tick_process_message(message, mapping)     
-            logging.info('broadcast_event %s' % dict)
+            logging.info('broadcast_event %s:%s' % (message, dict))
             self.producer.send_message(message, self.producer.message_dumps(dict))    
         except:
             logging.error('broadcast_event: exception while encoding IB event to client:  [%s]' % message)
@@ -35,20 +37,20 @@ class TWS_event_handler(EWrapper):
 
     
     def tick_process_message(self, message_name, items):
-        return items
+        #return items
 
         t = items.copy()
         # if the tickerId is in the snapshot range
         # deduct the gap to derive the original tickerId
         # --- check logic in subscription manager
-        try:
-            
-            if (t['tickerId']  >= TWS_event_handler.TICKER_GAP):
-                #print 'tick_process_message************************ SNAPSHOT %d' % t['tickerId']
-                t['tickerId'] = t['tickerId']  - TWS_event_handler.TICKER_GAP
-                
-        except (KeyError, ):
-            pass          
+#         try:
+#             
+#             if (t['tickerId']  >= TWS_event_handler.TICKER_GAP):
+#                 #print 'tick_process_message************************ SNAPSHOT %d' % t['tickerId']
+#                 t['tickerId'] = t['tickerId']  - TWS_event_handler.TICKER_GAP
+#                 
+#         except (KeyError, ):
+#             pass          
             
         try:
             del(t['self'])
@@ -109,18 +111,48 @@ class TWS_event_handler(EWrapper):
     def openOrderEnd(self):
         self.broadcast_event('openOrderEnd', vars())
 
+#     def updateAccountValue(self, key, value, currency, accountName):
+#         self.broadcast_event('updateAccountValue', vars())
+# 
+#     def updatePortfolio(self, contract, position, marketPrice, marketValue, averageCost, unrealizedPNL, realizedPNL, accountName):
+#         self.broadcast_event('updatePortfolio', vars())
+# 
+#     def updateAccountTime(self, timeStamp):
+#         self.broadcast_event('updateAccountTime', vars())
+# 
+#     def accountDownloadEnd(self, accountName):
+#         self.broadcast_event('accountDownloadEnd', vars())
     def updateAccountValue(self, key, value, currency, accountName):
-        self.broadcast_event('updateAccountValue', vars())
+        
+        logging.info('TWS_event_handler:updateAccountValue. [%s]:%s' % (key.ljust(40), value))
+        self.broadcast_event('updateAccountValue', {'key': key, 
+                                          'value': value, 'currency': currency, 'account':accountName})
+                
 
     def updatePortfolio(self, contract, position, marketPrice, marketValue, averageCost, unrealizedPNL, realizedPNL, accountName):
-        self.broadcast_event('updatePortfolio', vars())
+        contract_key= ContractHelper.makeRedisKeyEx(contract)
+        logging.info('TWS_event_handler:updatePortfolio. [%s]:position= %d' % (contract_key, position))
+        self.broadcast_event('updatePortfolio', {
+                                'contract_key': contract_key, 
+                                'position': position, 'market_price': marketPrice,
+                                'market_value': marketValue, 'average_cost': averageCost, 
+                                'unrealized_PNL': unrealizedPNL, 'realized_PNL': realizedPNL, 
+                                'account': accountName
+                                
+                                })
+                
 
     def updateAccountTime(self, timeStamp):
-        self.broadcast_event('updateAccountTime', vars())
+        
+        logging.info('TWS_event_handler:updateAccountTime. last updated at ts=%d' % 
+                     (datetime.fromtimestamp(timeStamp).strftime('%Y-%m-%d %H:%M:%S')))
+        self.broadcast_event('updateAccountTime', {'timestamp': timeStamp})
+                
 
     def accountDownloadEnd(self, accountName):
-        self.broadcast_event('accountDownloadEnd', vars())
-
+        self.broadcast_event('accountDownloadEnd', {'account':accountName})
+        
+        
     def nextValidId(self, orderId):
         self.broadcast_event('nextValidId', vars())
 

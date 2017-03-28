@@ -7,7 +7,7 @@ import sys
 
 from ib.ext.Contract import Contract
 from optparse import OptionParser
-from misc2.helpers import ContractHelper
+from misc2.helpers import ContractHelper, HelperFunctions
 from comms.ibgw.base_messaging import Prosumer
 from comms.tws_protocol_helper import TWS_Protocol
 from comms.ibc.tws_client_lib import TWS_client_manager, AbstractGatewayListener
@@ -112,8 +112,8 @@ def test_client2(kwargs):
     cm.start_manager()
                           
                               
-    cm.reqPositions()
-    cm.reqAccountUpdates()
+    #cm.reqPositions()
+    cm.reqAccountUpdates(True, 'U8379890')
     
     try:
         logging.info('TWS_gateway:main_loop ***** accepting console input...')
@@ -182,6 +182,7 @@ if __name__ == '__main__':
     logging.basicConfig(**logconfig)        
     
     
-    test_client(kwargs)
+    test_client2(kwargs)
+
     
      
