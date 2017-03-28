@@ -88,27 +88,12 @@ class TWS_gateway():
          
         
         self.tws_connection = EClientSocket(self.tws_event_handler)
-#         class th(threading.Thread):
-#             def __init__(self, evet ):
-#                 threading.Thread.__init__(self)
-#                 
-#                 self.tc = EClientSocket(evet)
-#                 
-#             def get_conn(self):
-#                 return self.tc
-#             def run(self):
-#                 while 1:
-#                     sleep(0.05)
-#                     
-#         
-#         ti = th(self.tws_event_handler)
-#         self.tws_connection = ti.get_conn()
-#         ti.start()
+
         
         
         
         logging.info('establishing TWS gateway connectivity...')
-        if not self.connect_tws():
+        if self.connect_tws() == False:
             logging.error('TWS_gateway: unable to establish connection to IB %s:%d' % 
                           (self.kwargs['tws_host'], self.kwargs['tws_api_port']))
             self.disconnect_tws()

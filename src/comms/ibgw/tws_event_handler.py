@@ -24,8 +24,6 @@ class TWS_event_handler(EWrapper):
 
         try:
             dict = self.tick_process_message(message, mapping)     
-            if message == 'gw_subscriptions' or message == 'gw_subscription_changed':   
-                logging.info('TWS_event_handler: broadcast event: %s [%s]' % (dict['typeName'], dict))
             logging.info('broadcast_event %s' % dict)
             self.producer.send_message(message, self.producer.message_dumps(dict))    
         except:
@@ -37,7 +35,7 @@ class TWS_event_handler(EWrapper):
 
     
     def tick_process_message(self, message_name, items):
-        
+        return items
 
         t = items.copy()
         # if the tickerId is in the snapshot range

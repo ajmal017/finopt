@@ -59,7 +59,7 @@ def cal_option(spot, strike, callput, evaldate, exdate, rate, div, vol):
     results[instrument.Option.VEGA] = option.vega() 
 #    results['rho'] = option.rho() 
 
-    results['strikeSensitivity'] = option.strikeSensitivity()
+   #results['strikeSensitivity'] = option.strikeSensitivity()
    # results['thetaPerDay'] = option.thetaPerDay()
    # results['itmCashProbability'] = option.itmCashProbability()
  

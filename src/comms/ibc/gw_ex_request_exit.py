@@ -21,18 +21,36 @@ class MessageListener(AbstractGatewayListener):
         AbstractGatewayListener.__init__(self, name)
         self.tick_ds = tick_ds
 
-    def position(self, event, account, contract, pos, avgCost):
-        #logging.info('MessageListener:%s. val->[%s]' % (event, vars()))
-        logging.info('MessageListener: %s %s %d %8.2f' % (account, ContractHelper.kv2contract(contract).m_symbol, pos, avgCost))
    
-    def positionEnd(self, event):
-        logging.info('MessageListener:%s. val->[%s]' % (event, vars()))
-        #self.parent.stop_manager()
-        
+   
+    def position(self, event, account, contract_key, pos, avg_cost):
+        """ generated source for method position """
+        logging.info('%s [[ %s ]]' % (event, vars()))
+   
+    def positionEnd(self, event): #, message_value):
+        """ generated source for method positionEnd """
+        logging.info('%s [[ %s ]]' % (event, vars()))
+    
+            
     def error(self, event, id, errorCode, errorMsg):
         logging.info('MessageListener:%s. val->[%s]' % (event, vars()))  
 
 
+    def updateAccountValue(self, event, key, value, currency, account):  # key, value, currency, accountName):
+        """ generated source for method updateAccountValue """
+        logging.info('%s [[ %s ]]' % (event, vars()))
+
+    def updatePortfolio(self, event, contract_key, position, market_price, market_value, average_cost, unrealized_PNL, realized_PNL, account):
+        """ generated source for method updatePortfolio """
+        logging.info('%s [[ %s ]]' % (event, vars()))
+   
+    def updateAccountTime(self, event, timestamp):
+        """ generated source for method updateAccountTime """
+        logging.info('%s [[ %s ]]' % (event, vars()))
+   
+    def accountDownloadEnd(self, event, account):  # accountName):
+        """ generated source for method accountDownloadEnd """
+        logging.info('%s [[ %s ]]' % (event, vars()))
       
 
     def tickPrice(self, event, contract_key, field, price, canAutoExecute):
@@ -82,7 +100,37 @@ def test_client(kwargs):
         logging.info('TWS_client_manager: Service shut down complete...')
            
     print 'end of test_client function'
-      
+
+
+def test_client2(kwargs):
+
+    ts = TickDataStore(kwargs['name'])
+    cm = TWS_client_manager(kwargs)
+    cl = MessageListener('gw_client_message_listener', ts)
+    
+    cm.add_listener_topics(cl, kwargs['topics'])
+    cm.start_manager()
+                          
+                              
+    cm.reqPositions()
+    cm.reqAccountUpdates()
+    
+    try:
+        logging.info('TWS_gateway:main_loop ***** accepting console input...')
+        while not cm.is_stopped(): 
+        
+            sleep(.45)
+            read_ch = raw_input("Enter command:")
+            
+        
+    except (KeyboardInterrupt, SystemExit):
+        logging.error('TWS_client_manager: caught user interrupt. Shutting down...')
+        cm.gw_message_handler.set_stop()
+        
+        logging.info('TWS_client_manager: Service shut down complete...')
+           
+    print 'end of test_client function'
+   
 if __name__ == '__main__':
     
 

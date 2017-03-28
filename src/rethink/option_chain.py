@@ -189,9 +189,13 @@ class OptionsChain(Publisher):
 
         
     def add_option(self, option):
-        #events = ('on_option_added', 'on_option_deleted', 'on_option_updated')
+        
         #
-        # 
+        # after an option is appended to the option_chain, an event 
+        # is fired to notify the observers. 
+        # the option is tagged with the chain id
+        # this is useful in resolving which chain the option belongs to
+        # see AnalyticsEngine:tds_event_tick_updated
         option.set_extra_attributes(OptionsChain.CHAIN_IDENTIFIER, self.name)
         self.options.append(option)
         self.dispatch(OptionsChain.EVENT_OPTION_UPDATED, {'update_mode': 'A', 

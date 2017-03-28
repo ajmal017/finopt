@@ -23,9 +23,9 @@ class ClientRequestHandler(BaseMessageListener):
 
     
     
-    def reqAccountUpdates(self, event, value=None):
-        logging.info('ClientRequestHandler - reqAccountUpdates value=%s' % value)
-        self.tws_connect.reqAccountUpdates(1, '')
+    def reqAccountUpdates(self, event, subscribe, acct_code):
+        logging.info('ClientRequestHandler - reqAccountUpdates value=%s' % vars())
+        self.tws_connect.reqAccountUpdates(subscribe, acct_code)
     
     def reqAccountSummary(self, event, value):
         logging.info('ClientRequestHandler - reqAccountSummary value=%s' % value)

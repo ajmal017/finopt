@@ -59,23 +59,23 @@ class AnalyticsEngine(AbstractGatewayListener):
         
     
     def test_oc3(self, oc3):
-#         expiry = '20170330'
-#         contractTuple = ('HHI.HK', 'FUT', 'HKFE', 'HKD', expiry, 0, '')
+        expiry = '20170427'
+        contractTuple = ('HSI', 'FUT', 'HKFE', 'HKD', expiry, 0, '')
+        contract = ContractHelper.makeContract(contractTuple)  
+         
+        oc3.set_option_structure(contract, 200, 50, 0.0012, 0.0328, expiry)        
+         
+        oc3.build_chain(24380, 0.03, 0.22)
+
+#         expiry = '20170331'
+#         contractTuple = ('QQQ', 'STK', 'SMART', 'USD', '', 0, '')
+# 
+# 
 #         contract = ContractHelper.makeContract(contractTuple)  
 #         
-#         oc3.set_option_structure(contract, 200, 50, 0.0012, 0.0328, expiry)        
+#         oc3.set_option_structure(contract, 0.5, 100, 0.0012, 0.0328, expiry)        
 #         
-#         oc3.build_chain(10445, 0.03, 0.22)
-
-        expiry = '20170331'
-        contractTuple = ('QQQ', 'STK', 'SMART', 'USD', '', 0, '')
-
-
-        contract = ContractHelper.makeContract(contractTuple)  
-        
-        oc3.set_option_structure(contract, 0.5, 100, 0.0012, 0.0328, expiry)        
-        
-        oc3.build_chain(130, 0.03, 0.22)
+#         oc3.build_chain(130, 0.03, 0.22)
         
 #         expiry='20170324'
 #         contractTuple = ('QQQ', 'STK', 'SMART', 'USD', '', 0, '')
@@ -106,19 +106,35 @@ class AnalyticsEngine(AbstractGatewayListener):
         
         try:
             logging.info('AnalyticsEngine:main_loop ***** accepting console input...')
+            menu = {}
+            menu['1']="Display option chain <id>" 
+            menu['2']="Display tick data store "
+            menu['3']="No opt"
+            menu['4']="Exit"
             while True: 
-            
+                choices=menu.keys()
+                choices.sort()
+                for entry in choices: 
+                    print entry, menu[entry]            
 
-                read_ch = raw_input("Enter command:")
-                oc2.pretty_print()
-                oc3.pretty_print()
-                self.tds.dump()
+                selection = raw_input("Enter command:")
+                if selection =='1':
+                    oc2.pretty_print()
+                elif selection == '2': 
+                    self.tds.dump()
+                elif selection == '3':
+                    oc3.pretty_print()
+                elif selection == '4': 
+                    self.twsc.gw_message_handler.set_stop()
+                    break
+                else: 
+                    print "Unknown Option Selected!"                 
+                
                 sleep(0.45)
             
         except (KeyboardInterrupt, SystemExit):
             logging.error('AnalyticsEngine: caught user interrupt. Shutting down...')
-            self.twsc.gw_message_handler.set_stop()
-            
+            self.twsc.gw_message_handler.set_stop() 
             logging.info('AnalyticsEngine: Service shut down complete...')               
     
     
@@ -150,11 +166,11 @@ class AnalyticsEngine(AbstractGatewayListener):
         
     
     def tds_event_tick_updated(self, event, contract_key, field, price, syms):
-        results = {}
+        
         for s in syms:
             
             if OptionsChain.CHAIN_IDENTIFIER in s.get_extra_attributes():
-                
+                results = {}
                 chain_id = s.get_extra_attributes()[OptionsChain.CHAIN_IDENTIFIER]
                 logging.info('AnalyticsEngine:tds_event_tick_updated chain_id %s' % chain_id)
                 if chain_id  in self.option_chains.keys():

@@ -120,19 +120,19 @@ class AbstractGatewayListener(BaseMessageListener):
         """ generated source for method openOrderEnd """
         raise NotImplementedException
    
-    def updateAccountValue(self, event, message_value):  # key, value, currency, accountName):
+    def updateAccountValue(self, event, key, value, currency, account):  # key, value, currency, accountName):
         """ generated source for method updateAccountValue """
         raise NotImplementedException
-   
-    def updatePortfolio(self, event, message_value):  # contract, position, marketPrice, marketValue, averageCost, unrealizedPNL, realizedPNL, accountName):
+
+    def updatePortfolio(self, event, contract_key, position, market_price, market_value, average_cost, unrealized_PNL, realized_PNL, account):
         """ generated source for method updatePortfolio """
         raise NotImplementedException
    
-    def updateAccountTime(self, event, message_value):  # timeStamp):
+    def updateAccountTime(self, event, timestamp):
         """ generated source for method updateAccountTime """
         raise NotImplementedException
    
-    def accountDownloadEnd(self, event, message_value):  # accountName):
+    def accountDownloadEnd(self, event, account):  # accountName):
         """ generated source for method accountDownloadEnd """
         raise NotImplementedException
    
@@ -224,13 +224,17 @@ class AbstractGatewayListener(BaseMessageListener):
         """ generated source for method commissionReport """
         raise NotImplementedException
    
-    def position(self, event, account, contract, pos, avgCost):
+    def position(self, event, account, contract_key, pos, avg_cost):
         """ generated source for method position """
         raise NotImplementedException
    
     def positionEnd(self, event): #, message_value):
         """ generated source for method positionEnd """
         raise NotImplementedException
+
+
+        
+
    
     def accountSummary(self, event, message_value):  # reqId, account, tag, value, currency):
         """ generated source for method accountSummary """
