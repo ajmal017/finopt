@@ -41,7 +41,7 @@ class TWS_gateway():
       'session_timeout_ms': 10000,
       'clear_offsets':  False,
       'order_transmit': False,
-      'topics': list(TWS_Protocol.topicMethods) + list(TWS_Protocol.gatewayMethods),
+      'topics': list(TWS_Protocol.topicMethods),
       'reset_db_subscriptions': False
       }
                

@@ -1,5 +1,5 @@
  #!/usr/bin/env python
-import threading, logging, time
+import threading, logging, time, traceback
 import sys
 import copy
 import datetime
@@ -311,7 +311,7 @@ class BaseConsumer(threading.Thread, Publisher):
                         
                         
                     if '*' in self.kwargs['seek_to_end'] or message.topic in self.kwargs['seek_to_end']:
-                        print 'baseconsumer run %s %d' % (message.top, gap)
+                        #print 'baseconsumer run %s %d' % (message.topic, gap)
                         # if there is no gap                          
                         if gap == 1:
                             # the message is valid for dispatching and not to be skipped
@@ -359,7 +359,8 @@ class BaseConsumer(threading.Thread, Publisher):
                 continue
             except TypeError:
                 logging.error('BaseConsumer:run. Caught TypeError Exception while processing a message. Malformat json string? %s: %s' % (message.topic, message.value))
-            
+                logging.error(traceback.format_exc())
+                
         consumer.close()   
         logging.info ('******** BaseConsumer exit done.')
 

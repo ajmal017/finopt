@@ -23,7 +23,7 @@ class MessageListener(AbstractGatewayListener):
 
    
    
-    def position(self, event, account, contract_key, pos, avg_cost):
+    def position(self, event, account, contract_key, position, average_cost):
         """ generated source for method position """
         logging.info('%s [[ %s ]]' % (event, vars()))
    
@@ -112,8 +112,8 @@ def test_client2(kwargs):
     cm.start_manager()
                           
                               
-    #cm.reqPositions()
-    cm.reqAccountUpdates(True, 'U8379890')
+    cm.reqPositions()
+    #cm.reqAccountUpdates(True, 'U8379890')
     
     try:
         logging.info('TWS_gateway:main_loop ***** accepting console input...')
@@ -148,9 +148,10 @@ if __name__ == '__main__':
       'group_id': 'EX_REQUEST',
       'session_timeout_ms': 10000,
       'clear_offsets':  False,
-      'logconfig': {'level': logging.INFO},
-      'topics': ['tickSize', 'tickPrice',  'position', 'positionEnd'],
-      'seek_to_end': ['tickPrice', 'tickSize','position', 'positionEnd'],
+      'logconfig': {'level': logging.INFO, 'filemode': 'w', 'filename': '/tmp/gw_ex.log'},
+      'topics': ['tickSize', 'tickPrice',  'position', 'positionEnd', 'updateAccountValue', 'updatePortfolio', 'updateAccountTime', 'accountDownloadEnd'],
+      'seek_to_end': ['tickPrice', 'tickSize','position', 'positionEnd', 'updateAccountValue', 
+                      'updatePortfolio', 'updateAccountTime', 'accountDownloadEnd']
       }
 
     usage = "usage: %prog [options]"
