@@ -36,7 +36,7 @@ class TWS_client_manager(GatewayCommandWrapper):
       'session_timeout_ms': 10000,
       'clear_offsets':  False,
       
-      'topics': list(TWS_Protocol.topicEvents) + list(TWS_Protocol.gatewayEvents)
+      'topics': list(TWS_Protocol.topicEvents) 
       }
       
                
