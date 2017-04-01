@@ -301,7 +301,7 @@ class OptionsChain(Publisher):
                                 )
         
         #title = '%s%30s%s%s' % ('-' * 40, ContractHelper.makeRedisKeyEx(self.get_underlying().get_contract()).center(50, ' '), undlypx, '-' * 40) 
-        title = '%s%30s%s%s' % ('-' * 41, ContractHelper.makeRedisKeyEx(self.get_underlying().get_contract()).center(42, ' '), undlypx, '-' * 27)
+        title = '%s CALL %s%30s%s%s PUT %s' % ('-' * 17, '-' * 18,ContractHelper.makeRedisKeyEx(self.get_underlying().get_contract()).center(42, ' '), undlypx, '-' * 11, '-' * 11)
         header = '%8s|%8s|%8s|%8s|%8s|%8s|%8s|%8s |%8s| %8s|%8s|%8s|%8s|%8s|%8s|%8s|%8s' % ('last', 'bidq', 'bid', 'ask', 'askq', 'ivol', 'delta', 'theta', 'strike', 'last', 'bidq', 'bid', 'ask', 'askq', 'ivol', 'delta', 'theta')
         combined = map(lambda i: '%s |%8.2f| %s' % (fmt_call[i][1], fmt_put[i][0], fmt_put[i][1]), range(len(fmt_call)) )
         footer = '%s' % ('-' * 154) 
@@ -311,4 +311,46 @@ class OptionsChain(Publisher):
             print e
         print footer
         
-     
+    def g_datatable_json(self):
+        
+        sorted_opt = sorted(map(lambda i: (self.options[i].get_contract().m_strike, self.options[i]) , range(len(self.options))))
+        
+        sorted_call = filter(lambda x: x[1].get_contract().m_right == 'C', sorted_opt)
+        sorted_put = filter(lambda x: x[1].get_contract().m_right == 'P', sorted_opt)
+        
+
+        
+        dtj = {'cols':[], 'rows':[]}
+        header = [('last', 'number'), ('bidq', 'number'), ('bid', 'number'), 
+                  ('ask', 'number'), ('askq', 'number'), ('ivol', 'number'), 
+                  ('delta', 'number'), ('theta', 'number'), ('strike', 'number'), 
+                  ('last', 'number'), ('bidq', 'number'), ('bid', 'number'), 
+                  ('ask', 'number'), ('askq', 'number'), ('ivol', 'number'), 
+                  ('delta', 'number'), ('theta', 'number')
+                  ]  
+        # header fields      
+        map(lambda hf: dtj['cols'].append({'id': hf[0], 'label': hf[0], 'type': hf[1]}), header)
+        
+        
+        # table rows
+        # arrange each row with C on the left, strike in the middle, and P on the right
+        def row_fields(x):
+            
+            rf = [{'v': x[1].get_tick_value(4)}, 
+                 {'v': x[1].get_tick_value(0)},
+                 {'v': x[1].get_tick_value(1)},
+                 {'v': x[1].get_tick_value(2)},
+                 {'v': x[1].get_tick_value(3)},
+                 {'v': x[1].get_tick_value(Option.IMPL_VOL)},
+                 {'v': x[1].get_tick_value(Option.DELTA)},
+                 {'v': x[1].get_tick_value(Option.THETA)}]                 
+                 
+             
+            return rf 
+        
+        map(lambda i: dtj['rows'].append({'c': row_fields(sorted_call[i]) +
+                                                [{'v': sorted_call[i][0]}] + 
+                                                row_fields(sorted_put[i])}), range(len(sorted_call)))
+    
+        
+        return json.dumps(dtj) #, indent=4)        

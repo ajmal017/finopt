@@ -193,8 +193,6 @@ class BaseConsumer(threading.Thread, Publisher):
         self.my_topics[topic][str(partition)] = offset
         self.rs.set(self.consumer_topic(topic), json.dumps(self.my_topics[topic]))
     
-    def enrich_message(self, message):
-        return {'value': message.value, 'partition':message.partition, 'offset': message.offset}
         
     def extract_message_content(self, message):
         #logging.info('BaseConsumer: extract_message_content. %s %s' % (type(message), message))
@@ -272,7 +270,7 @@ class BaseConsumer(threading.Thread, Publisher):
                 # it may be useful to detect slow consumer situation
                 if message.offset % BaseConsumer.SLOW_CONSUMER_QUALIFY_NUM == 0:
                     highwater = consumer.highwater(TopicPartition(message.topic, message.partition))
-                    logging.info( "BaseConsumer [%s]:highwater:%d offset:%d part:%d <%s>" %  (self.name, highwater, message.offset, message.partition, message.value))
+                    logging.info( "BaseConsumer [%s]:highwater:%d offset:%d part:%d <%s>" %  (self.name, highwater, message.offset, message.partition, message.topic))
                     
                     if highwater - message.offset >= BaseConsumer.SLOW_CONSUMER_QUALIFY_NUM:
                         logging.warn("BaseConsumer:run Slow consumer detected! current: %d, highwater:%d, gap:%d" %
@@ -312,10 +310,16 @@ class BaseConsumer(threading.Thread, Publisher):
                         
                     if '*' in self.kwargs['seek_to_end'] or message.topic in self.kwargs['seek_to_end']:
                         #print 'baseconsumer run %s %d' % (message.topic, gap)
-                        # if there is no gap                          
-                        if gap == 1:
+                        # if there is no gap
+                        '''
+                        
+                            use seek_to_end only for messages that keep streaming and you don't
+                            care whether messages are lost or not
+                            
+                        
+                        '''
+                        if gap <=1:
                             # the message is valid for dispatching and not to be skipped
-                            #self.dispatch(message.topic, self.enrich_message(message))
                             self.dispatch(message.topic, self.extract_message_content(message))
                             logging.debug('*** On first iteration: Gap=%d Dispatch this valid message to the listener <%s>' % (gap, message.value))
                         else: # gap exists
@@ -347,7 +351,6 @@ class BaseConsumer(threading.Thread, Publisher):
                     # both saved value in redis and current offset are both 0
                     if self.my_topics[message.topic][str(message.partition)] == message.offset and message.offset <> 0:
                         self.dispatch(BaseConsumer.KB_REACHED_LAST_OFFSET, self.extract_message_content(message))
-                        #self.dispatch(message.topic, self.enrich_message(message))
                         self.dispatch(message.topic, self.extract_message_content(message))
                         logging.info('********************** reached the last message previously processed %s %d' % (message.topic, message.offset))
                     else:

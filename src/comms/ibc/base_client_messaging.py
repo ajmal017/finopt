@@ -51,7 +51,9 @@ class GatewayCommandWrapper():
         self.producer.send_message('reqAccountUpdates', json.dumps({'subscribe': subscribe, 'acct_code': acct_code}))
 
     def reqExecutions(self, exec_filter=None):
-        self.producer.send_message('reqExecutions', ExecutionFilterHelper.object2kvstring(exec_filter) if exec_filter <> None else '')
+
+        #self.producer.send_message('reqExecutions', json.dumps({'exec_filter': 'null'}))
+        self.producer.send_message('reqExecutions', json.dumps({'exec_filter': ExecutionFilterHelper.object2kvstring(exec_filter) if exec_filter else 'null'}))
 
 #     def reqMktData(self, contract):
 #         self.producer.send_message('reqMktData', ContractHelper.object2kvstring(contract))
@@ -119,21 +121,38 @@ class AbstractGatewayListener(BaseMessageListener):
         """ generated source for method openOrderEnd """
         raise NotImplementedException
    
-    def updateAccountValue(self, event, key, value, currency, account):  # key, value, currency, accountName):
-        """ generated source for method updateAccountValue """
-        raise NotImplementedException
-
-    def updatePortfolio(self, event, contract_key, position, market_price, market_value, average_cost, unrealized_PNL, realized_PNL, account):
-        """ generated source for method updatePortfolio """
-        raise NotImplementedException
+    def update_portfolio_account(self, event, **message_value):
+        '''
+            this message wraps TWS events 'updateAccountValue', 'updatePortfolio',
+            'updateAccountTime', 'accountDownloadEnd' and their parameters into a dict in 
+            the message_value parameter
+            
+            the name of the tws event is stored in a key 'tws_event'
+            
+             val->[{u'currency': u'JPY', u'account': u'U8379890', u'value': u'0.0698037', u'tws_event': u'updateAccountValue', u'key': u'ExchangeRate'}]
+ 
+            
+        '''
+        tws_event = message_value['tws_event']
+        del(message_value['tws_event'])
+        getattr(self, tws_event)(tws_event, **message_value)
+        
    
-    def updateAccountTime(self, event, timestamp):
-        """ generated source for method updateAccountTime """
-        raise NotImplementedException
-   
-    def accountDownloadEnd(self, event, account):  # accountName):
-        """ generated source for method accountDownloadEnd """
-        raise NotImplementedException
+#     def updateAccountValue(self, event, key, value, currency, account):  # key, value, currency, accountName):
+#         """ generated source for method updateAccountValue """
+#         raise NotImplementedException
+# 
+#     def updatePortfolio(self, event, contract_key, position, market_price, market_value, average_cost, unrealized_PNL, realized_PNL, account):
+#         """ generated source for method updatePortfolio """
+#         raise NotImplementedException
+#    
+#     def updateAccountTime(self, event, timestamp):
+#         """ generated source for method updateAccountTime """
+#         raise NotImplementedException
+#    
+#     def accountDownloadEnd(self, event, account):  # accountName):
+#         """ generated source for method accountDownloadEnd """
+#         raise NotImplementedException
    
     def nextValidId(self, event, message_value):  # orderId):
         """ generated source for method nextValidId """
@@ -151,7 +170,7 @@ class AbstractGatewayListener(BaseMessageListener):
         """ generated source for method contractDetailsEnd """
         raise NotImplementedException
    
-    def execDetails(self, event, message_value):  # reqId, contract, execution):
+    def execDetails(self, event, req_id, contract_key, execution, end_batch): 
         """ generated source for method execDetails """
         raise NotImplementedException
    
@@ -223,7 +242,7 @@ class AbstractGatewayListener(BaseMessageListener):
         """ generated source for method commissionReport """
         raise NotImplementedException
    
-    def position(self, event, account, contract_key, pos, avg_cost):
+    def position(self, event, account, contract_key, pos, avg_cost, end_batch):
         """ generated source for method position """
         raise NotImplementedException
    

@@ -15,7 +15,7 @@ from comms.ibc.tws_client_lib import TWS_client_manager, AbstractGatewayListener
 
 
 
-class AnalyticsEngine(AbstractGatewayListener):
+class PortfolioMonitor(AbstractGatewayListener):
 
   
     
@@ -33,14 +33,22 @@ class AnalyticsEngine(AbstractGatewayListener):
         self.option_chains = {}
         
     
+    def create_option_chain(self):
+        '''
+            'underlying': 
+        '''
+        pass
+    def update_option_chain(self, chain_id):
+        pass
+    
     def test_oc(self, oc2):
-        expiry = '20170427'
+        expiry = '20170330'
         contractTuple = ('HSI', 'FUT', 'HKFE', 'HKD', expiry, 0, '')
         contract = ContractHelper.makeContract(contractTuple)  
         
         oc2.set_option_structure(contract, 200, 50, 0.0012, 0.0328, expiry)        
         
-        oc2.build_chain(24172, 0.04, 0.22)
+        oc2.build_chain(24119, 0.03, 0.22)
         
 #         expiry='20170324'
 #         contractTuple = ('QQQ', 'STK', 'SMART', 'USD', '', 0, '')
@@ -59,13 +67,13 @@ class AnalyticsEngine(AbstractGatewayListener):
         
     
     def test_oc3(self, oc3):
-        expiry = '20170529'
+        expiry = '20170427'
         contractTuple = ('HSI', 'FUT', 'HKFE', 'HKD', expiry, 0, '')
         contract = ContractHelper.makeContract(contractTuple)  
          
         oc3.set_option_structure(contract, 200, 50, 0.0012, 0.0328, expiry)        
          
-        oc3.build_chain(24172, 0.04, 0.22)
+        oc3.build_chain(24380, 0.03, 0.22)
 
 #         expiry = '20170331'
 #         contractTuple = ('QQQ', 'STK', 'SMART', 'USD', '', 0, '')
@@ -93,7 +101,6 @@ class AnalyticsEngine(AbstractGatewayListener):
         self.tds.add_symbol(oc3.get_underlying())
         
     
-    
     def start_engine(self):
         self.twsc.start_manager()
         oc2 = OptionsChain('oc2')
@@ -106,13 +113,12 @@ class AnalyticsEngine(AbstractGatewayListener):
         self.option_chains[oc3.name] = oc3
         
         try:
-            logging.info('AnalyticsEngine:main_loop ***** accepting console input...')
+            logging.info('PortfolioMonitor:main_loop ***** accepting console input...')
             menu = {}
-            menu['1']="Display option chain oc2" 
+            menu['1']="Display option chain <id>" 
             menu['2']="Display tick data store "
-            menu['3']="Display option chain oc3"
-            menu['4']="Generate oc3 gtable json"
-            menu['9']="Exit"
+            menu['3']="No opt"
+            menu['4']="Exit"
             while True: 
                 choices=menu.keys()
                 choices.sort()
@@ -126,9 +132,7 @@ class AnalyticsEngine(AbstractGatewayListener):
                     self.tds.dump()
                 elif selection == '3':
                     oc3.pretty_print()
-                elif selection == '4':
-                    print oc3.g_datatable_json()
-                elif selection == '9': 
+                elif selection == '4': 
                     self.twsc.gw_message_handler.set_stop()
                     break
                 else: 
@@ -137,9 +141,9 @@ class AnalyticsEngine(AbstractGatewayListener):
                 sleep(0.15)
             
         except (KeyboardInterrupt, SystemExit):
-            logging.error('AnalyticsEngine: caught user interrupt. Shutting down...')
+            logging.error('PortfolioMonitor: caught user interrupt. Shutting down...')
             self.twsc.gw_message_handler.set_stop() 
-            logging.info('AnalyticsEngine: Service shut down complete...')               
+            logging.info('PortfolioMonitor: Service shut down complete...')               
     
     
     #         EVENT_OPTION_UPDATED = 'oc_option_updated'
@@ -176,7 +180,7 @@ class AnalyticsEngine(AbstractGatewayListener):
             if OptionsChain.CHAIN_IDENTIFIER in s.get_extra_attributes():
                 results = {}
                 chain_id = s.get_extra_attributes()[OptionsChain.CHAIN_IDENTIFIER]
-                logging.info('AnalyticsEngine:tds_event_tick_updated chain_id %s' % chain_id)
+                logging.info('PortfolioMonitor:tds_event_tick_updated chain_id %s' % chain_id)
                 if chain_id  in self.option_chains.keys():
                     if 'FUT' in contract_key or 'STK' in contract_key:
                         results = self.option_chains[chain_id].cal_greeks_in_chain(self.kwargs['evaluation_date'])
@@ -229,7 +233,7 @@ class AnalyticsEngine(AbstractGatewayListener):
         #logging.info('MessageListener:%s. %s: %d %8.2f' % (event, contract_key, field, size))
  
     def error(self, event, message_value):
-        logging.info('AnalyticsEngine:%s. val->[%s]' % (event, message_value))         
+        logging.info('PortfolioMonitor:%s. val->[%s]' % (event, message_value))         
         
         
 if __name__ == '__main__':
@@ -237,7 +241,7 @@ if __name__ == '__main__':
 
     
     kwargs = {
-      'name': 'analytics_engine',
+      'name': 'portfolio_monitor',
       'bootstrap_host': 'localhost',
       'bootstrap_port': 9092,
       'redis_host': 'localhost',
@@ -246,10 +250,10 @@ if __name__ == '__main__':
       'tws_host': 'localhost',
       'tws_api_port': 8496,
       'tws_app_id': 38868,
-      'group_id': 'AE',
+      'group_id': 'PM',
       'session_timeout_ms': 10000,
       'clear_offsets':  False,
-      'logconfig': {'level': logging.INFO, 'filemode': 'w', 'filename': '/tmp/ae.log'},
+      'logconfig': {'level': logging.INFO, 'filemode': 'w', 'filename': '/tmp/pm.log'},
       'topics': ['tickPrice', 'tickSize'],
       'seek_to_end': ['*']
 
@@ -284,7 +288,7 @@ if __name__ == '__main__':
     logging.basicConfig(**logconfig)        
     
     
-    server = AnalyticsEngine(kwargs)
+    server = PortfolioMonitor(kwargs)
     server.start_engine()
     
           

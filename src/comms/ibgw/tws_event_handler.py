@@ -36,14 +36,17 @@ class TWS_event_handler(EWrapper):
     
     def pre_process_message(self, message_name, items):
 
-        t = items.copy()
+        #t = items.copy()
+        t = items
        
             
-        try:
+#         try:
+#             del(t['self'])
+#         except (KeyError, ):
+#             pass          
+        if 'self' in t:
             del(t['self'])
-        except (KeyError, ):
-            pass          
-        
+            
 
         for k,v in t.iteritems():
                 #print k, v, type(v)
@@ -62,13 +65,13 @@ class TWS_event_handler(EWrapper):
                 
     
     def tickPrice(self, tickerId, field, price, canAutoExecute):
-        logging.info('TWS_event_handler:tickPrice. %d<->%s' % (tickerId,self.subscription_manger.get_contract_by_id(tickerId) ))
+        logging.debug('TWS_event_handler:tickPrice. %d<->%s' % (tickerId,self.subscription_manger.get_contract_by_id(tickerId) ))
         self.broadcast_event('tickPrice', {'contract_key': self.subscription_manger.get_contract_by_id(tickerId), 
                                           'field': field, 'price': price, 'canAutoExecute': canAutoExecute})
         #pass
     
     def tickSize(self, tickerId, field, size):
-         logging.info('TWS_event_handler:tickSize. %d<->%s' % (tickerId,self.subscription_manger.get_contract_by_id(tickerId) ))
+         logging.debug('TWS_event_handler:tickSize. %d<->%s' % (tickerId,self.subscription_manger.get_contract_by_id(tickerId) ))
          self.broadcast_event('tickSize', {'contract_key': self.subscription_manger.get_contract_by_id(tickerId), 
                                             'field': field, 'size': size})
         #pass
@@ -100,33 +103,48 @@ class TWS_event_handler(EWrapper):
     def openOrderEnd(self):
         pass
 
+
+    def update_portfolio_account(self, items):
+        self.broadcast_event('update_portfolio_account', items)
+        
     def updateAccountValue(self, key, value, currency, accountName):
         
         logging.info('TWS_event_handler:updateAccountValue. [%s]:%s' % (key.ljust(40), value))
-        self.broadcast_event('updateAccountValue', {'key': key, 
-                                          'value': value, 'currency': currency, 'account':accountName})
+        self.update_portfolio_account({'tws_event': 'updateAccountValue', 
+                              'key': key, 'value': value, 'currency': currency, 'account':accountName})
+#         self.broadcast_event('updateAccountValue', {'key': key, 
+#                                           'value': value, 'currency': currency, 'account':accountName, 'batch_end': False})
                 
 
     def updatePortfolio(self, contract, position, marketPrice, marketValue, averageCost, unrealizedPNL, realizedPNL, accountName):
         contract_key= ContractHelper.makeRedisKeyEx(contract)
-        logging.info('TWS_event_handler:updatePortfolio. [%s]:position= %d' % (contract_key, position))
-        self.broadcast_event('updatePortfolio', {
+        self.update_portfolio_account(
+                              {'tws_event': 'updatePortfolio',
                                 'contract_key': contract_key, 
                                 'position': position, 'market_price': marketPrice,
                                 'market_value': marketValue, 'average_cost': averageCost, 
                                 'unrealized_PNL': unrealizedPNL, 'realized_PNL': realizedPNL, 
-                                'account': accountName
-                                
-                                })
+                                'account': accountName}
+                              )
+        logging.info('TWS_event_handler:updatePortfolio. [%s]:position= %d' % (contract_key, position))
+#         self.broadcast_event('updatePortfolio', {
+#                                 'contract_key': contract_key, 
+#                                 'position': position, 'market_price': marketPrice,
+#                                 'market_value': marketValue, 'average_cost': averageCost, 
+#                                 'unrealized_PNL': unrealizedPNL, 'realized_PNL': realizedPNL, 
+#                                 'account': accountName,
+#                                 'batch_end': False
+#                                 })
                 
 
     def updateAccountTime(self, timeStamp):
-        
-        self.broadcast_event('updateAccountTime', {'timestamp': timeStamp})
+        self.update_portfolio_account({'tws_event':'updateAccountTime', 'timestamp': timeStamp})        
+#        self.broadcast_event('updateAccountTime', {'timestamp': timeStamp, 'batch_end': False})
                 
 
     def accountDownloadEnd(self, accountName):
-        self.broadcast_event('accountDownloadEnd', {'account':accountName})
+        self.update_portfolio_account({'tws_event':'accountDownloadEnd', 'account':accountName})
+#        self.broadcast_event('accountDownloadEnd', {'account':accountName})
         
         
     def nextValidId(self, orderId):
@@ -142,19 +160,19 @@ class TWS_event_handler(EWrapper):
         self.broadcast_event('bondContractDetails', vars())
 
     def execDetails(self, reqId, contract, execution):
-        self.broadcast_event('execDetails', vars())
+        self.broadcast_event('execDetails', {'req_id': reqId, 'contract': contract, 'execution': execution, 'end_batch': False})
 
     def execDetailsEnd(self, reqId):
-        self.broadcast_event('execDetailsEnd', vars())
+        self.broadcast_event('execDetails', {'req_id': reqId, 'contract': None, 'execution': None, 'end_batch': True})
 
     def connectionClosed(self):
         self.broadcast_event('connectionClosed', {})
 
     def error(self, id=None, errorCode=None, errorMsg=None):
         try:
-            logging.error(self.pre_process_message('error', vars()))
+            logging.error('TWS_event_handler:error. id:%s, errorCode:%s, errorMsg:%s' % (id, errorCode, errorMsg))
             self.broadcast_event('error', {'id': id, 
-                                           'errorCode': errorCode, 'errorMsg': errorMsg})
+                                           'errorCode': errorCode, 'errorMsg': '%s(%s)' % (str(type(errorMsg)), str(errorMsg)) })
 
         except:
             pass
@@ -228,12 +246,32 @@ class TWS_event_handler(EWrapper):
         self.broadcast_event('position', {
                                 'account': account,
                                 'contract_key': contract_key, 
-                                'position': pos, 'average_cost': avgCost
+                                'position': pos, 'average_cost': avgCost,
+                                'end_batch': False
                                 
                                 })        
 
     def positionEnd(self):
-        self.broadcast_event('positionEnd', {})
+        '''
+            positionEnd is sent to the client side as a 'position' event
+            this is to mimick TWS behavior such that positionEnd is always the last message to send
+            to the client as part of the reqPosition operation
+            
+            
+            kafka does not guarantee the arrival sequence amongst different topics. Therefore
+            if positionEnd is sent as a separate topic, it may arrive first before other
+            position messages have been received by the client
+            
+            the 'end_batch' keyword is set to true 
+        '''
+        self.broadcast_event('position', {
+                                'account': None,
+                                'contract_key': None, 
+                                'position': None, 'average_cost': None,
+                                'end_batch': True
+                                
+                                })        
+
 
     def accountSummary(self, reqId, account, tag, value, currency):
         self.broadcast_event('accountSummary', vars())

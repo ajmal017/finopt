@@ -40,12 +40,13 @@ class ClientRequestHandler(BaseMessageListener):
         self.tws_connect.reqPositions()
         
         
-    def reqExecutions(self, event, value):
-        try:
-            filt = ExecutionFilter() if value == '' else ExecutionFilterHelper.kvstring2object(value, ExecutionFilter)
-            self.tws_connect.reqExecutions(0, filt)
-        except:
-            logging.error(traceback.format_exc())
+    def reqExecutions(self, event, exec_filter=None):
+        
+        if exec_filter == 'null':
+            exec_filter = ExecutionFilter()
+        else:
+            ExecutionFilterHelper.kv2object(exec_filter, ExecutionFilter)
+        self.tws_connect.reqExecutions(0, exec_filter)
     
     
     def reqIds(self, event, value=None):

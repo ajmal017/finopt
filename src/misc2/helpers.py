@@ -47,9 +47,55 @@ class OrderHelper(BaseHelper):
 
     
 class ExecutionFilterHelper(BaseHelper):
-    pass
+    @staticmethod
+    def makeExeuction(executionTuple):
+        '''
+        String m_acctNumber    The customer account number.
+        double m_avgPrice    Average price. Used in regular trades, combo trades and legs of the combo. Does not include commissions.
+        int m_clientId    "The id of the client that placed the order.
+        Note: TWS orders have a fixed client id of ""0."""
+        int m_cumQty    Cumulative quantity. Used in regular trades, combo trades and legs of the combo.
+        String m_exchange    Exchange that executed the order.
+        String m_execId    Unique order execution id.
+        int m_liquidation    Identifies the position as one to be liquidated last should the need arise.
+        int m_orderId    "The order id.
+        Note:  TWS orders have a fixed order id of ""0."""
+        int m_permId    The TWS id used to identify orders, remains the same over TWS sessions.
+        double m_price    The order execution price, not including commissions.
+        int m_shares    The number of shares filled.
+        String m_side    "Specifies if the transaction was a sale or a purchase. Valid values are:
+        BOT
+        SLD"
+        String m_time    The order execution time.
 
-    
+        '''
+        
+        pass
+
+
+    @staticmethod
+    def makeExeuctionFilter(executionFilterTuple):
+        '''
+        String m_acctCode    Filter the results of the reqExecutions() method based on an account code. Note: this is only relevant for Financial Advisor (FA) accounts.
+        int m_clientId    Filter the results of the reqExecutions() method based on the clientId.
+        String m_exchange    Filter the results of the reqExecutions() method based on theorder exchange.
+        String m_secType    "Filter the results of the reqExecutions() method based on the order security type.
+        Note: Refer to the Contract struct for the list of valid security types."
+        String m_side    "Filter the results of the reqExecutions() method based on the order action.
+        Note: Refer to the Order class for the list of valid order actions."
+        String m_symbol    Filter the results of the reqExecutions() method based on the order symbol.
+        String m_time    "Filter the results of the reqExecutions() method based on execution reports received after the specified time.
+        The format for timeFilter is ""yyyymmdd-hh:mm:ss"""
+        '''
+        new_filter = ExecutionFilter()
+        new_filter.m_acctCode = executionFilterTuple[0]
+        new_filter.m_clientId = executionFilterTuple[1] 
+        new_filter.m_exchange = executionFilterTuple[2]
+        new_filter.m_secType = executionFilterTuple[3]
+        new_filter.m_side = executionFilterTuple[4]
+        new_filter.m_symbol = executionFilterTuple[5]
+        new_filter.m_time = executionFilterTuple[6]
+        return new_filter
 
 
 class ContractHelper(BaseHelper):
