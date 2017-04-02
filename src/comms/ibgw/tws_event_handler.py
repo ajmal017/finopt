@@ -166,6 +166,7 @@ class TWS_event_handler(EWrapper):
         self.broadcast_event('execDetails', {'req_id': reqId, 'contract': None, 'execution': None, 'end_batch': True})
 
     def connectionClosed(self):
+        logging.warn('TWS_event_handler: connectionClosed ******')
         self.broadcast_event('connectionClosed', {})
 
     def error(self, id=None, errorCode=None, errorMsg=None):
