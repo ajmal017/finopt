@@ -45,7 +45,9 @@ class PortfolioItem():
         else: 
             self.instrument = Symbol(contract)
         
-        
+    
+    def get_instrument(self):
+        return self.instrument
         
     def get_instrument_type(self):
         return self.instrument.get_contract().m_secType
@@ -165,6 +167,15 @@ class PortfolioMonitor(AbstractGatewayListener):
             self.portfolios[account] = {}
         return self.portfolios[account]
     
+    def deduce_option_underlying(self, option, map_type='symbol'):
+        opt_underlying_map = {'symbol': {'HSI' : 'FUT', 'MHI' : 'FUT', 'QQQ' : 'STK'}}
+        try:
+            underlying_sectype = opt_underlying_map[map_type][option.get_contract().m_symbol]
+            
+        except KeyError:
+            pass
+        
+                               
     
     def process_position(self, account, contract_key, position, average_cost):
         port = self.get_portfolio(account)
@@ -175,10 +186,19 @@ class PortfolioMonitor(AbstractGatewayListener):
                 port_item.set_position(position, average_cost)
                 port_item.calculate_pl()
             else:
-                contract = ContractHelper.makeContractfromRedisKeyEx(contract_key)
-                if contract.m_secType == 'OPT':
+                port_item = PortfolioItem(account, contract_key, position, average_cost)
+                instrument = port_item.get_instrument()
+                self.tds.add_symbol(instrument)
+                self.twsc.reqMktData(instrument, True)
+                if port_item.get_instrument_type() == 'OPT':
+                    '''
+                        deduce option's underlying
+                        resolve associated option chain by month, underlying
+                        
+                    '''
                     pass
                 else:
+                    port[contract_key] = port_item
                     
             
             
