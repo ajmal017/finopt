@@ -5,6 +5,9 @@ from misc2.helpers import ContractHelper, dict2str
 class Symbol():
     key = None
     
+
+    
+    
     def __init__(self, contract):
         self.contract = contract
         self.tick_values = {}

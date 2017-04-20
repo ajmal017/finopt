@@ -408,6 +408,10 @@ class PortfolioManager():
 #             if toks[1] == 'FUT':
 #                 continue
 
+            if 'MHI' not in toks[0] and 'HSI' not in toks[0]:
+                continue
+            
+
             for i in s_cols:
                 content.append(toks[i])
             for i in i_cols:
