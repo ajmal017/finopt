@@ -68,12 +68,24 @@ class PortfolioMonitor(AbstractGatewayListener):
   
     '''
         portfolios : 
-            portfolio: 
-                account_id: 
-                portfolio_item:
+             {
+                <account_id>: {'port_items': [], 'opt_chains': {<oc_id>: option_chain}}
+             }   
                 
     '''
-    
+    rule_map = {
+                'symbol': {'HSI' : 'FUT', 'MHI' : 'FUT', 'QQQ' : 'STK'},
+                'expiry': {'HSI' : 'same_month', 'MHI': 'same_month', 'STK': 'leave_blank'},
+                'option_structure': {
+                                        {'HSI':
+                                         {'spd_size': 200, 'multiplier': 50, 'rate': 0.0012, 'div': 0} 
+                                        },
+                                        {'MHI':
+                                         {'spd_size': 200, 'multiplier': 10, 'rate': 0.0012, 'div': 0} 
+                                        }
+                                    }
+               }    
+
     def __init__(self, kwargs):
         self.kwargs = copy.copy(kwargs)
         self.twsc = TWS_client_manager(kwargs)
@@ -167,15 +179,56 @@ class PortfolioMonitor(AbstractGatewayListener):
             self.portfolios[account] = {}
         return self.portfolios[account]
     
-    def deduce_option_underlying(self, option, map_type='symbol'):
-        opt_underlying_map = {'symbol': {'HSI' : 'FUT', 'MHI' : 'FUT', 'QQQ' : 'STK'}}
-        try:
-            underlying_sectype = opt_underlying_map[map_type][option.get_contract().m_symbol]
-            
-        except KeyError:
-            pass
+    def deduce_option_underlying(self, option):
+        '''
+            given an Option object, return the underlying Symbol object
+        '''
         
-                               
+
+        try:
+            symbol_id = option.get_contract().m_symbol
+            underlying_sectype = self.rule_map['symbol'][symbol_id]
+            exchange = option.get_contract().m_exchange
+            currency = option.get_contract().m_currency
+            expiry = option.get_contract().m_expiry if self.rule_map['expiry'][symbol_id] ==  'same_month' else ''
+            contractTuple = (symbol_id, underlying_sectype, exchange, currency, expiry, 0, '')
+            logging.info('PortfolioMonitor:deduce_option_underlying. Deduced underlying==> %s' %
+                          ContractHelper.printContract(contractTuple))
+            return Symbol(ContractHelper.makeContract(contractTuple))
+        except KeyError:
+            logging.error('PortfolioMonitor:deduce_option_underlying. Unable to deduce the underlying for the given option %s' %
+                          ContractHelper.printContract(option.get_contract))
+        
+        
+    def is_oc_in_portfolio(self, account, oc_id):
+        try:
+            return self.portfolios[account][portfolio_id]
+        except KeyError:
+            return None
+        
+        
+    def get_portfolio_option_chain(self, account, underlying):
+        
+        
+        def create_oc_id(account, underlying_id, month):
+            return '%s-%s-%s' % (account, underlying_id, month)
+        
+        underlying_id = underlying.get_contract().m_symbol
+        month = underlying.get_contract().m_expiry
+        oc_id = create_oc_id(account, underlying_id, month)
+        oc = self.is_oc_in_portfolio(oc_id)
+        if oc == None:
+            oc = OptionsChain(oc_id)
+            oc.set_option_structure(underlying,
+                                    self.rule_map['option_structure'][underlying_id]['spd_size'],
+                                    self.rule_map['option_structure'][underlying_id]['multiplier'],
+                                    self.rule_map['option_structure'][underlying_id]['rate'],
+                                    self.rule_map['option_structure'][underlying_id]['div'],
+                                    month)
+                                    
+            self.portfolios[a] = 
+            
+        
     
     def process_position(self, account, contract_key, position, average_cost):
         port = self.get_portfolio(account)
@@ -196,7 +249,11 @@ class PortfolioMonitor(AbstractGatewayListener):
                         resolve associated option chain by month, underlying
                         
                     '''
-                    pass
+                    underlying = self.deduce_option_underlying(instrument)
+                    if underlying:
+                        
+                    else:
+                        pass
                 else:
                     port[contract_key] = port_item
                     
