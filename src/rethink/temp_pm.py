@@ -69,7 +69,7 @@ class PortfolioMonitor(AbstractGatewayListener):
     '''
         portfolios : 
              {
-                <account_id>: {'port_items': [], 'opt_chains': {<oc_id>: option_chain}}
+                <account_id>: {'port_items': {<contract_key>, instrument}, 'opt_chains': {<oc_id>: option_chain}}
              }   
                 
     '''
@@ -166,12 +166,20 @@ class PortfolioMonitor(AbstractGatewayListener):
             self.twsc.gw_message_handler.set_stop() 
             logging.info('PortfolioMonitor: Service shut down complete...')               
     
-    def is_position_in_portfolio(self, account, contract_key, position):
+    def is_contract_in_portfolio(self, account, contract_key):
+        return self.get_portfolio_port_items(account, contract_key)
+            
+    def get_portfolio_port_items(self, account, contract_key):
         try:
-            return self.portfolios[account][contract_key]
+            return self.portfolios[account]['port_items'][contract_key]
         except KeyError:
             return None
-            
+    
+    def set_portfolio_port_items(self, account, contract_key, port_item):
+        self.portfolios[account]['port_items'][contract_key] = port_item
+        
+        
+        
     def get_portfolio(self, account):
         try:
             return self.portfolios[account]
@@ -202,7 +210,7 @@ class PortfolioMonitor(AbstractGatewayListener):
         
     def is_oc_in_portfolio(self, account, oc_id):
         try:
-            return self.portfolios[account][portfolio_id]
+            return self.portfolios[account]['opt_chains'][oc_id]
         except KeyError:
             return None
         
@@ -216,7 +224,7 @@ class PortfolioMonitor(AbstractGatewayListener):
         underlying_id = underlying.get_contract().m_symbol
         month = underlying.get_contract().m_expiry
         oc_id = create_oc_id(account, underlying_id, month)
-        oc = self.is_oc_in_portfolio(oc_id)
+        oc = self.is_oc_in_portfolio(account, oc_id)
         if oc == None:
             oc = OptionsChain(oc_id)
             oc.set_option_structure(underlying,
@@ -225,21 +233,28 @@ class PortfolioMonitor(AbstractGatewayListener):
                                     self.rule_map['option_structure'][underlying_id]['rate'],
                                     self.rule_map['option_structure'][underlying_id]['div'],
                                     month)
-                                    
-            self.portfolios[a] = 
             
-        
+            self.portfolios[account]['opt_chains'][oc_id] = oc 
+            
+            
+        return oc
+    
+    
     
     def process_position(self, account, contract_key, position, average_cost):
+        
+        # look up the portfolio from the account code 
         port = self.get_portfolio(account)
         if port:
-            port_item =  self.is_position_in_portfolio(account, contract_key, position)
+            # look up the position in the portfolio
+            port_item =  self.is_contract_in_portfolio(account, contract_key)
             if port_item:
-                #
+                # update the values and recalculate p/l
                 port_item.set_position(position, average_cost)
                 port_item.calculate_pl()
             else:
                 port_item = PortfolioItem(account, contract_key, position, average_cost)
+                self.portfolios[account]['port_items'][contract_key] = port_item
                 instrument = port_item.get_instrument()
                 self.tds.add_symbol(instrument)
                 self.twsc.reqMktData(instrument, True)
@@ -251,13 +266,17 @@ class PortfolioMonitor(AbstractGatewayListener):
                     '''
                     underlying = self.deduce_option_underlying(instrument)
                     if underlying:
-                        
+                        oc = self.get_portfolio_option_chain(account, underlying)
+                        oc.add_option(instrument)
                     else:
                         pass
                 else:
                     port[contract_key] = port_item
+                
                     
-            
+        else:
+            # create a new portfolio
+            pass    
             
             
     
