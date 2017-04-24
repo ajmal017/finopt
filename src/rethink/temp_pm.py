@@ -179,12 +179,17 @@ class PortfolioMonitor(AbstractGatewayListener):
         self.portfolios[account]['port_items'][contract_key] = port_item
         
         
-        
+    def create_empty_portfolio(self, account):
+        port = self.portfolios[account] = {}
+        self.portfolios[account]['port_items']=  {}
+        self.portfolios[account]['opt_chains']=  {}
+        return port
+                
     def get_portfolio(self, account):
         try:
             return self.portfolios[account]
         except KeyError:
-            self.portfolios[account] = {}
+            self.portfolios[account] = self.create_empty_portfolio(account)
         return self.portfolios[account]
     
     def deduce_option_underlying(self, option):
@@ -245,40 +250,48 @@ class PortfolioMonitor(AbstractGatewayListener):
         
         # look up the portfolio from the account code 
         port = self.get_portfolio(account)
+        port_item = None
         if port:
             # look up the position in the portfolio
             port_item =  self.is_contract_in_portfolio(account, contract_key)
-            if port_item:
-                # update the values and recalculate p/l
-                port_item.set_position(position, average_cost)
-                port_item.calculate_pl()
-            else:
-                port_item = PortfolioItem(account, contract_key, position, average_cost)
-                self.portfolios[account]['port_items'][contract_key] = port_item
-                instrument = port_item.get_instrument()
-                self.tds.add_symbol(instrument)
-                self.twsc.reqMktData(instrument, True)
-                if port_item.get_instrument_type() == 'OPT':
-                    '''
-                        deduce option's underlying
-                        resolve associated option chain by month, underlying
-                        
-                    '''
-                    underlying = self.deduce_option_underlying(instrument)
-                    if underlying:
-                        oc = self.get_portfolio_option_chain(account, underlying)
-                        oc.add_option(instrument)
-                    else:
-                        pass
-                else:
-                    port[contract_key] = port_item
-                
-                    
         else:
             # create a new portfolio
-            pass    
+            port = self.create_empty_portfolio(account)
+
             
             
+        if port_item:
+            # update the values and recalculate p/l
+            port_item.set_position(position, average_cost)
+            port_item.calculate_pl()
+        # new position 
+        else:
+            port_item = PortfolioItem(account, contract_key, position, average_cost)
+            port['port_items'][contract_key] = port_item
+            instrument = port_item.get_instrument()
+            self.tds.add_symbol(instrument)
+            self.twsc.reqMktData(instrument, True)
+            # option position
+            if port_item.get_instrument_type() == 'OPT':
+                '''
+                    deduce option's underlying
+                    resolve associated option chain by month, underlying
+                    
+                '''
+                underlying = self.deduce_option_underlying(instrument)
+                if underlying:
+                    oc = self.get_portfolio_option_chain(account, underlying)
+                    oc.add_option(instrument)
+                    instrument.set_extra_attributes(OptionsChain.CHAIN_IDENTIFIER, oc.get_name())
+                else:
+                    logging.error('PortfolioMonitor:process_position. Error in adding the new position %s' % contract_key)
+            # non options. stocks, futures that is...    
+            else:
+                port['port_items'][contract_key] = port_item
+                
+                
+        
+        
     
     #         EVENT_OPTION_UPDATED = 'oc_option_updated'
     #         EVENT_UNDERLYING_ADDED = 'oc_underlying_added
