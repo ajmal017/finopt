@@ -10,16 +10,79 @@ from finopt.instrument import Symbol, Option
 from rethink.option_chain import OptionsChain
 from rethink.tick_datastore import TickDataStore
 from comms.ibc.tws_client_lib import TWS_client_manager, AbstractGatewayListener
+from numpy import average
 
 
 
+class PortfolioItem():
+    """
+        Set up some constant variables
+        
+        position
+        average cost
+    
+    """
+    POSITION = 6001
+    AVERAGE_COST = 6002
+    POSITION_DELTA = 6003
+    POSITION_THETA = 6004
+    UNREAL_PL = 6005
+    PERCENT_GAIN_LOSS = 6006
+    AVERAGE_PRICE = 6007
+    ACCOUNT_ID = 6008
+    
+        
+    def __init__(self, account, contract_key, position, average_cost):
+        
+        self.contract_key = contract_key
+        self.quantity = position
+        self.average_cost = average_cost
+        self.account_id = account
+        
+        contract = ContractHelper.makeContractfromRedisKeyEx(contract_key)
+        if contract.m_secType == 'OPT':
+            self.instrument = Option(contract)
+        else: 
+            self.instrument = Symbol(contract)
+        
+    
+    def get_instrument(self):
+        return self.instrument
+        
+    def get_instrument_type(self):
+        return self.instrument.get_contract().m_secType
+    
+    def get_account(self):
+        return self.account_id
+        
+    def calculate_pl(self):
+        logging.info('PortfolioMonitor:calculate_pl. qty=%d avgcost=%8.4f' % (self.quantity, self.average_cost))
+    
+    def set_position_cost(self, position, average_cost):
+        self.quantity = position
+        self.average_cost = average_cost   
 
 
 class PortfolioMonitor(AbstractGatewayListener):
 
   
-    
-    
+    '''
+        portfolios : 
+             {
+                <account_id>: {'port_items': {<contract_key>, PortItem}, 'opt_chains': {<oc_id>: option_chain}}
+             }   
+                
+    '''
+    rule_map = {
+                'symbol': {'HSI' : 'FUT', 'MHI' : 'FUT', 'QQQ' : 'STK'},
+                'expiry': {'HSI' : 'same_month', 'MHI': 'same_month', 'STK': 'leave_blank'},
+                'option_structure': {
+                                        'HSI': {'spd_size': 200, 'multiplier': 50, 'rate': 0.0012, 'div': 0},
+                                        'MHI': {'spd_size': 200, 'multiplier': 10, 'rate': 0.0012, 'div': 0}
+                                        
+                                    }
+               }    
+
     def __init__(self, kwargs):
         self.kwargs = copy.copy(kwargs)
         self.twsc = TWS_client_manager(kwargs)
@@ -29,28 +92,18 @@ class PortfolioMonitor(AbstractGatewayListener):
         self.tds.register_listener(self)
         self.twsc.add_listener_topics(self, kwargs['topics'])
         
-        
+        self.portfolios = {}
         self.option_chains = {}
         
     
-    def create_option_chain(self):
-        '''
-            'underlying': 
-        '''
-        pass
-    
-    
-    def update_option_chain(self, chain_id):
-        pass
-    
     def test_oc(self, oc2):
-        expiry = '20170330'
+        expiry = '20170427'
         contractTuple = ('HSI', 'FUT', 'HKFE', 'HKD', expiry, 0, '')
         contract = ContractHelper.makeContract(contractTuple)  
         
         oc2.set_option_structure(contract, 200, 50, 0.0012, 0.0328, expiry)        
         
-        oc2.build_chain(24119, 0.03, 0.22)
+        oc2.build_chain(24172, 0.04, 0.22)
         
 #         expiry='20170324'
 #         contractTuple = ('QQQ', 'STK', 'SMART', 'USD', '', 0, '')
@@ -68,59 +121,24 @@ class PortfolioMonitor(AbstractGatewayListener):
         self.tds.add_symbol(oc2.get_underlying())
         
     
-    def test_oc3(self, oc3):
-        expiry = '20170427'
-        contractTuple = ('HSI', 'FUT', 'HKFE', 'HKD', expiry, 0, '')
-        contract = ContractHelper.makeContract(contractTuple)  
-         
-        oc3.set_option_structure(contract, 200, 50, 0.0012, 0.0328, expiry)        
-         
-        oc3.build_chain(24380, 0.03, 0.22)
-
-#         expiry = '20170331'
-#         contractTuple = ('QQQ', 'STK', 'SMART', 'USD', '', 0, '')
-# 
-# 
-#         contract = ContractHelper.makeContract(contractTuple)  
-#         
-#         oc3.set_option_structure(contract, 0.5, 100, 0.0012, 0.0328, expiry)        
-#         
-#         oc3.build_chain(130, 0.03, 0.22)
         
-#         expiry='20170324'
-#         contractTuple = ('QQQ', 'STK', 'SMART', 'USD', '', 0, '')
-#         contract = ContractHelper.makeContract(contractTuple)  
-# 
-#         oc2.set_option_structure(contract, 0.5, 100, 0.0012, 0.0328, expiry)        
-#     
-#         oc2.build_chain(132.11, 0.02, 0.22)
-        
-        
-        oc3.pretty_print()        
-
-        for o in oc3.get_option_chain():
-            self.tds.add_symbol(o)
-        self.tds.add_symbol(oc3.get_underlying())
-        
+    
     
     def start_engine(self):
         self.twsc.start_manager()
-        oc2 = OptionsChain('oc2')
-        oc2.register_listener(self)
-        self.test_oc(oc2)
-        oc3 = OptionsChain('oc3')
-        oc3.register_listener(self)
-        self.test_oc3(oc3)
-        self.option_chains[oc2.name] = oc2
-        self.option_chains[oc3.name] = oc3
+#         oc2 = OptionsChain('oc2')
+#         oc2.register_listener(self)
+#         self.test_oc(oc2)
+#         self.option_chains[oc2.name] = oc2
         
         try:
             logging.info('PortfolioMonitor:main_loop ***** accepting console input...')
             menu = {}
-            menu['1']="Display option chain <id>" 
-            menu['2']="Display tick data store "
-            menu['3']="No opt"
-            menu['4']="Exit"
+            menu['1']="Request position" 
+            menu['2']=""
+            menu['3']=""
+            menu['4']=""
+            menu['9']="Exit"
             while True: 
                 choices=menu.keys()
                 choices.sort()
@@ -129,16 +147,14 @@ class PortfolioMonitor(AbstractGatewayListener):
 
                 selection = raw_input("Enter command:")
                 if selection =='1':
-                    oc2.pretty_print()
+                    self.twsc.reqPositions()
                 elif selection == '2': 
                     self.tds.dump()
-                elif selection == '3':
-                    oc3.pretty_print()
-                elif selection == '4': 
+                elif selection == '9': 
                     self.twsc.gw_message_handler.set_stop()
                     break
                 else: 
-                    oc3.pretty_print()                
+                    pass                
                 
                 sleep(0.15)
             
@@ -147,6 +163,141 @@ class PortfolioMonitor(AbstractGatewayListener):
             self.twsc.gw_message_handler.set_stop() 
             logging.info('PortfolioMonitor: Service shut down complete...')               
     
+    def is_contract_in_portfolio(self, account, contract_key):
+        return self.get_portfolio_port_items(account, contract_key)
+            
+    def get_portfolio_port_items(self, account, contract_key):
+        try:
+            return self.portfolios[account]['port_items'][contract_key]
+        except KeyError:
+            return None
+    
+    def set_portfolio_port_items(self, account, contract_key, port_item):
+        self.portfolios[account]['port_items'][contract_key] = port_item
+        
+        
+    def create_empty_portfolio(self, account):
+        port = self.portfolios[account] = {}
+        self.portfolios[account]['port_items']=  {}
+        self.portfolios[account]['opt_chains']=  {}
+        return port
+                
+    def get_portfolio(self, account):
+        try:
+            return self.portfolios[account]
+        except KeyError:
+            self.portfolios[account] = self.create_empty_portfolio(account)
+        return self.portfolios[account]
+    
+    def deduce_option_underlying(self, option):
+        '''
+            given an Option object, return the underlying Symbol object
+        '''
+        
+
+        try:
+            symbol_id = option.get_contract().m_symbol
+            underlying_sectype = self.rule_map['symbol'][symbol_id]
+            exchange = option.get_contract().m_exchange
+            currency = option.get_contract().m_currency
+            expiry = option.get_contract().m_expiry if self.rule_map['expiry'][symbol_id] ==  'same_month' else ''
+            contractTuple = (symbol_id, underlying_sectype, exchange, currency, expiry, 0, '')
+            logging.info('PortfolioMonitor:deduce_option_underlying. Deduced underlying==> %s' %
+                          ContractHelper.printContract(contractTuple))
+            return Symbol(ContractHelper.makeContract(contractTuple))
+        except KeyError:
+            logging.error('PortfolioMonitor:deduce_option_underlying. Unable to deduce the underlying for the given option %s' %
+                          ContractHelper.printContract(option.get_contract))
+            return None
+        
+        
+    def is_oc_in_portfolio(self, account, oc_id):
+        try:
+            return self.portfolios[account]['opt_chains'][oc_id]
+        except KeyError:
+            return None
+        
+        
+    def get_portfolio_option_chain(self, account, underlying):
+        
+        
+        def create_oc_id(account, underlying_id, month):
+            return '%s-%s-%s' % (account, underlying_id, month)
+        
+        underlying_id = underlying.get_contract().m_symbol
+        month = underlying.get_contract().m_expiry
+        oc_id = create_oc_id(account, underlying_id, month)
+        oc = self.is_oc_in_portfolio(account, oc_id)
+        if oc == None:
+            oc = OptionsChain(oc_id)
+            oc.set_option_structure(underlying,
+                                    self.rule_map['option_structure'][underlying_id]['spd_size'],
+                                    self.rule_map['option_structure'][underlying_id]['multiplier'],
+                                    self.rule_map['option_structure'][underlying_id]['rate'],
+                                    self.rule_map['option_structure'][underlying_id]['div'],
+                                    month)
+            
+            self.portfolios[account]['opt_chains'][oc_id] = oc 
+            
+            
+        return oc
+    
+    
+    
+    def process_position(self, account, contract_key, position, average_cost):
+        
+        # obtain a reference to the portfolio, if not exist create a new one 
+        port = self.get_portfolio(account)
+        port_item =  self.is_contract_in_portfolio(account, contract_key)
+
+            
+            
+        if port_item:
+            # update the values and recalculate p/l
+            port_item.set_position(position, average_cost)
+            port_item.calculate_pl()
+        # new position 
+        else:
+            port_item = PortfolioItem(account, contract_key, position, average_cost)
+            port['port_items'][contract_key] = port_item
+            instrument = port_item.get_instrument()
+            self.tds.add_symbol(instrument)
+            self.twsc.reqMktData(instrument.get_contract(), True)
+            # option position
+            if port_item.get_instrument_type() == 'OPT':
+                '''
+                    deduce option's underlying
+                    resolve associated option chain by month, underlying
+                    
+                '''
+                underlying = self.deduce_option_underlying(instrument)
+                if underlying:
+                    oc = self.get_portfolio_option_chain(account, underlying)
+                    oc.register_listener(self)
+                    instrument.set_extra_attributes(OptionsChain.CHAIN_IDENTIFIER, oc.get_name())
+                    oc.add_option(instrument)
+                    
+                    
+                else:
+                    logging.error('PortfolioMonitor:process_position. **** Error in adding the new position %s' % contract_key)
+            # non options. stocks, futures that is...    
+            else:
+                port['port_items'][contract_key] = port_item
+                
+            self.dump_portfolio(account)    
+        
+    def dump_portfolio(self, account):
+        #<account_id>: {'port_items': {<contract_key>, instrument}, 'opt_chains': {<oc_id>: option_chain}}
+        
+        def print_port_items(x):
+            return '[%s]: %4d %8.2f %s' % (x[0], x[1].quantity, 
+                                           x[1].average_cost, 
+                                           ContractHelper.printContract(x[1].get_instrument()))
+        
+        p_items = map(print_port_items, list(self.portfolios[account]['port_items']))
+        return '\n'.join(p_items)
+        
+         
     
     #         EVENT_OPTION_UPDATED = 'oc_option_updated'
     #         EVENT_UNDERLYING_ADDED = 'oc_underlying_added
@@ -234,6 +385,17 @@ class PortfolioMonitor(AbstractGatewayListener):
         self.tds.set_symbol_tick_size(contract_key, field, size)
         #logging.info('MessageListener:%s. %s: %d %8.2f' % (event, contract_key, field, size))
  
+    def position(self, event, account, contract_key, position, average_cost, end_batch):
+        if not end_batch:
+            logging.info('PortfolioMonitor:position. received position message contract=%s' % contract_key)
+            self.process_position(account, contract_key, position, average_cost)
+   
+    def positionEnd(self, event): #, message_value):
+        """ generated source for method positionEnd """
+        logging.info('%s [[ %s ]]' % (event, vars()))
+
+ 
+ 
     def error(self, event, message_value):
         logging.info('PortfolioMonitor:%s. val->[%s]' % (event, message_value))         
         
@@ -256,10 +418,10 @@ if __name__ == '__main__':
       'session_timeout_ms': 10000,
       'clear_offsets':  False,
       'logconfig': {'level': logging.INFO, 'filemode': 'w', 'filename': '/tmp/pm.log'},
-      'topics': ['tickPrice', 'tickSize'],
+      'topics': ['position', 'positionEnd'],
       'seek_to_end': ['*']
 
-      #'seek_to_end':['tickSize', 'tickPrice','gw_subscriptions', 'gw_subscription_changed']
+      
       }
 
     usage = "usage: %prog [options]"

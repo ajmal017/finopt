@@ -5,6 +5,8 @@ HOST=$(hostname)
 echo $HOST
 if [ $HOST == 'hkc-larryc-vm1' ]; then
 	FINOPT_HOME=~/ironfly-workspace/finopt/src
+elif [ $HOST == 'vorsprung' ]; then
+	FINOPT_HOME=~/workspace/finopt/src
 else
 	FINOPT_HOME=~/l1304/workspace/finopt-ironfly/finopt/src
 fi
