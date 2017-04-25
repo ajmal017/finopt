@@ -12,8 +12,20 @@ from rethink.tick_datastore import TickDataStore
 from comms.ibc.tws_client_lib import TWS_client_manager, AbstractGatewayListener
 from numpy import average
 
-
-
+class PortfolioRules():
+    rule_map = {
+                'symbol': {'HSI' : 'FUT', 'MHI' : 'FUT', 'QQQ' : 'STK'},
+                'expiry': {'HSI' : 'same_month', 'MHI': 'same_month', 'STK': 'leave_blank'},
+                'option_structure': {
+                                        'HSI': {'spd_size': 200, 'multiplier': 50, 'rate': 0.0012, 'div': 0},
+                                        'MHI': {'spd_size': 200, 'multiplier': 10, 'rate': 0.0012, 'div': 0}
+                                        
+                                    },
+                'exchange': {'HSI': 'HKFE', 'MHI': 'HKFE'}
+                
+               } 
+    
+    
 class PortfolioItem():
     """
         Set up some constant variables
@@ -40,6 +52,8 @@ class PortfolioItem():
         self.account_id = account
         
         contract = ContractHelper.makeContractfromRedisKeyEx(contract_key)
+        
+        
         if contract.m_secType == 'OPT':
             self.instrument = Option(contract)
         else: 
@@ -58,9 +72,12 @@ class PortfolioItem():
     def calculate_pl(self):
         logging.info('PortfolioMonitor:calculate_pl. qty=%d avgcost=%8.4f' % (self.quantity, self.average_cost))
     
-    def set_position_cost(self, position, average_cost):
+    def update_position(self, position, average_cost):
         self.quantity = position
         self.average_cost = average_cost   
+        
+    def dump(self):
+        return 'PortfolioItem contents: %s %s %s' % (self.contract_key, self.quantity, self.average_cost)
 
 
 class PortfolioMonitor(AbstractGatewayListener):
@@ -73,15 +90,7 @@ class PortfolioMonitor(AbstractGatewayListener):
              }   
                 
     '''
-    rule_map = {
-                'symbol': {'HSI' : 'FUT', 'MHI' : 'FUT', 'QQQ' : 'STK'},
-                'expiry': {'HSI' : 'same_month', 'MHI': 'same_month', 'STK': 'leave_blank'},
-                'option_structure': {
-                                        'HSI': {'spd_size': 200, 'multiplier': 50, 'rate': 0.0012, 'div': 0},
-                                        'MHI': {'spd_size': 200, 'multiplier': 10, 'rate': 0.0012, 'div': 0}
-                                        
-                                    }
-               }    
+   
 
     def __init__(self, kwargs):
         self.kwargs = copy.copy(kwargs)
@@ -93,7 +102,7 @@ class PortfolioMonitor(AbstractGatewayListener):
         self.twsc.add_listener_topics(self, kwargs['topics'])
         
         self.portfolios = {}
-        self.option_chains = {}
+        
         
     
     def test_oc(self, oc2):
@@ -135,8 +144,8 @@ class PortfolioMonitor(AbstractGatewayListener):
             logging.info('PortfolioMonitor:main_loop ***** accepting console input...')
             menu = {}
             menu['1']="Request position" 
-            menu['2']=""
-            menu['3']=""
+            menu['2']="Portfolio dump"
+            menu['3']="TDS dump"
             menu['4']=""
             menu['9']="Exit"
             while True: 
@@ -149,7 +158,11 @@ class PortfolioMonitor(AbstractGatewayListener):
                 if selection =='1':
                     self.twsc.reqPositions()
                 elif selection == '2': 
-                    self.tds.dump()
+                    for acct in self.portfolios.keys():
+                        print self.dump_portfolio(acct)
+                elif selection == '3': 
+                     self.tds.dump()
+                    
                 elif selection == '9': 
                     self.twsc.gw_message_handler.set_stop()
                     break
@@ -197,13 +210,13 @@ class PortfolioMonitor(AbstractGatewayListener):
 
         try:
             symbol_id = option.get_contract().m_symbol
-            underlying_sectype = self.rule_map['symbol'][symbol_id]
+            underlying_sectype = PortfolioRules.rule_map['symbol'][symbol_id]
             exchange = option.get_contract().m_exchange
             currency = option.get_contract().m_currency
-            expiry = option.get_contract().m_expiry if self.rule_map['expiry'][symbol_id] ==  'same_month' else ''
+            expiry = option.get_contract().m_expiry if PortfolioRules.rule_map['expiry'][symbol_id] ==  'same_month' else ''
             contractTuple = (symbol_id, underlying_sectype, exchange, currency, expiry, 0, '')
             logging.info('PortfolioMonitor:deduce_option_underlying. Deduced underlying==> %s' %
-                          ContractHelper.printContract(contractTuple))
+                          str(contractTuple))
             return Symbol(ContractHelper.makeContract(contractTuple))
         except KeyError:
             logging.error('PortfolioMonitor:deduce_option_underlying. Unable to deduce the underlying for the given option %s' %
@@ -230,11 +243,11 @@ class PortfolioMonitor(AbstractGatewayListener):
         oc = self.is_oc_in_portfolio(account, oc_id)
         if oc == None:
             oc = OptionsChain(oc_id)
-            oc.set_option_structure(underlying,
-                                    self.rule_map['option_structure'][underlying_id]['spd_size'],
-                                    self.rule_map['option_structure'][underlying_id]['multiplier'],
-                                    self.rule_map['option_structure'][underlying_id]['rate'],
-                                    self.rule_map['option_structure'][underlying_id]['div'],
+            oc.set_option_structure(underlying.get_contract(),
+                                    PortfolioRules.rule_map['option_structure'][underlying_id]['spd_size'],
+                                    PortfolioRules.rule_map['option_structure'][underlying_id]['multiplier'],
+                                    PortfolioRules.rule_map['option_structure'][underlying_id]['rate'],
+                                    PortfolioRules.rule_map['option_structure'][underlying_id]['div'],
                                     month)
             
             self.portfolios[account]['opt_chains'][oc_id] = oc 
@@ -254,7 +267,7 @@ class PortfolioMonitor(AbstractGatewayListener):
             
         if port_item:
             # update the values and recalculate p/l
-            port_item.set_position(position, average_cost)
+            port_item.update_position(position, average_cost)
             port_item.calculate_pl()
         # new position 
         else:
@@ -282,6 +295,7 @@ class PortfolioMonitor(AbstractGatewayListener):
                     logging.error('PortfolioMonitor:process_position. **** Error in adding the new position %s' % contract_key)
             # non options. stocks, futures that is...    
             else:
+                logging.info('PortfolioMonitor:process_position. Adding a new non-option position into the portfolio [%s]' % port_item.dump())
                 port['port_items'][contract_key] = port_item
                 
             self.dump_portfolio(account)    
@@ -292,9 +306,10 @@ class PortfolioMonitor(AbstractGatewayListener):
         def print_port_items(x):
             return '[%s]: %4d %8.2f %s' % (x[0], x[1].quantity, 
                                            x[1].average_cost, 
-                                           ContractHelper.printContract(x[1].get_instrument()))
+                                           ' '.join('%s:%s' % (k,v) for k, v in x[1].get_instrument().get_tick_values().iteritems()))
         
-        p_items = map(print_port_items, list(self.portfolios[account]['port_items']))
+        p_items = map(print_port_items, [x for x in self.portfolios[account]['port_items'].iteritems()])
+        logging.info('PortfolioMonitor:dump_portfolio %s' % ('\n'.join(p_items)))
         return '\n'.join(p_items)
         
          
@@ -334,23 +349,28 @@ class PortfolioMonitor(AbstractGatewayListener):
                 results = {}
                 chain_id = s.get_extra_attributes()[OptionsChain.CHAIN_IDENTIFIER]
                 logging.info('PortfolioMonitor:tds_event_tick_updated chain_id %s' % chain_id)
-                if chain_id  in self.option_chains.keys():
-                    if 'FUT' in contract_key or 'STK' in contract_key:
-                        results = self.option_chains[chain_id].cal_greeks_in_chain(self.kwargs['evaluation_date'])
-                    else:
-                        results[ContractHelper.makeRedisKeyEx(s.get_contract())] = self.option_chains[chain_id].cal_option_greeks(s, self.kwargs['evaluation_date'])
-                logging.info('AnalysticsEngine:tds_event_tick_updated. compute greek results %s' % results)    
-                # set_analytics(self, imvol=None, delta=None, gamma=None, theta=None, vega=None, npv=None):
-                # 
-                def update_tds_analytics(key_greeks):
+                
+                for acct in self.portfolios:
                     
-                    self.tds.set_symbol_analytics(key_greeks[0], Option.IMPL_VOL, key_greeks[1][Option.IMPL_VOL])
-                    self.tds.set_symbol_analytics(key_greeks[0], Option.DELTA, key_greeks[1][Option.DELTA])
-                    self.tds.set_symbol_analytics(key_greeks[0], Option.GAMMA, key_greeks[1][Option.GAMMA])
-                    self.tds.set_symbol_analytics(key_greeks[0], Option.THETA, key_greeks[1][Option.THETA])
-                    self.tds.set_symbol_analytics(key_greeks[0], Option.VEGA, key_greeks[1][Option.VEGA])
-                    
-                map(update_tds_analytics, list(results.iteritems()))                
+                    if chain_id  in self.portfolios[acct]['opt_chains'].keys():
+                        logging.info('PortfolioMonitor:tds_event_tick_updated --> portfolio opt_chains: [%s] ' % 
+                                     str(self.portfolios[acct]['opt_chains'].keys()))
+                        if 'FUT' in contract_key or 'STK' in contract_key:
+                            results = self.portfolios[acct]['opt_chains'][chain_id].cal_greeks_in_chain(self.kwargs['evaluation_date'])
+                        else:
+                            results[ContractHelper.makeRedisKeyEx(s.get_contract())] =  self.portfolios[acct]['opt_chains'][chain_id].cal_option_greeks(s, self.kwargs['evaluation_date'])
+                    logging.info('PortfolioMonitor:tds_event_tick_updated. compute greek results %s' % results)    
+                    # set_analytics(self, imvol=None, delta=None, gamma=None, theta=None, vega=None, npv=None):
+                    # 
+                    def update_tds_analytics(key_greeks):
+                        
+                        self.tds.set_symbol_analytics(key_greeks[0], Option.IMPL_VOL, key_greeks[1][Option.IMPL_VOL])
+                        self.tds.set_symbol_analytics(key_greeks[0], Option.DELTA, key_greeks[1][Option.DELTA])
+                        self.tds.set_symbol_analytics(key_greeks[0], Option.GAMMA, key_greeks[1][Option.GAMMA])
+                        self.tds.set_symbol_analytics(key_greeks[0], Option.THETA, key_greeks[1][Option.THETA])
+                        self.tds.set_symbol_analytics(key_greeks[0], Option.VEGA, key_greeks[1][Option.VEGA])
+                        
+                    map(update_tds_analytics, list(results.iteritems()))                
 
             else:
                 
@@ -361,17 +381,7 @@ class PortfolioMonitor(AbstractGatewayListener):
 
     def tds_event_symbol_deleted(self, event, update_mode, name, instrument):
         pass
-    #
-    # external ae requests
-    #
-    def ae_req_greeks(self, event, message_value):
-        #(int tickerId, int field, double impliedVol, double delta, double optPrice, double pvDividend, double gamma, double vega, double theta, double undPrice) 
-        pass
-    
-    def ae_req_tds_internal(self, event, message_value):
-        logging.info('received ae_req_tds_internal')
-        self.tds.dump()
-    
+
     #
     # gateway events
     #
@@ -418,7 +428,7 @@ if __name__ == '__main__':
       'session_timeout_ms': 10000,
       'clear_offsets':  False,
       'logconfig': {'level': logging.INFO, 'filemode': 'w', 'filename': '/tmp/pm.log'},
-      'topics': ['position', 'positionEnd'],
+      'topics': ['position', 'positionEnd', 'tickPrice'],
       'seek_to_end': ['*']
 
       

@@ -270,7 +270,7 @@ class PortfolioMonitor(AbstractGatewayListener):
             port['port_items'][contract_key] = port_item
             instrument = port_item.get_instrument()
             self.tds.add_symbol(instrument)
-            self.twsc.reqMktData(instrument, True)
+            self.twsc.reqMktData(instrument.get_contract(), True)
             # option position
             if port_item.get_instrument_type() == 'OPT':
                 '''

@@ -100,6 +100,8 @@ class ExecutionFilterHelper(BaseHelper):
 
 class ContractHelper(BaseHelper):
     
+    map_rules = {'exchange': {'HSI': 'HKFE', 'MHI': 'HKFE'}}
+    
     def __init__(self, contractTuple):
         self.makeContract(contractTuple)
     
@@ -213,14 +215,21 @@ class ContractHelper(BaseHelper):
 #                                                            102)
         
 # amend 12/1
-#change strike format to 2 dp        
+#change strike format to 2 dp     
+
+# amend 2017/04/25
+        if contract.m_exchange == '' or contract.m_exchange == None:
+            try:
+                contract.m_exchange = ContractHelper.map_rules['exchange'][contract.m_symbol]
+            except:
+                pass
+   
         s = '%s-%s-%.2f-%s-%s-%s-%s-%d' % (contract.m_symbol,
                                                            contract.m_expiry,
                                                            float(contract.m_strike),
                                                            contract.m_right,
                                                            contract.m_secType,
                                                            contract.m_currency,
-                                                            
                                                            contract.m_exchange,
                                                             
                                                            102)
