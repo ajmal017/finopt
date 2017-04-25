@@ -243,6 +243,7 @@ class PortfolioMonitor(AbstractGatewayListener):
         oc = self.is_oc_in_portfolio(account, oc_id)
         if oc == None:
             oc = OptionsChain(oc_id)
+            oc.register_listener(self)
             oc.set_option_structure(underlying.get_contract(),
                                     PortfolioRules.rule_map['option_structure'][underlying_id]['spd_size'],
                                     PortfolioRules.rule_map['option_structure'][underlying_id]['multiplier'],
@@ -286,7 +287,7 @@ class PortfolioMonitor(AbstractGatewayListener):
                 underlying = self.deduce_option_underlying(instrument)
                 if underlying:
                     oc = self.get_portfolio_option_chain(account, underlying)
-                    oc.register_listener(self)
+                    
                     instrument.set_extra_attributes(OptionsChain.CHAIN_IDENTIFIER, oc.get_name())
                     oc.add_option(instrument)
                     
@@ -353,7 +354,7 @@ class PortfolioMonitor(AbstractGatewayListener):
                 for acct in self.portfolios:
                     
                     if chain_id  in self.portfolios[acct]['opt_chains'].keys():
-                        logging.info('PortfolioMonitor:tds_event_tick_updated --> portfolio opt_chains: [%s] ' % 
+                        logging.info('PortfolioMonitor:tds_event_tick_updated --> portfolio opt_chains: [  %s  ] ' % 
                                      str(self.portfolios[acct]['opt_chains'].keys()))
                         if 'FUT' in contract_key or 'STK' in contract_key:
                             results = self.portfolios[acct]['opt_chains'][chain_id].cal_greeks_in_chain(self.kwargs['evaluation_date'])
@@ -367,7 +368,7 @@ class PortfolioMonitor(AbstractGatewayListener):
                         self.tds.set_symbol_analytics(key_greeks[0], Option.IMPL_VOL, key_greeks[1][Option.IMPL_VOL])
                         self.tds.set_symbol_analytics(key_greeks[0], Option.DELTA, key_greeks[1][Option.DELTA])
                         self.tds.set_symbol_analytics(key_greeks[0], Option.GAMMA, key_greeks[1][Option.GAMMA])
-                        self.tds.set_symbol_analytics(key_greeks[0], Option.THETA, key_greeks[1][Option.THETA])
+                        self.tds.set_2symbol_analytics(key_greeks[0], Option.THETA, key_greeks[1][Option.THETA])
                         self.tds.set_symbol_analytics(key_greeks[0], Option.VEGA, key_greeks[1][Option.VEGA])
                         
                     map(update_tds_analytics, list(results.iteritems()))                
@@ -387,7 +388,7 @@ class PortfolioMonitor(AbstractGatewayListener):
     #
 
     def tickPrice(self, event, contract_key, field, price, canAutoExecute):
-        logging.debug('MessageListener:%s. %s %d %8.2f' % (event, contract_key, field, price))
+        logging.info('MessageListener:%s. %s %d %8.2f' % (event, contract_key, field, price))
         self.tds.set_symbol_tick_price(contract_key, field, price, canAutoExecute)
 
 

@@ -79,6 +79,12 @@ class OptionsChain(Publisher):
         #self.underlying = contract
         self.underlying = Symbol(contract)
         self.underlying.set_extra_attributes(OptionsChain.CHAIN_IDENTIFIER, self.name)
+        
+        
+        self.dispatch(OptionsChain.EVENT_UNDERLYING_ADDED, {'update_mode': 'A', 
+                                                            'name': self.name,
+                                                            'instrument' : self.get_underlying()}
+                      )
 
         
         
@@ -221,13 +227,15 @@ class OptionsChain(Publisher):
         if uspot_last is None:
             return OptionsChain.EMPTY_GREEKS
         o = option.get_contract()
-        logging.info('OptionChain:cal_option_greeks. %8.4f' % uspot_last)
+        
 
             
             
         try:
+            logging.info('OptionChain:cal_option_greeks. ulspot->%8.4f, premium last->%8.4f ' % (uspot_last, option.get_tick_value(4)))
             iv = cal_implvol(uspot_last, o.m_strike, o.m_right, valuation_date, 
                                   o.m_expiry, self.rate, self.div, self.trade_vol, option.get_tick_value(4))
+            logging.info('OptionChain:cal_option_greeks. cal results:iv=> %8.4f' % iv)
         except RuntimeError:
             logging.warn('OptionChain:cal_option_greeks. Quantlib threw an error while calculating implied vol: use intrinsic: last->%8.2f strike->%8.2f right->%s sym->%s' % 
                          (uspot_last, o.m_strike, o.m_right, o.m_symbol))
