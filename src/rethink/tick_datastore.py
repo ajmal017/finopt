@@ -155,18 +155,19 @@ class TickDataStore(Publisher):
         try:
             self.lock.acquire()
             if contract_key in self.symbols:
-                logging.info('set_symbol_tick_price: ***** sym key= : %s' % contract_key)
-                logging.info('set_symbol_tick_price: ***** sym= : %s' % str(self.symbols[contract_key]['syms']))
+                logging.debug('set_symbol_tick_price: ***** sym key= : %s' % contract_key)
+                logging.debug('set_symbol_tick_price: ***** sym= : %s' % str(self.symbols[contract_key]['syms']))
                 
                 map(lambda e: e.set_tick_value(field, price), self.symbols[contract_key]['syms'])
-                logging.info('set_symbol_tick_price: <<<<<<<<<')
+                
                 self.dispatch(TickDataStore.EVENT_TICK_UPDATED, {'contract_key': contract_key, 'field': field, 
                                                              'price': price, 'syms': self.symbols[contract_key]['syms']})                
                 
                 
         except:
             # contract not set up in the datastore, ignore message
-            logging.error('set_symbol_tick_price: exception occured to: %s' % contract_key)
+            logging.error('tick_datastore:set_symbol_tick_price: exception occured to: %s. Exception could have been triggered due to the dispatched client processing logic' % contract_key)
+            
             #self.dump()
             pass
         finally:

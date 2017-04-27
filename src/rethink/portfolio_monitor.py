@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+import sys, traceback
 import logging
 import json
 import time, datetime
@@ -17,11 +19,12 @@ class PortfolioRules():
                 'symbol': {'HSI' : 'FUT', 'MHI' : 'FUT', 'QQQ' : 'STK'},
                 'expiry': {'HSI' : 'same_month', 'MHI': 'same_month', 'STK': 'leave_blank'},
                 'option_structure': {
-                                        'HSI': {'spd_size': 200, 'multiplier': 50, 'rate': 0.0012, 'div': 0},
-                                        'MHI': {'spd_size': 200, 'multiplier': 10, 'rate': 0.0012, 'div': 0}
+                                        'HSI': {'spd_size': 200, 'multiplier': 50, 'rate': 0.0012, 'div': 0, 'trade_vol':0.15},
+                                        'MHI': {'spd_size': 200, 'multiplier': 10, 'rate': 0.0012, 'div': 0, 'trade_vol':0.15}
                                         
                                     },
-                'exchange': {'HSI': 'HKFE', 'MHI': 'HKFE'}
+                'exchange': {'HSI': 'HKFE', 'MHI': 'HKFE'},
+                
                 
                } 
     
@@ -34,22 +37,29 @@ class PortfolioItem():
         average cost
     
     """
-    POSITION = 6001
-    AVERAGE_COST = 6002
-    POSITION_DELTA = 6003
-    POSITION_THETA = 6004
-    UNREAL_PL = 6005
-    PERCENT_GAIN_LOSS = 6006
-    AVERAGE_PRICE = 6007
-    ACCOUNT_ID = 6008
+    POSITION = 7001
+    AVERAGE_COST = 7002
+    POSITION_DELTA = 7003
+    POSITION_THETA = 7004
+    UNREAL_PL = 7005
+    PERCENT_GAIN_LOSS = 7006
+    AVERAGE_PRICE = 7007
+    #ACCOUNT_ID = 6008
     
         
     def __init__(self, account, contract_key, position, average_cost):
         
         self.contract_key = contract_key
-        self.quantity = position
-        self.average_cost = average_cost
         self.account_id = account
+        self.port_fields = {PortfolioItem.POSITION: position,
+                            PortfolioItem.AVERAGE_COST: average_cost,
+                            PortfolioItem.POSITION_DELTA: float('nan'),
+                            PortfolioItem.POSITION_THETA: float('nan'),
+                            PortfolioItem.UNREAL_PL: float('nan'),
+                            PortfolioItem.PERCENT_GAIN_LOSS: float('nan'),
+                            PortfolioItem.AVERAGE_PRICE: float('nan')
+                            
+                            }
         
         contract = ContractHelper.makeContractfromRedisKeyEx(contract_key)
         
@@ -59,6 +69,30 @@ class PortfolioItem():
         else: 
             self.instrument = Symbol(contract)
         
+
+    
+    def set_port_field(self, id, value):
+        self.port_fields[id] = value
+
+    def get_port_field(self, id):
+        try:
+            
+            return self.port_fields[id]
+    
+        except:
+            
+            return None    
+    def get_port_fields(self):
+        return self.port_fields
+    
+    def get_symbol_id(self):
+        return self.instrument.get_contract().m_symbol
+    
+    def get_quantity(self):
+        return self.port_fields[PortfolioItem.POSITION]
+    
+    def get_average_cost(self):
+        return self.port_fields[PortfolioItem.AVERAGE_COST]
     
     def get_instrument(self):
         return self.instrument
@@ -69,15 +103,57 @@ class PortfolioItem():
     def get_account(self):
         return self.account_id
         
-    def calculate_pl(self):
-        logging.info('PortfolioMonitor:calculate_pl. qty=%d avgcost=%8.4f' % (self.quantity, self.average_cost))
+    def calculate_pl(self, contract_key):
+        logging.info('PortfolioMonitor:calculate_pl. %s' % self.dump())
+        
+            
+    
+        try:
+            assert contract_key == self.contract_key
+#             POSITION = 6001
+#             AVERAGE_COST = 6002
+#             POSITION_DELTA = 6003
+#             POSITION_THETA = 6004
+#             UNREAL_PL = 6005
+#             PERCENT_GAIN_LOSS = 6006
+#             AVERAGE_PRICE = 6007            
+            if self.get_instrument_type() == 'OPT':
+                
+                pos_delta = self.get_quantity() * self.instrument.get_tick_value(Option.DELTA) * \
+                               PortfolioRules.rule_map['option_structure'][self.get_symbol_id()]['multiplier'] 
+                pos_theta = self.get_quantity() * self.instrument.get_tick_value(Option.THETA) * \
+                               PortfolioRules.rule_map['option_structure'][self.get_symbol_id()]['multiplier']
+
+                #(spot premium * multiplier - avgcost) * pos)
+                unreal_pl = (self.instrument.get_tick_value(4) * \
+                            PortfolioRules.rule_map['option_structure'][self.get_symbol_id()]['multiplier'] - \
+                            self.get_average_cost()) * self.get_quantity()
+            else:
+                pos_delta = self.get_quantity() * 1.0 * \
+                               PortfolioRules.rule_map['option_structure'][self.get_symbol_id()]['multiplier'] 
+                pos_theta = 0
+                # (S - X) * pos * multiplier
+                unreal_pl = (self.instrument.get_tick_value(4) - self.get_average_cost() ) * self.get_quantity() * \
+                               PortfolioRules.rule_map['option_structure'][self.get_symbol_id()]['multiplier']
+                        
+            self.set_port_field(PortfolioItem.POSITION_DELTA, pos_delta)
+            self.set_port_field(PortfolioItem.POSITION_THETA, pos_theta)
+            self.set_port_field(PortfolioItem.UNREAL_PL, unreal_pl)
+            
+        except Exception, err:
+            
+            logging.error(traceback.format_exc())     
+
+                        
+        logging.info('PortfolioMonitor:calculate_pl. %s' % self.dump())
     
     def update_position(self, position, average_cost):
-        self.quantity = position
-        self.average_cost = average_cost   
+        self.set_port_field(PortfolioItem.POSITION, position)
+        self.set_port_field(PortfolioItem.AVERAGE_COST, average_cost)
         
     def dump(self):
-        return 'PortfolioItem contents: %s %s %s' % (self.contract_key, self.quantity, self.average_cost)
+        s= ", ".join('[%s:%8.2f]' % (k, v) for k,v in self.port_fields.iteritems())
+        return 'PortfolioItem contents: %s %s %s' % (self.contract_key, self.account_id, s)
 
 
 class PortfolioMonitor(AbstractGatewayListener):
@@ -249,7 +325,8 @@ class PortfolioMonitor(AbstractGatewayListener):
                                     PortfolioRules.rule_map['option_structure'][underlying_id]['multiplier'],
                                     PortfolioRules.rule_map['option_structure'][underlying_id]['rate'],
                                     PortfolioRules.rule_map['option_structure'][underlying_id]['div'],
-                                    month)
+                                    month,
+                                    PortfolioRules.rule_map['option_structure'][underlying_id]['trade_vol'])
             
             self.portfolios[account]['opt_chains'][oc_id] = oc 
             
@@ -305,9 +382,8 @@ class PortfolioMonitor(AbstractGatewayListener):
         #<account_id>: {'port_items': {<contract_key>, instrument}, 'opt_chains': {<oc_id>: option_chain}}
         
         def print_port_items(x):
-            return '[%s]: %4d %8.2f %s' % (x[0], x[1].quantity, 
-                                           x[1].average_cost, 
-                                           ' '.join('%s:%s' % (k,v) for k, v in x[1].get_instrument().get_tick_values().iteritems()))
+            return '[%s]: %s %s' % (x[0],  ', '.join('%s: %s' % (k,str(v)) for k, v in x[1].get_port_fields().iteritems()),
+                                           ', '.join('%s: %s' % (k,str(v)) for k, v in x[1].get_instrument().get_tick_values().iteritems()))
         
         p_items = map(print_port_items, [x for x in self.portfolios[account]['port_items'].iteritems()])
         logging.info('PortfolioMonitor:dump_portfolio %s' % ('\n'.join(p_items)))
@@ -349,32 +425,41 @@ class PortfolioMonitor(AbstractGatewayListener):
             if OptionsChain.CHAIN_IDENTIFIER in s.get_extra_attributes():
                 results = {}
                 chain_id = s.get_extra_attributes()[OptionsChain.CHAIN_IDENTIFIER]
-                logging.info('PortfolioMonitor:tds_event_tick_updated chain_id %s' % chain_id)
+                #logging.info('PortfolioMonitor:tds_event_tick_updated chain_id %s' % chain_id)
                 
                 for acct in self.portfolios:
                     
                     if chain_id  in self.portfolios[acct]['opt_chains'].keys():
-                        logging.info('PortfolioMonitor:tds_event_tick_updated --> portfolio opt_chains: [  %s  ] ' % 
-                                     str(self.portfolios[acct]['opt_chains'].keys()))
+                        #logging.info('PortfolioMonitor:tds_event_tick_updated --> portfolio opt_chains: [  %s  ] ' % 
+                        #             str(self.portfolios[acct]['opt_chains'].keys()))
                         if 'FUT' in contract_key or 'STK' in contract_key:
                             results = self.portfolios[acct]['opt_chains'][chain_id].cal_greeks_in_chain(self.kwargs['evaluation_date'])
                         else:
                             results[ContractHelper.makeRedisKeyEx(s.get_contract())] =  self.portfolios[acct]['opt_chains'][chain_id].cal_option_greeks(s, self.kwargs['evaluation_date'])
-                    logging.info('PortfolioMonitor:tds_event_tick_updated. compute greek results %s' % results)    
-                    # set_analytics(self, imvol=None, delta=None, gamma=None, theta=None, vega=None, npv=None):
-                    # 
-                    def update_tds_analytics(key_greeks):
+                    #logging.info('PortfolioMonitor:tds_event_tick_updated. compute greek results %s' % results)
+                        
+                        #underlying_px = self.portfolios[acct]['opt_chains'][chain_id].get_underlying().get_tick_value(4)
+                        
+                    def update_portfolio_fields(key_greeks):
                         
                         self.tds.set_symbol_analytics(key_greeks[0], Option.IMPL_VOL, key_greeks[1][Option.IMPL_VOL])
                         self.tds.set_symbol_analytics(key_greeks[0], Option.DELTA, key_greeks[1][Option.DELTA])
                         self.tds.set_symbol_analytics(key_greeks[0], Option.GAMMA, key_greeks[1][Option.GAMMA])
-                        self.tds.set_2symbol_analytics(key_greeks[0], Option.THETA, key_greeks[1][Option.THETA])
+                        self.tds.set_symbol_analytics(key_greeks[0], Option.THETA, key_greeks[1][Option.THETA])
                         self.tds.set_symbol_analytics(key_greeks[0], Option.VEGA, key_greeks[1][Option.VEGA])
                         
-                    map(update_tds_analytics, list(results.iteritems()))                
-
+                        if contract_key in self.portfolios[acct]['port_items']:
+                            self.portfolios[acct]['port_items'][contract_key].calculate_pl(key_greeks[0]) #, underlying_px)
+                        
+                    if results:
+                        #logging.info('PortfolioMonitor:tds_event_tick_updated ....before map')
+                        map(update_portfolio_fields, list(results.iteritems()))
+                        #logging.info('PortfolioMonitor:tds_event_tick_updated ....after map')
+                           
+                               
+                    
             else:
-                
+                logging.info('PortfolioMonitor:tds_event_tick_updated ignoring uninterested ticks %s' % contract_key)
                 continue
              
         
@@ -388,7 +473,6 @@ class PortfolioMonitor(AbstractGatewayListener):
     #
 
     def tickPrice(self, event, contract_key, field, price, canAutoExecute):
-        logging.info('MessageListener:%s. %s %d %8.2f' % (event, contract_key, field, price))
         self.tds.set_symbol_tick_price(contract_key, field, price, canAutoExecute)
 
 

@@ -21,12 +21,13 @@ def cal_implvol(spot, strike, callput, evaldate, exdate, rate, div, vol, premium
     r = YieldTermStructureHandle(FlatForward(str2qdate(evaldate), rate, Actual365Fixed()))
     q = YieldTermStructureHandle(FlatForward(str2qdate(evaldate), div, Actual365Fixed()))
 
+
     sigma = BlackVolTermStructureHandle(BlackConstantVol(str2qdate(evaldate), HongKong(), vol, Actual365Fixed()))
     process = BlackScholesMertonProcess(S,q,r,sigma)
     im = option.impliedVolatility(premium, process)
+
     results = {}
     results[instrument.Option.IMPL_VOL] = im
- 
     
     return results
 

@@ -104,12 +104,13 @@ class OptionsChain(Publisher):
     def set_trade_vol(self, tvol):
         self.trade_vol = tvol
         
-    def set_option_structure(self, underlying, spd_size, multiplier, rate, div, expiry):
+    def set_option_structure(self, underlying, spd_size, multiplier, rate, div, expiry, trade_vol=0.15):
         self.set_div(div)
         self.set_rate(rate)
         self.set_spread_table(spd_size, multiplier)
         self.set_underlying(underlying)
         self.set_expiry(expiry)
+        self.set_trade_vol(trade_vol)
       
     def build_chain(self, px, bound, trade_vol):
         self.set_trade_vol(trade_vol)
@@ -232,10 +233,12 @@ class OptionsChain(Publisher):
             
             
         try:
-            logging.info('OptionChain:cal_option_greeks. ulspot->%8.4f, premium last->%8.4f ' % (uspot_last, option.get_tick_value(4)))
+            #logging.info('OptionChain:cal_option_greeks. ulspot->%8.4f, premium last->%8.4f ' % (uspot_last, option.get_tick_value(4)))
+            #logging.info('OptionChain:cal_option_greeks. o.m_strike %8.4f, o.m_right %s, valuation_date %s, o.m_expiry %s, self.rate %8.4f , self.div  %8.4f, self.trade_vol %8.4f ' % 
+            #            (o.m_strike, o.m_right, valuation_date,  o.m_expiry, self.rate, self.div, self.trade_vol))
             iv = cal_implvol(uspot_last, o.m_strike, o.m_right, valuation_date, 
                                   o.m_expiry, self.rate, self.div, self.trade_vol, option.get_tick_value(4))
-            logging.info('OptionChain:cal_option_greeks. cal results:iv=> %8.4f' % iv)
+            #logging.info('OptionChain:cal_option_greeks. cal results:iv=> %s' % str(iv))
         except RuntimeError:
             logging.warn('OptionChain:cal_option_greeks. Quantlib threw an error while calculating implied vol: use intrinsic: last->%8.2f strike->%8.2f right->%s sym->%s' % 
                          (uspot_last, o.m_strike, o.m_right, o.m_symbol))
