@@ -222,7 +222,7 @@ class PortfolioMonitor(AbstractGatewayListener):
             menu['1']="Request position" 
             menu['2']="Portfolio dump"
             menu['3']="TDS dump"
-            menu['4']=""
+            menu['4']="Request account updates"
             menu['9']="Exit"
             while True: 
                 choices=menu.keys()
@@ -237,7 +237,10 @@ class PortfolioMonitor(AbstractGatewayListener):
                     for acct in self.portfolios.keys():
                         print self.dump_portfolio(acct)
                 elif selection == '3': 
-                     self.tds.dump()
+                    self.tds.dump()
+                elif selection == '4': 
+                    for acct in self.portfolios.keys():
+                        self.twsc.reqAccountUpdates(True, acct)
                     
                 elif selection == '9': 
                     self.twsc.gw_message_handler.set_stop()
@@ -489,7 +492,30 @@ class PortfolioMonitor(AbstractGatewayListener):
         """ generated source for method positionEnd """
         logging.info('%s [[ %s ]]' % (event, vars()))
 
+    '''
+        the 4 account functions below are invoked by AbstractListener.update_portfolio_account.
+        the original message from TWS is first wrapped into update_portfolio_account event in 
+        class TWS_event_handler and then expanded by AbstractListener.update_portfolio_account
+        (check tws_event_hander)
+    '''
+    def raw_dump(self, event, items):
+        del(items['self'])
+        logging.info('%s [[ %s ]]' % (event, items))      
+        
+                
+    def updateAccountValue(self, event, key, value, currency, account):  # key, value, currency, accountName):
+        self.raw_dump(event, vars())
  
+    def updatePortfolio(self, event, contract_key, position, market_price, market_value, average_cost, unrealized_PNL, realized_PNL, account):
+        self.raw_dump(event, vars())
+        
+            
+    def updateAccountTime(self, event, timestamp):
+        self.raw_dump(event, vars())
+        
+    def accountDownloadEnd(self, event, account):  # accountName):
+        self.raw_dump(event, vars())
+
  
     def error(self, event, message_value):
         logging.info('PortfolioMonitor:%s. val->[%s]' % (event, message_value))         
@@ -513,7 +539,7 @@ if __name__ == '__main__':
       'session_timeout_ms': 10000,
       'clear_offsets':  False,
       'logconfig': {'level': logging.INFO, 'filemode': 'w', 'filename': '/tmp/pm.log'},
-      'topics': ['position', 'positionEnd', 'tickPrice'],
+      'topics': ['position', 'positionEnd', 'tickPrice', 'update_portfolio_account'],
       'seek_to_end': ['*']
 
       
