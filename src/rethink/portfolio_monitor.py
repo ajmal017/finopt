@@ -11,149 +11,12 @@ from misc2.helpers import ContractHelper
 from finopt.instrument import Symbol, Option
 from rethink.option_chain import OptionsChain
 from rethink.tick_datastore import TickDataStore
+from rethink.portfolio_item import PortfolioItem, PortfolioRules
 from comms.ibc.tws_client_lib import TWS_client_manager, AbstractGatewayListener
 from numpy import average
 
-class PortfolioRules():
-    rule_map = {
-                'symbol': {'HSI' : 'FUT', 'MHI' : 'FUT', 'QQQ' : 'STK'},
-                'expiry': {'HSI' : 'same_month', 'MHI': 'same_month', 'STK': 'leave_blank'},
-                'option_structure': {
-                                        'HSI': {'spd_size': 200, 'multiplier': 50, 'rate': 0.0012, 'div': 0, 'trade_vol':0.15},
-                                        'MHI': {'spd_size': 200, 'multiplier': 10, 'rate': 0.0012, 'div': 0, 'trade_vol':0.15}
-                                        
-                                    },
-                'exchange': {'HSI': 'HKFE', 'MHI': 'HKFE'},
-                
-                
-               } 
-    
-    
-class PortfolioItem():
-    """
-        Set up some constant variables
-        
-        position
-        average cost
-    
-    """
-    POSITION = 7001
-    AVERAGE_COST = 7002
-    POSITION_DELTA = 7003
-    POSITION_THETA = 7004
-    UNREAL_PL = 7005
-    PERCENT_GAIN_LOSS = 7006
-    AVERAGE_PRICE = 7007
-    #ACCOUNT_ID = 6008
-    
-        
-    def __init__(self, account, contract_key, position, average_cost):
-        
-        self.contract_key = contract_key
-        self.account_id = account
-        self.port_fields = {PortfolioItem.POSITION: position,
-                            PortfolioItem.AVERAGE_COST: average_cost,
-                            PortfolioItem.POSITION_DELTA: float('nan'),
-                            PortfolioItem.POSITION_THETA: float('nan'),
-                            PortfolioItem.UNREAL_PL: float('nan'),
-                            PortfolioItem.PERCENT_GAIN_LOSS: float('nan'),
-                            PortfolioItem.AVERAGE_PRICE: float('nan')
-                            
-                            }
-        
-        contract = ContractHelper.makeContractfromRedisKeyEx(contract_key)
-        
-        
-        if contract.m_secType == 'OPT':
-            self.instrument = Option(contract)
-        else: 
-            self.instrument = Symbol(contract)
-        
 
     
-    def set_port_field(self, id, value):
-        self.port_fields[id] = value
-
-    def get_port_field(self, id):
-        try:
-            
-            return self.port_fields[id]
-    
-        except:
-            
-            return None    
-    def get_port_fields(self):
-        return self.port_fields
-    
-    def get_symbol_id(self):
-        return self.instrument.get_contract().m_symbol
-    
-    def get_quantity(self):
-        return self.port_fields[PortfolioItem.POSITION]
-    
-    def get_average_cost(self):
-        return self.port_fields[PortfolioItem.AVERAGE_COST]
-    
-    def get_instrument(self):
-        return self.instrument
-        
-    def get_instrument_type(self):
-        return self.instrument.get_contract().m_secType
-    
-    def get_account(self):
-        return self.account_id
-        
-    def calculate_pl(self, contract_key):
-        logging.info('PortfolioMonitor:calculate_pl. %s' % self.dump())
-        
-            
-    
-        try:
-            assert contract_key == self.contract_key
-#             POSITION = 6001
-#             AVERAGE_COST = 6002
-#             POSITION_DELTA = 6003
-#             POSITION_THETA = 6004
-#             UNREAL_PL = 6005
-#             PERCENT_GAIN_LOSS = 6006
-#             AVERAGE_PRICE = 6007            
-            if self.get_instrument_type() == 'OPT':
-                
-                pos_delta = self.get_quantity() * self.instrument.get_tick_value(Option.DELTA) * \
-                               PortfolioRules.rule_map['option_structure'][self.get_symbol_id()]['multiplier'] 
-                pos_theta = self.get_quantity() * self.instrument.get_tick_value(Option.THETA) * \
-                               PortfolioRules.rule_map['option_structure'][self.get_symbol_id()]['multiplier']
-
-                #(spot premium * multiplier - avgcost) * pos)
-                unreal_pl = (self.instrument.get_tick_value(4) * \
-                            PortfolioRules.rule_map['option_structure'][self.get_symbol_id()]['multiplier'] - \
-                            self.get_average_cost()) * self.get_quantity()
-            else:
-                pos_delta = self.get_quantity() * 1.0 * \
-                               PortfolioRules.rule_map['option_structure'][self.get_symbol_id()]['multiplier'] 
-                pos_theta = 0
-                # (S - X) * pos * multiplier
-                unreal_pl = (self.instrument.get_tick_value(4) - self.get_average_cost() ) * self.get_quantity() * \
-                               PortfolioRules.rule_map['option_structure'][self.get_symbol_id()]['multiplier']
-                        
-            self.set_port_field(PortfolioItem.POSITION_DELTA, pos_delta)
-            self.set_port_field(PortfolioItem.POSITION_THETA, pos_theta)
-            self.set_port_field(PortfolioItem.UNREAL_PL, unreal_pl)
-            
-        except Exception, err:
-            
-            logging.error(traceback.format_exc())     
-
-                        
-        logging.info('PortfolioMonitor:calculate_pl. %s' % self.dump())
-    
-    def update_position(self, position, average_cost):
-        self.set_port_field(PortfolioItem.POSITION, position)
-        self.set_port_field(PortfolioItem.AVERAGE_COST, average_cost)
-        
-    def dump(self):
-        s= ", ".join('[%s:%8.2f]' % (k, v) for k,v in self.port_fields.iteritems())
-        return 'PortfolioItem contents: %s %s %s' % (self.contract_key, self.account_id, s)
 
 
 class PortfolioMonitor(AbstractGatewayListener):
@@ -179,43 +42,12 @@ class PortfolioMonitor(AbstractGatewayListener):
         
         self.portfolios = {}
         
-        
-    
-    def test_oc(self, oc2):
-        expiry = '20170427'
-        contractTuple = ('HSI', 'FUT', 'HKFE', 'HKD', expiry, 0, '')
-        contract = ContractHelper.makeContract(contractTuple)  
-        
-        oc2.set_option_structure(contract, 200, 50, 0.0012, 0.0328, expiry)        
-        
-        oc2.build_chain(24172, 0.04, 0.22)
-        
-#         expiry='20170324'
-#         contractTuple = ('QQQ', 'STK', 'SMART', 'USD', '', 0, '')
-#         contract = ContractHelper.makeContract(contractTuple)  
-# 
-#         oc2.set_option_structure(contract, 0.5, 100, 0.0012, 0.0328, expiry)        
-#     
-#         oc2.build_chain(132.11, 0.02, 0.22)
-        
-        
-        oc2.pretty_print()        
-
-        for o in oc2.get_option_chain():
-            self.tds.add_symbol(o)
-        self.tds.add_symbol(oc2.get_underlying())
-        
-    
-        
     
     
     def start_engine(self):
         self.twsc.start_manager()
-#         oc2 = OptionsChain('oc2')
-#         oc2.register_listener(self)
-#         self.test_oc(oc2)
-#         self.option_chains[oc2.name] = oc2
-        
+        self.twsc.reqPositions()
+        self.starting_engine = True
         try:
             logging.info('PortfolioMonitor:main_loop ***** accepting console input...')
             menu = {}
@@ -338,7 +170,7 @@ class PortfolioMonitor(AbstractGatewayListener):
     
     
     
-    def process_position(self, account, contract_key, position, average_cost):
+    def process_position(self, account, contract_key, position, average_cost, extra_info=None):
         
         # obtain a reference to the portfolio, if not exist create a new one 
         port = self.get_portfolio(account)
@@ -348,8 +180,8 @@ class PortfolioMonitor(AbstractGatewayListener):
             
         if port_item:
             # update the values and recalculate p/l
-            port_item.update_position(position, average_cost)
-            port_item.calculate_pl()
+            port_item.update_position(position, average_cost, extra_info)
+            port_item.calculate_pl(contract_key)
         # new position 
         else:
             port_item = PortfolioItem(account, contract_key, position, average_cost)
@@ -485,13 +317,18 @@ class PortfolioMonitor(AbstractGatewayListener):
  
     def position(self, event, account, contract_key, position, average_cost, end_batch):
         if not end_batch:
-            logging.info('PortfolioMonitor:position. received position message contract=%s' % contract_key)
+            #logging.info('PortfolioMonitor:position. received position message contract=%s' % contract_key)
             self.process_position(account, contract_key, position, average_cost)
    
-    def positionEnd(self, event): #, message_value):
-        """ generated source for method positionEnd """
-        logging.info('%s [[ %s ]]' % (event, vars()))
-
+        else:
+            # to be run once during start up
+            # subscribe to automatic account updates
+            if self.starting_engine:
+                for acct in self.portfolios.keys():
+                    self.twsc.reqAccountUpdates(True, acct)
+                    logging.info('PortfolioMonitor:position. subscribing to auto updates for ac: [%s]' % acct)
+            self.start_engine = False
+                    
     '''
         the 4 account functions below are invoked by AbstractListener.update_portfolio_account.
         the original message from TWS is first wrapped into update_portfolio_account event in 
@@ -508,6 +345,8 @@ class PortfolioMonitor(AbstractGatewayListener):
  
     def updatePortfolio(self, event, contract_key, position, market_price, market_value, average_cost, unrealized_PNL, realized_PNL, account):
         self.raw_dump(event, vars())
+        self.process_position(account, contract_key, position, average_cost, 
+                              {'market_price':market_price, 'market_value':market_value, 'unrealized_PNL': unrealized_PNL, 'realized_PNL': realized_PNL})
         
             
     def updateAccountTime(self, event, timestamp):

@@ -249,7 +249,7 @@ class OptionsChain(Publisher):
             greeks = cal_option(uspot_last, o.m_strike, o.m_right, valuation_date, 
                                   o.m_expiry, self.rate, self.div, iv[Option.IMPL_VOL])
             greeks.update(iv)
-            logging.info('OptionChain:cal_option_greeks. %s' % greeks)
+            #logging.info('OptionChain:cal_option_greeks. %s' % greeks)
         
         except Exception, err:
             logging.error('OptionsChain:cal_option_greeks. Error retrieving uspot_last  greeks for option %s' % ContractHelper.makeRedisKeyEx(o))
