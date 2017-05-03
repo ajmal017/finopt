@@ -15,7 +15,10 @@ class AbstractTableModel(Publisher):
         except AttributeError as e:
             logging.error("AbstractTableModel:register_listener. Function not implemented in the listener. %s" % e)
             raise NotImplementedException        
-        
+    
+    def fire_table_rows_updated(self, row):
+        self.dispatch(AbstractTableModel.EVENT_TM_TABLE_ROWS_UPDATED, {'row': row})
+    
     def get_column_count(self):
         raise NotImplementedException
     

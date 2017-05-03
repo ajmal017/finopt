@@ -151,6 +151,7 @@ class PortfolioMonitor(AbstractGatewayListener):
             port_item.update_position(position, average_cost, extra_info)
             port_item.calculate_pl(contract_key)
             
+            port.fire_table_rows_updated(port.ckey_to_row(contract_key))
         # new position 
         else:
             port_item = PortfolioItem(account, contract_key, position, average_cost)
