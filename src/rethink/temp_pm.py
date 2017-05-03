@@ -178,10 +178,14 @@ class PortfolioMonitor(AbstractGatewayListener):
             else:
                 logging.info('PortfolioMonitor:process_position. Adding a new non-option position into the portfolio [%s]' % port_item.dump())
                 #port['port_items'][contract_key] = port_item
-                port.set_portfolio_port_item(contract_key, port_item)
+                #port.set_portfolio_port_item(contract_key, port_item)
                 
             #self.dump_portfolio(account)    
             port.dump_portfolio()
+            
+            
+            
+            
             
     
     #         EVENT_OPTION_UPDATED = 'oc_option_updated'
@@ -243,7 +247,8 @@ class PortfolioMonitor(AbstractGatewayListener):
                             self.portfolios[acct].calculate_item_pl(contract_key)
                         
                             
-                        
+                            self.portfolios[acct].fire_table_rows_updated(self.portfolios[acct].ckey_to_row(contract_key))
+                            
                     if results:
                         #logging.info('PortfolioMonitor:tds_event_tick_updated ....before map')
                         map(update_portfolio_fields, list(results.iteritems()))

@@ -235,7 +235,7 @@ class Portfolio(AbstractTableModel):
         '''
             update the gtable contract_key to row number index
         '''
-        self.update_ckey_row_index(contract_key)
+        self.increment_ckey_row_index(contract_key)
         
                 
     def is_oc_in_portfolio(self, oc_id):
@@ -340,7 +340,7 @@ class Portfolio(AbstractTableModel):
                   ('pos_delta', 'P. Delta', 'number'), ('pos_theta', 'P. Theta', 'number'), ('pos_gamma', 'P. Gamma', 'number'), 
                   ('unreal_pl', 'Unreal P/L', 'number'), ('percent_gain_loss', '% gain/loss', 'number')  
                   ]  
-    def update_ckey_row_index(self, contract_key):
+    def increment_ckey_row_index(self, contract_key):
         row_id = self.port['g_table']['row_index']
         self.port['g_table']['ckey_to_row_index'][contract_key]['row_id'] = row_id
         self.port['g_table']['row_to_ckey_index'][row_id] = contract_key
