@@ -218,12 +218,18 @@ class ContractHelper(BaseHelper):
 #change strike format to 2 dp     
 
 # amend 2017/04/25
-        if contract.m_exchange == '' or contract.m_exchange == None:
+        if contract.m_exchange == None:
             try:
                 contract.m_exchange = ContractHelper.map_rules['exchange'][contract.m_symbol]
             except:
-                pass
+                contract.m_exchange = '' 
    
+        if contract.m_right == None:
+            contract.m_right = ''
+            
+        if contract.m_expiry == None:
+            contract.m_expiry = ''
+            
         s = '%s-%s-%.2f-%s-%s-%s-%s-%d' % (contract.m_symbol,
                                                            contract.m_expiry,
                                                            float(contract.m_strike),

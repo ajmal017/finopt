@@ -5,7 +5,10 @@ from misc2.helpers import ContractHelper, dict2str
 class Symbol():
     key = None
     
-
+    LAST = 4
+    BID  = 1
+    ASK  = 2
+    
     
     
     def __init__(self, contract):

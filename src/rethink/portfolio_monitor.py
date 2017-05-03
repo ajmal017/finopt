@@ -25,7 +25,8 @@ class PortfolioMonitor(AbstractGatewayListener):
     '''
         portfolios : 
              {
-                <account_id>: {'port_items': {<contract_key>, PortItem}, 'opt_chains': {<oc_id>: option_chain}}
+                <account_id>: {'port_items': {<contract_key>, PortItem}, 'opt_chains': {<oc_id>: option_chain}, 
+                                'g_table':{'rows':{...} , 'cols':{...}, 'ckey_to_row_index':{'row_id':<row_id>, 'dirty': <true/false>, 'count':0}
              }   
                 
     '''
@@ -42,7 +43,7 @@ class PortfolioMonitor(AbstractGatewayListener):
         
         self.portfolios = {}
         
-    
+        
     
     def start_engine(self):
         self.twsc.start_manager()
@@ -52,9 +53,10 @@ class PortfolioMonitor(AbstractGatewayListener):
             logging.info('PortfolioMonitor:main_loop ***** accepting console input...')
             menu = {}
             menu['1']="Request position" 
-            menu['2']="Portfolio dump"
+            menu['2']="Portfolio dump dtj"
             menu['3']="TDS dump"
             menu['4']="Request account updates"
+            menu['5']="Table chart JSON"
             menu['9']="Exit"
             while True: 
                 choices=menu.keys()
@@ -67,13 +69,16 @@ class PortfolioMonitor(AbstractGatewayListener):
                     self.twsc.reqPositions()
                 elif selection == '2': 
                     for acct in self.portfolios.keys():
-                        print self.dump_portfolio(acct)
+                        #print self.dump_portfolio(acct)
+                        print self.portfolios[acct]['g_table']
                 elif selection == '3': 
-                    self.tds.dump()
+                    print self.tds.dump()
                 elif selection == '4': 
                     for acct in self.portfolios.keys():
                         self.twsc.reqAccountUpdates(True, acct)
-                    
+                elif selection == '5':
+                    for acct in self.portfolios.keys():
+                        print self.g_datatable_json(acct)
                 elif selection == '9': 
                     self.twsc.gw_message_handler.set_stop()
                     break
@@ -88,15 +93,15 @@ class PortfolioMonitor(AbstractGatewayListener):
             logging.info('PortfolioMonitor: Service shut down complete...')               
     
     def is_contract_in_portfolio(self, account, contract_key):
-        return self.get_portfolio_port_items(account, contract_key)
+        return self.get_portfolio_port_item(account, contract_key)
             
-    def get_portfolio_port_items(self, account, contract_key):
+    def get_portfolio_port_item(self, account, contract_key):
         try:
             return self.portfolios[account]['port_items'][contract_key]
         except KeyError:
             return None
     
-    def set_portfolio_port_items(self, account, contract_key, port_item):
+    def set_portfolio_port_item(self, account, contract_key, port_item):
         self.portfolios[account]['port_items'][contract_key] = port_item
         
         
@@ -104,6 +109,7 @@ class PortfolioMonitor(AbstractGatewayListener):
         port = self.portfolios[account] = {}
         self.portfolios[account]['port_items']=  {}
         self.portfolios[account]['opt_chains']=  {}
+        self.portfolios[account]['g_table']=  {'ckey_to_row_index': {'count':0}}
         return port
                 
     def get_portfolio(self, account):
@@ -168,7 +174,10 @@ class PortfolioMonitor(AbstractGatewayListener):
             
         return oc
     
-    
+    def mark_gtable_row_dirty(self, account, contract_key, dirty=True):
+        self.portfolios[account]['g_table'][contract_key]['dirty'] = dirty
+        self.portfolios[account]['g_table'][contract_key]['count'] += 1
+        return self.portfolios[account]['g_table'][contract_key]['row_id']
     
     def process_position(self, account, contract_key, position, average_cost, extra_info=None):
         
@@ -182,6 +191,9 @@ class PortfolioMonitor(AbstractGatewayListener):
             # update the values and recalculate p/l
             port_item.update_position(position, average_cost, extra_info)
             port_item.calculate_pl(contract_key)
+            
+            # update the affected row in gtable as changed 
+            self.mark_gtable_row_dirty(True)
         # new position 
         else:
             port_item = PortfolioItem(account, contract_key, position, average_cost)
@@ -212,6 +224,8 @@ class PortfolioMonitor(AbstractGatewayListener):
                 port['port_items'][contract_key] = port_item
                 
             self.dump_portfolio(account)    
+            
+            
         
     def dump_portfolio(self, account):
         #<account_id>: {'port_items': {<contract_key>, instrument}, 'opt_chains': {<oc_id>: option_chain}}
@@ -225,6 +239,65 @@ class PortfolioMonitor(AbstractGatewayListener):
         return '\n'.join(p_items)
         
          
+    
+    def g_datatable_json(self, account):
+    
+        
+         
+        
+        dtj = {'cols':[], 'rows':[], 'ckey_to_row_index':{}}
+        header = [('symbol', 'Symbol', 'string'), ('right', 'Right', 'string'), ('avgcost', 'Avg Cost', 'number'), ('market_value', 'Market Value', 'number'), 
+                  ('avgpx', 'Avg Price', 'number'), ('spotpx', 'Spot Price', 'number'), ('pos', 'Quantity', 'number'), 
+                  ('delta', 'Delta', 'number'), ('theta', 'Theta', 'number'), ('gamma', 'Gamma', 'number'), 
+                  ('pos_delta', 'P. Delta', 'number'), ('pos_theta', 'P. Theta', 'number'), ('pos_gamma', 'P. Gamma', 'number'), 
+                  ('unreal_pl', 'Unreal P/L', 'number'), ('percent_gain_loss', '% gain/loss', 'number')  
+                  ]  
+        # header fields      
+        map(lambda hf: dtj['cols'].append({'id': hf[0], 'label': hf[1], 'type': hf[2]}), header)
+        
+        
+        def get_spot_px(x):
+            px = float('nan')
+            if x.get_quantity() > 0:
+                px= x.get_instrument().get_tick_value(Symbol.BID)
+            elif x.get_quantity() < 0:
+                px= x.get_instrument().get_tick_value(Symbol.ASK)
+            if px == -1:
+                return x.get_instrument().get_tick_value(Symbol.LAST)
+        
+        # table rows
+        def row_fields(x):
+            
+            rf = [{'v': '%s-%s-%s' % (x[1].get_symbol_id(), x[1].get_expiry(), x[1].get_strike())}, 
+                 {'v': x[1].get_right()},
+                 {'v': x[1].get_port_field(PortfolioItem.AVERAGE_COST)},
+                 {'v': x[1].get_port_field(PortfolioItem.MARKET_VALUE)},
+                 {'v': x[1].get_port_field(PortfolioItem.AVERAGE_PRICE)},
+                 {'v': get_spot_px(x[1])},
+                 {'v': x[1].get_quantity()},
+                 {'v': x[1].get_instrument().get_tick_value(Option.DELTA)},
+                 {'v': x[1].get_instrument().get_tick_value(Option.THETA)},
+                 {'v': x[1].get_instrument().get_tick_value(Option.GAMMA)},
+                 {'v': x[1].get_port_field(PortfolioItem.POSITION_DELTA)},
+                 {'v': x[1].get_port_field(PortfolioItem.POSITION_THETA)},
+                 {'v': x[1].get_port_field(PortfolioItem.POSITION_GAMMA)},
+                 {'v': x[1].get_port_field(PortfolioItem.UNREAL_PL)},
+                 {'v': x[1].get_port_field(PortfolioItem.PERCENT_GAIN_LOSS)}]
+                 
+             
+            return rf 
+        
+        def set_contract_key_to_row_index(i):
+            dtj['ckey_to_row_index'][p2_items[i].get_instrument().get_contract_key()]['row_id'] = i
+            dtj['ckey_to_row_index'][p2_items[i].get_instrument().get_contract_key()]['dirty'] = False
+        
+        p_items = sorted([x for x in self.portfolios[account]['port_items'].iteritems()])
+        p1_items = filter(lambda x: x[1].get_symbol_id() in self.kwargs['interested_position_types']['symbol'], p_items)
+        p2_items = filter(lambda x: x[1].get_instrument_type() in self.kwargs['interested_position_types']['instrument_type'], p1_items)
+        map(lambda p: dtj['rows'].append({'c': row_fields(p)}), p2_items)
+        map(set_contract_key_to_row_index, range(len(p2_items)))
+        
+        return json.dumps(dtj) #, indent=4)            
     
     #         EVENT_OPTION_UPDATED = 'oc_option_updated'
     #         EVENT_UNDERLYING_ADDED = 'oc_underlying_added
@@ -286,6 +359,12 @@ class PortfolioMonitor(AbstractGatewayListener):
                         if contract_key in self.portfolios[acct]['port_items']:
                             self.portfolios[acct]['port_items'][contract_key].calculate_pl(key_greeks[0]) #, underlying_px)
                         
+                            # dispatch pm_event to listeners
+                            self.mark_gtable_row_dirty(acct, contract_key, True)
+                            logging.info('PortfolioMonitor:tds_event_tick_updated...marking the affected row %d:[%s] as dirty' %
+                                                (self.portfolios[acct]['g_table']['dtj']['ckey_to_row_index']['row_id'], contract_key))
+                            
+                        
                     if results:
                         #logging.info('PortfolioMonitor:tds_event_tick_updated ....before map')
                         map(update_portfolio_fields, list(results.iteritems()))
@@ -312,8 +391,9 @@ class PortfolioMonitor(AbstractGatewayListener):
 
 
     def tickSize(self, event, contract_key, field, size):
-        self.tds.set_symbol_tick_size(contract_key, field, size)
+        #self.tds.set_symbol_tick_size(contract_key, field, size)
         #logging.info('MessageListener:%s. %s: %d %8.2f' % (event, contract_key, field, size))
+        pass
  
     def position(self, event, account, contract_key, position, average_cost, end_batch):
         if not end_batch:
@@ -325,9 +405,11 @@ class PortfolioMonitor(AbstractGatewayListener):
             # subscribe to automatic account updates
             if self.starting_engine:
                 for acct in self.portfolios.keys():
+                    self.portfolios[acct]['g_table'] = self.g_datatable_json(acct)
+                    logging.info('PortfolioMonitor:position. generate gtable for ac: [%s]' % acct)
                     self.twsc.reqAccountUpdates(True, acct)
                     logging.info('PortfolioMonitor:position. subscribing to auto updates for ac: [%s]' % acct)
-            self.start_engine = False
+            self.starting_engine = False
                     
     '''
         the 4 account functions below are invoked by AbstractListener.update_portfolio_account.
@@ -379,7 +461,8 @@ if __name__ == '__main__':
       'clear_offsets':  False,
       'logconfig': {'level': logging.INFO, 'filemode': 'w', 'filename': '/tmp/pm.log'},
       'topics': ['position', 'positionEnd', 'tickPrice', 'update_portfolio_account'],
-      'seek_to_end': ['*']
+      'seek_to_end': ['*'],
+      'interested_position_types': {'symbol': ['HSI', 'MHI'], 'instrument_type': ['OPT', 'FUT']}
 
       
       }

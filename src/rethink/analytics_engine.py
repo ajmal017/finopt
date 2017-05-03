@@ -34,7 +34,7 @@ class AnalyticsEngine(AbstractGatewayListener):
         
     
     def test_oc(self, oc2):
-        expiry = '20170427'
+        expiry = '20170529'
         contractTuple = ('HSI', 'FUT', 'HKFE', 'HKD', expiry, 0, '')
         contract = ContractHelper.makeContract(contractTuple)  
         
@@ -59,7 +59,7 @@ class AnalyticsEngine(AbstractGatewayListener):
         
     
     def test_oc3(self, oc3):
-        expiry = '20170529'
+        expiry = '20170629'
         contractTuple = ('HSI', 'FUT', 'HKFE', 'HKD', expiry, 0, '')
         contract = ContractHelper.makeContract(contractTuple)  
          
