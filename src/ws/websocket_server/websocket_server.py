@@ -13,7 +13,7 @@ if sys.version_info[0] < 3:
 else:
     from socketserver import ThreadingMixIn, TCPServer, StreamRequestHandler
 
-#logger = logging.getLogger(__name__)
+logger = logging.getLogger(__name__)
 #logging.basicConfig()
 
 '''
@@ -51,6 +51,8 @@ OPCODE_PONG         = 0xA
 
 class API():
 
+    
+    
     def run_forever(self):
         try:
             logger.info("Listening on port %d for clients.." % self.port)
