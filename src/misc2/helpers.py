@@ -218,7 +218,7 @@ class ContractHelper(BaseHelper):
 #change strike format to 2 dp     
 
 # amend 2017/04/25
-        if contract.m_exchange == None:
+        if contract.m_exchange == None or contract.m_exchange == '':
             try:
                 contract.m_exchange = ContractHelper.map_rules['exchange'][contract.m_symbol]
             except:

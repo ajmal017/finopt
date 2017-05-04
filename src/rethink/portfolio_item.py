@@ -12,6 +12,7 @@ from rethink.option_chain import OptionsChain
 from rethink.tick_datastore import TickDataStore
 from numpy import average
 from rethink.table_model import AbstractTableModel
+from gtk.keysyms import percent
 
 class PortfolioRules():
     rule_map = {
@@ -22,9 +23,9 @@ class PortfolioRules():
                                         'MHI': {'spd_size': 200, 'multiplier': 10, 'rate': 0.0012, 'div': 0, 'trade_vol':0.15}
                                         
                                     },
-                'exchange': {'HSI': 'HKFE', 'MHI': 'HKFE'},
-                
-                
+                'exchange': {'HSI': 'HKFE', 'MHI': 'HKFE'},              
+                'interested_position_types': {'symbol': ['HSI', 'MHI'], 'instrument_type': ['OPT', 'FUT']}
+
                } 
     
 class PortfolioItem():
@@ -140,14 +141,19 @@ class PortfolioItem():
                 pos_gamma = self.get_quantity() * self.instrument.get_tick_value(Option.GAMMA) * multiplier                               
 
                 #(spot premium * multiplier - avgcost) * pos)
-                unreal_pl = (spot_px * multiplier - self.get_average_cost()) * self.get_quantity()
-                #print "%f %f %d" % (spot_px, self.get_average_cost(), multiplier)
-                percent_gain_loss = (1 - spot_px / (self.get_average_cost() / multiplier)) * 100 \
-                                        if self.get_quantity() < 0 else \
-                                        (spot_px - self.get_average_cost() / multiplier) / (self.get_average_cost() / multiplier) * 100 
-                                    
-                average_px = self.get_average_cost() / multiplier                    
-                            
+                try:
+                    unreal_pl = (spot_px * multiplier - self.get_average_cost()) * self.get_quantity()
+                    #print "%f %f %d" % (spot_px, self.get_average_cost(), multiplier)
+                    percent_gain_loss = (1 - spot_px / (self.get_average_cost() / multiplier)) * 100 \
+                                            if self.get_quantity() < 0 else \
+                                            (spot_px - self.get_average_cost() / multiplier) / (self.get_average_cost() / multiplier) * 100 
+                                        
+                    average_px = self.get_average_cost() / multiplier                    
+                except ZeroDivisionError, TypeError:
+                    # caught error for cases where get_average_cost and quantity may be None
+                    unreal_pl = float('nan')
+                    percent_gain_loss = float('nan')
+                    average_px = float('nan')
                             
             else:
                 pos_delta = self.get_quantity() * 1.0 * \
@@ -198,7 +204,7 @@ class Portfolio(AbstractTableModel):
                 'g_table':{'rows':{...} , 'cols':{...}, 
                            'header':{...},
                            'row_index': <curr_index>,
-                           'ckey_to_row_index':{<contract_key>: {'row_id':<row_id>, 'dirty': <true/false>, 'count':0}, 
+                           'ckey_to_row_index':{<contract_key>: <row_id>}, 
                            'row_to_ckey_index':{<row_id>: <contract_key>}
                                             
              }   
@@ -206,25 +212,26 @@ class Portfolio(AbstractTableModel):
     '''    
     def __init__(self, account):
         self.account = account
-        self.create_empty_portfolio(account)
+        self.create_empty_portfolio()
+        AbstractTableModel.__init__(self)
         
-        
-    def is_contract_in_portfolio(self, account, contract_key):
-        return self.get_portfolio_port_item(account, contract_key)
+    def is_contract_in_portfolio(self, contract_key):
+        return self.get_portfolio_port_item(contract_key)
             
-    def get_portfolio_port_item(self, account, contract_key):
+    def get_portfolio_port_item(self, contract_key):
         try:
             return self.port['port_items'][contract_key]
         except KeyError:
             return None
         
-    def create_empty_portfolio(self, account):
+    def create_empty_portfolio(self):
         self.port = {}
         self.port['port_items']=  {}
         self.port['opt_chains']=  {}
         
         
-        self.port['g_table']=  {'row_index': 0}
+        self.port['g_table']=  {'row_index': 0, 'ckey_to_row_index': {}, 'row_to_ckey_index': {}}
+    
         self.init_table()
         return self.port        
 
@@ -235,7 +242,7 @@ class Portfolio(AbstractTableModel):
         '''
             update the gtable contract_key to row number index
         '''
-        self.increment_ckey_row_index(contract_key)
+        self.update_ckey_row_xref(contract_key)
         
                 
     def is_oc_in_portfolio(self, oc_id):
@@ -256,64 +263,6 @@ class Portfolio(AbstractTableModel):
     def calculate_item_pl(self, contract_key):
         self.port['port_items'][contract_key].calculate_pl(contract_key)
         
-        
-
-        
-           
-    def g_datatable_json(self):
-        dtj = {'cols':[], 'rows':[], 'ckey_to_row_index':{}}
-        header = [('symbol', 'Symbol', 'string'), ('right', 'Right', 'string'), ('avgcost', 'Avg Cost', 'number'), ('market_value', 'Market Value', 'number'), 
-                  ('avgpx', 'Avg Price', 'number'), ('spotpx', 'Spot Price', 'number'), ('pos', 'Quantity', 'number'), 
-                  ('delta', 'Delta', 'number'), ('theta', 'Theta', 'number'), ('gamma', 'Gamma', 'number'), 
-                  ('pos_delta', 'P. Delta', 'number'), ('pos_theta', 'P. Theta', 'number'), ('pos_gamma', 'P. Gamma', 'number'), 
-                  ('unreal_pl', 'Unreal P/L', 'number'), ('percent_gain_loss', '% gain/loss', 'number')  
-                  ]  
-        # header fields      
-        map(lambda hf: dtj['cols'].append({'id': hf[0], 'label': hf[1], 'type': hf[2]}), header)
-        
-        
-        def get_spot_px(x):
-            px = float('nan')
-            if x.get_quantity() > 0:
-                px= x.get_instrument().get_tick_value(Symbol.BID)
-            elif x.get_quantity() < 0:
-                px= x.get_instrument().get_tick_value(Symbol.ASK)
-            if px == -1:
-                return x.get_instrument().get_tick_value(Symbol.LAST)
-        
-        # table rows
-        def row_fields(x):
-            
-            rf = [{'v': '%s-%s-%s' % (x[1].get_symbol_id(), x[1].get_expiry(), x[1].get_strike())}, 
-                 {'v': x[1].get_right()},
-                 {'v': x[1].get_port_field(PortfolioItem.AVERAGE_COST)},
-                 {'v': x[1].get_port_field(PortfolioItem.MARKET_VALUE)},
-                 {'v': x[1].get_port_field(PortfolioItem.AVERAGE_PRICE)},
-                 {'v': get_spot_px(x[1])},
-                 {'v': x[1].get_quantity()},
-                 {'v': x[1].get_instrument().get_tick_value(Option.DELTA)},
-                 {'v': x[1].get_instrument().get_tick_value(Option.THETA)},
-                 {'v': x[1].get_instrument().get_tick_value(Option.GAMMA)},
-                 {'v': x[1].get_port_field(PortfolioItem.POSITION_DELTA)},
-                 {'v': x[1].get_port_field(PortfolioItem.POSITION_THETA)},
-                 {'v': x[1].get_port_field(PortfolioItem.POSITION_GAMMA)},
-                 {'v': x[1].get_port_field(PortfolioItem.UNREAL_PL)},
-                 {'v': x[1].get_port_field(PortfolioItem.PERCENT_GAIN_LOSS)}]
-                 
-             
-            return rf 
-        
-        
-        p_items = sorted([x for x in self.port['port_items'].iteritems()])
-        p1_items = filter(lambda x: x[1].get_symbol_id() in self.kwargs['interested_position_types']['symbol'], p_items)
-        p2_items = filter(lambda x: x[1].get_instrument_type() in self.kwargs['interested_position_types']['instrument_type'], p1_items)
-        map(lambda p: dtj['rows'].append({'c': row_fields(p)}), p2_items)
-        
-        
-        return json.dumps(dtj) #, indent=4)            
-        
-
-
 
     def dump_portfolio(self):
         #<account_id>: {'port_items': {<contract_key>, instrument}, 'opt_chains': {<oc_id>: option_chain}}
@@ -340,30 +289,35 @@ class Portfolio(AbstractTableModel):
                   ('pos_delta', 'P. Delta', 'number'), ('pos_theta', 'P. Theta', 'number'), ('pos_gamma', 'P. Gamma', 'number'), 
                   ('unreal_pl', 'Unreal P/L', 'number'), ('percent_gain_loss', '% gain/loss', 'number')  
                   ]  
-    def increment_ckey_row_index(self, contract_key):
+    def update_ckey_row_xref(self, contract_key):
         row_id = self.port['g_table']['row_index']
-        self.port['g_table']['ckey_to_row_index'][contract_key]['row_id'] = row_id
+        self.port['g_table']['ckey_to_row_index'][contract_key] = row_id
         self.port['g_table']['row_to_ckey_index'][row_id] = contract_key
         self.port['g_table']['row_index'] += 1
   
     def ckey_to_row(self, contract_key):
-        return self.port['g_table']['ckey_to_row_index'][contract_key]['row_id']
+        return self.port['g_table']['ckey_to_row_index'][contract_key]
   
     def get_column_count(self):
         return len(self.port['g_table']['header'])
     
     def get_row_count(self):
         p_items = [x for x in self.port['port_items'].iteritems()]
-        p1_items = filter(lambda x: x[1].get_symbol_id() in self.kwargs['interested_position_types']['symbol'], p_items)
-        p2_items = filter(lambda x: x[1].get_instrument_type() in self.kwargs['interested_position_types']['instrument_type'], p1_items)
+        p1_items = filter(lambda x: x[1].get_symbol_id() in PortfolioRules.rule_map['interested_position_types']['symbol'], p_items)
+        p2_items = filter(lambda x: x[1].get_instrument_type() in  PortfolioRules.rule_map['interested_position_types']['instrument_type'], p1_items)
         return len(p2_items)
 
     def get_column_name(self, col):
         return self.port['g_table']['header'][col][1]
 
+
+    def get_column_id(self, col):
+        return self.port['g_table']['header'][col][0]
+
     def get_value_at(self, row, col):
         ckey = self.port['g_table']['row_to_ckey_index'][row]
         p_item = self.port['port_items'][ckey]
+        raise NotImplementedError
     
     def get_values_at(self, row):
         ckey = self.port['g_table']['row_to_ckey_index'][row]
@@ -376,7 +330,7 @@ class Portfolio(AbstractTableModel):
              {'v': x[1].get_port_field(PortfolioItem.AVERAGE_COST)},
              {'v': x[1].get_port_field(PortfolioItem.MARKET_VALUE)},
              {'v': x[1].get_port_field(PortfolioItem.AVERAGE_PRICE)},
-             {'v': get_spot_px(x[1])},
+             {'v': self.get_spot_px(x[1])},
              {'v': x[1].get_quantity()},
              {'v': x[1].get_instrument().get_tick_value(Option.DELTA)},
              {'v': x[1].get_instrument().get_tick_value(Option.THETA)},
@@ -393,51 +347,27 @@ class Portfolio(AbstractTableModel):
         pass
     
 
-    def get_column_id(self, col):
-        return self.port['g_table']['header'][col][0]
+    
+    def get_spot_px(self, x):
+        px = float('nan')
+        if x.get_quantity() > 0:
+            px= x.get_instrument().get_tick_value(Symbol.BID)
+        elif x.get_quantity() < 0:
+            px= x.get_instrument().get_tick_value(Symbol.ASK)
+        if px == -1:
+            return x.get_instrument().get_tick_value(Symbol.LAST)
+    
+        return px
     
     def get_JSON(self):
         dtj = {'cols':[], 'rows':[], 'ckey_to_row_index':{}}
         # header fields      
         map(lambda hf: dtj['cols'].append({'id': hf[0], 'label': hf[1], 'type': hf[2]}), self.port['g_table']['header'])
         
-        
-        def get_spot_px(x):
-            px = float('nan')
-            if x.get_quantity() > 0:
-                px= x.get_instrument().get_tick_value(Symbol.BID)
-            elif x.get_quantity() < 0:
-                px= x.get_instrument().get_tick_value(Symbol.ASK)
-            if px == -1:
-                return x.get_instrument().get_tick_value(Symbol.LAST)
-        
-        # table rows
-        def row_fields(x):
-            
-            rf = [{'v': '%s-%s-%s' % (x[1].get_symbol_id(), x[1].get_expiry(), x[1].get_strike())}, 
-                 {'v': x[1].get_right()},
-                 {'v': x[1].get_port_field(PortfolioItem.AVERAGE_COST)},
-                 {'v': x[1].get_port_field(PortfolioItem.MARKET_VALUE)},
-                 {'v': x[1].get_port_field(PortfolioItem.AVERAGE_PRICE)},
-                 {'v': get_spot_px(x[1])},
-                 {'v': x[1].get_quantity()},
-                 {'v': x[1].get_instrument().get_tick_value(Option.DELTA)},
-                 {'v': x[1].get_instrument().get_tick_value(Option.THETA)},
-                 {'v': x[1].get_instrument().get_tick_value(Option.GAMMA)},
-                 {'v': x[1].get_port_field(PortfolioItem.POSITION_DELTA)},
-                 {'v': x[1].get_port_field(PortfolioItem.POSITION_THETA)},
-                 {'v': x[1].get_port_field(PortfolioItem.POSITION_GAMMA)},
-                 {'v': x[1].get_port_field(PortfolioItem.UNREAL_PL)},
-                 {'v': x[1].get_port_field(PortfolioItem.PERCENT_GAIN_LOSS)}]
-                 
-             
-            return rf 
-        
-        
         p_items = sorted([x for x in self.port['port_items'].iteritems()])
-        p1_items = filter(lambda x: x[1].get_symbol_id() in self.kwargs['interested_position_types']['symbol'], p_items)
-        p2_items = filter(lambda x: x[1].get_instrument_type() in self.kwargs['interested_position_types']['instrument_type'], p1_items)
-        map(lambda p: dtj['rows'].append({'c': row_fields(p)}), p2_items)
+        p1_items = filter(lambda x: x[1].get_symbol_id() in PortfolioRules.rule_map['interested_position_types']['symbol'], p_items)
+        p2_items = filter(lambda x: x[1].get_instrument_type() in  PortfolioRules.rule_map['interested_position_types']['instrument_type'], p1_items)
+        map(lambda p: dtj['rows'].append({'c': self.port_item_to_row_fields(p)}), p2_items)
         
         
         return json.dumps(dtj) #, indent=4)            

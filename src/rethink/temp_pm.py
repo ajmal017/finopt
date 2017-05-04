@@ -180,6 +180,7 @@ class PortfolioMonitor(AbstractGatewayListener):
                 #port['port_items'][contract_key] = port_item
                 #port.set_portfolio_port_item(contract_key, port_item)
                 
+            port.fire_table_row_inserted(port.ckey_to_row(contract_key))
             #self.dump_portfolio(account)    
             port.dump_portfolio()
             
@@ -284,13 +285,14 @@ class PortfolioMonitor(AbstractGatewayListener):
         else:
             # to be run once during start up
             # subscribe to automatic account updates
-            if self.starting_engine:
-                for acct in self.portfolios.keys():
-                    self.portfolios[acct].g_datatable_json()
-                    logging.info('PortfolioMonitor:position. generate gtable for ac: [%s]' % acct)
-                    self.twsc.reqAccountUpdates(True, acct)
-                    logging.info('PortfolioMonitor:position. subscribing to auto updates for ac: [%s]' % acct)
-            self.starting_engine = False
+#             if self.starting_engine:
+#                 for acct in self.portfolios.keys():
+#                     self.portfolios[acct].g_datatable_json()
+#                     logging.info('PortfolioMonitor:position. generate gtable for ac: [%s]' % acct)
+#                     self.twsc.reqAccountUpdates(True, acct)
+#                     logging.info('PortfolioMonitor:position. subscribing to auto updates for ac: [%s]' % acct)
+#             self.starting_engine = False
+            pass
                     
     '''
         the 4 account functions below are invoked by AbstractListener.update_portfolio_account.
