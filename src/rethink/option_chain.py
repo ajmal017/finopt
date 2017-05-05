@@ -8,7 +8,7 @@ from finopt.instrument import Symbol, Option
 from comms.ibc.base_client_messaging import AbstractGatewayListener
 from misc2.observer import Publisher, Subscriber 
 from misc2.observer import NotImplementedException
-
+import math
 
 from time import sleep
 from finopt.optcal import cal_implvol, cal_option
@@ -212,20 +212,27 @@ class OptionsChain(Publisher):
     
     
     
-    def cal_greeks_in_chain(self, valuation_date):
+    def cal_greeks_in_chain(self, valuation_date, uspot):
         
         all_results = {}
         for o in self.options:
             key = ContractHelper.makeRedisKeyEx(o.get_contract())
-            greeks = self.cal_option_greeks(o, valuation_date)
+            # pass a non number in the ospot param, forcing cal_option_greeks to use the option's last price
+            greeks = self.cal_option_greeks(o, valuation_date, uspot, float('nan'))
             all_results[key] = greeks
 
         return all_results
     
-    def cal_option_greeks(self, option, valuation_date):
+    def cal_option_greeks(self, option, valuation_date, uspot, premium):
+        '''
+            if underlying spot is a non-number, attempt to get uspot last value in the symbol
+            if ospot is a non-number, attempt to get option's last px in the Option 
+        '''
         
-        uspot_last = self.get_underlying().get_tick_value(4)
-        if uspot_last is None:
+        uspot = uspot if not math.isnan(uspot) else self.get_underlying().get_tick_value(4)
+        premium = premium if not math.isnan(premium) else option.get_tick_value(4)
+        #logging.info('*************after>>>>>>> uspot=%8.2f option last=%8.2f pass premium=%8.2f' % (uspot, option.get_tick_value(4), premium))
+        if uspot is None:
             return OptionsChain.EMPTY_GREEKS
         o = option.get_contract()
         
@@ -236,17 +243,17 @@ class OptionsChain(Publisher):
             #logging.info('OptionChain:cal_option_greeks. ulspot->%8.4f, premium last->%8.4f ' % (uspot_last, option.get_tick_value(4)))
             #logging.info('OptionChain:cal_option_greeks. o.m_strike %8.4f, o.m_right %s, valuation_date %s, o.m_expiry %s, self.rate %8.4f , self.div  %8.4f, self.trade_vol %8.4f ' % 
             #            (o.m_strike, o.m_right, valuation_date,  o.m_expiry, self.rate, self.div, self.trade_vol))
-            iv = cal_implvol(uspot_last, o.m_strike, o.m_right, valuation_date, 
-                                  o.m_expiry, self.rate, self.div, self.trade_vol, option.get_tick_value(4))
+            iv = cal_implvol(uspot, o.m_strike, o.m_right, valuation_date, 
+                                  o.m_expiry, self.rate, self.div, self.trade_vol, premium)
             #logging.info('OptionChain:cal_option_greeks. cal results:iv=> %s' % str(iv))
         except RuntimeError:
-            logging.warn('OptionChain:cal_option_greeks. Quantlib threw an error while calculating implied vol: use intrinsic: last->%8.2f strike->%8.2f right->%s sym->%s' % 
-                         (uspot_last, o.m_strike, o.m_right, o.m_symbol))
-            iv = cal_implvol(uspot_last, o.m_strike, o.m_right, valuation_date, 
-                                  o.m_expiry, self.rate, self.div, self.trade_vol, abs(uspot_last - o.m_strike))
+            logging.warn('OptionChain:cal_option_greeks. Quantlib threw an error while calculating implied vol: use intrinsic: uspot->%8.2f premium->%8.2f strike->%8.2f right->%s sym->%s' % 
+                         (uspot, premium, o.m_strike, o.m_right, o.m_symbol))
+            iv = cal_implvol(uspot, o.m_strike, o.m_right, valuation_date, 
+                                  o.m_expiry, self.rate, self.div, self.trade_vol, abs(uspot - o.m_strike))
 
         try:                
-            greeks = cal_option(uspot_last, o.m_strike, o.m_right, valuation_date, 
+            greeks = cal_option(uspot, o.m_strike, o.m_right, valuation_date, 
                                   o.m_expiry, self.rate, self.div, iv[Option.IMPL_VOL])
             greeks.update(iv)
             #logging.info('OptionChain:cal_option_greeks. %s' % greeks)

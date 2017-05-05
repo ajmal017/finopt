@@ -2,6 +2,7 @@
 import sys, traceback
 import logging
 import json
+import math
 import time, datetime
 import copy
 from optparse import OptionParser
@@ -325,21 +326,27 @@ class Portfolio(AbstractTableModel):
         return self.port_item_to_row_fields(p_item)
     
     def port_item_to_row_fields(self, x):
+        
+        def handle_NaN(n):
+            # the function JSON.parse will fail at the javascript side if it encounters
+            # a NaN value in the json string. Convert Nan to null to circumvent the issue 
+            return None if math.isnan(n) else n 
+        
         rf = [{'v': '%s-%s-%s' % (x[1].get_symbol_id(), x[1].get_expiry(), x[1].get_strike())}, 
              {'v': x[1].get_right()},
-             {'v': x[1].get_port_field(PortfolioItem.AVERAGE_COST)},
-             {'v': x[1].get_port_field(PortfolioItem.MARKET_VALUE)},
-             {'v': x[1].get_port_field(PortfolioItem.AVERAGE_PRICE)},
-             {'v': self.get_spot_px(x[1])},
+             {'v': handle_NaN(x[1].get_port_field(PortfolioItem.AVERAGE_COST))},
+             {'v': handle_NaN(x[1].get_port_field(PortfolioItem.MARKET_VALUE))},
+             {'v': handle_NaN(x[1].get_port_field(PortfolioItem.AVERAGE_PRICE))},
+             {'v': handle_NaN(self.get_spot_px(x[1]))},
              {'v': x[1].get_quantity()},
-             {'v': x[1].get_instrument().get_tick_value(Option.DELTA)},
-             {'v': x[1].get_instrument().get_tick_value(Option.THETA)},
-             {'v': x[1].get_instrument().get_tick_value(Option.GAMMA)},
-             {'v': x[1].get_port_field(PortfolioItem.POSITION_DELTA)},
-             {'v': x[1].get_port_field(PortfolioItem.POSITION_THETA)},
-             {'v': x[1].get_port_field(PortfolioItem.POSITION_GAMMA)},
-             {'v': x[1].get_port_field(PortfolioItem.UNREAL_PL)},
-             {'v': x[1].get_port_field(PortfolioItem.PERCENT_GAIN_LOSS)}]
+             {'v': handle_NaN(x[1].get_instrument().get_tick_value(Option.DELTA))},
+             {'v': handle_NaN(x[1].get_instrument().get_tick_value(Option.THETA))},
+             {'v': handle_NaN(x[1].get_instrument().get_tick_value(Option.GAMMA))},
+             {'v': handle_NaN(x[1].get_port_field(PortfolioItem.POSITION_DELTA))},
+             {'v': handle_NaN(x[1].get_port_field(PortfolioItem.POSITION_THETA))},
+             {'v': handle_NaN(x[1].get_port_field(PortfolioItem.POSITION_GAMMA))},
+             {'v': handle_NaN(x[1].get_port_field(PortfolioItem.UNREAL_PL))},
+             {'v': handle_NaN(x[1].get_port_field(PortfolioItem.PERCENT_GAIN_LOSS))}]
         return rf     
     
     

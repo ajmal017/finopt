@@ -207,6 +207,9 @@ class PortfolioMonitor(AbstractGatewayListener):
     
     def tds_event_tick_updated(self, event, contract_key, field, price, syms):
         
+        if field not in [Symbol.ASK, Symbol.BID, Symbol.LAST]:
+            return
+        
         for s in syms:
             
             if OptionsChain.CHAIN_IDENTIFIER in s.get_extra_attributes():
@@ -221,11 +224,12 @@ class PortfolioMonitor(AbstractGatewayListener):
                         #logging.info('PortfolioMonitor:tds_event_tick_updated --> portfolio opt_chains: [  %s  ] ' % 
                         #             str(self.portfolios[acct]['opt_chains'].keys()))
                         if 'FUT' in contract_key or 'STK' in contract_key:
-                            #results = self.portfolios[acct]['opt_chains'][chain_id].cal_greeks_in_chain(self.kwargs['evaluation_date'])
-                            results = self.portfolios[acct].get_option_chain(chain_id).cal_greeks_in_chain(self.kwargs['evaluation_date'])
+                            
+                            results = self.portfolios[acct].get_option_chain(chain_id).cal_greeks_in_chain(self.kwargs['evaluation_date'], price)
                         else:
-                            #results[ContractHelper.makeRedisKeyEx(s.get_contract())] =  self.portfolios[acct]['opt_chains'][chain_id].cal_option_greeks(s, self.kwargs['evaluation_date'])
-                            results[ContractHelper.makeRedisKeyEx(s.get_contract())] =  self.portfolios[acct].get_option_chain(chain_id).cal_option_greeks(s, self.kwargs['evaluation_date'])
+                            
+                            results[ContractHelper.makeRedisKeyEx(s.get_contract())] =  self.portfolios[acct].get_option_chain(chain_id)\
+                                                                                            .cal_option_greeks(s, self.kwargs['evaluation_date'], float('nan'), price)
                     #logging.info('PortfolioMonitor:tds_event_tick_updated. compute greek results %s' % results)
                         
                         #underlying_px = self.portfolios[acct]['opt_chains'][chain_id].get_underlying().get_tick_value(4)
@@ -238,14 +242,10 @@ class PortfolioMonitor(AbstractGatewayListener):
                         self.tds.set_symbol_analytics(key_greeks[0], Option.THETA, key_greeks[1][Option.THETA])
                         self.tds.set_symbol_analytics(key_greeks[0], Option.VEGA, key_greeks[1][Option.VEGA])
                         
-                        #if contract_key in self.portfolios[acct]['port_items']:
-                        if self.portfolios[acct].is_contract_in_portfolio(contract_key):
-                            #self.portfolios[acct]['port_items'][contract_key].calculate_pl(key_greeks[0]) #, underlying_px)
-                            self.portfolios[acct].calculate_item_pl(contract_key)
-                        
-                            
-                            self.portfolios[acct].fire_table_row_updated(self.portfolios[acct].ckey_to_row(contract_key))
-                            logging.info('PortfolioMonitor:tds_event_tick_updated. Position updated: %s:[%d]' % (contract_key, self.portfolios[acct].ckey_to_row(contract_key)))
+                        self.portfolios[acct].calculate_item_pl(key_greeks[0])
+                        self.portfolios[acct].fire_table_row_updated(self.portfolios[acct].ckey_to_row(key_greeks[0]))
+                        logging.info('PortfolioMonitor:tds_event_tick_updated. Position updated: %s:[%d]' % (key_greeks[0], self.portfolios[acct].ckey_to_row(key_greeks[0])))
+                    
                     if results:
                         #logging.info('PortfolioMonitor:tds_event_tick_updated ....before map')
                         map(update_portfolio_fields, list(results.iteritems()))
