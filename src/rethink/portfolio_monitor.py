@@ -13,7 +13,7 @@ from rethink.option_chain import OptionsChain
 from rethink.tick_datastore import TickDataStore
 from rethink.portfolio_item import PortfolioItem, PortfolioRules, Portfolio
 from comms.ibc.tws_client_lib import TWS_client_manager, AbstractGatewayListener
-from ws.ws_server import WebSocketServerWrapper
+from ws.ws_server import BaseWebSocketServerWrapper
 
 
 
@@ -29,6 +29,8 @@ class PortfolioMonitor(AbstractGatewayListener):
         self.tds.register_listener(self)
         self.twsc.add_listener_topics(self, kwargs['topics'])
         
+        
+        #self.ws_server = 
         '''
             portfolios: {<account>: <portfolio>}
         '''

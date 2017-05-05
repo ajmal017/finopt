@@ -170,7 +170,9 @@ class AnalyticsEngine(AbstractGatewayListener):
         
     
     def tds_event_tick_updated(self, event, contract_key, field, price, syms):
-        
+        if field not in [Symbol.ASK, Symbol.BID, Symbol.LAST]:
+            return
+                
         for s in syms:
             
             if OptionsChain.CHAIN_IDENTIFIER in s.get_extra_attributes():
@@ -179,9 +181,12 @@ class AnalyticsEngine(AbstractGatewayListener):
                 logging.info('AnalyticsEngine:tds_event_tick_updated chain_id %s' % chain_id)
                 if chain_id  in self.option_chains.keys():
                     if 'FUT' in contract_key or 'STK' in contract_key:
-                        results = self.option_chains[chain_id].cal_greeks_in_chain(self.kwargs['evaluation_date'])
+                        results = self.option_chains[chain_id].cal_greeks_in_chain(self.kwargs['evaluation_date'], price)
+                        
                     else:
-                        results[ContractHelper.makeRedisKeyEx(s.get_contract())] = self.option_chains[chain_id].cal_option_greeks(s, self.kwargs['evaluation_date'])
+                        results[ContractHelper.makeRedisKeyEx(s.get_contract())] = self.option_chains[chain_id].cal_option_greeks\
+                                                                                        (s, self.kwargs['evaluation_date'], float('nan'), price)
+                        
                 logging.info('AnalysticsEngine:tds_event_tick_updated. compute greek results %s' % results)    
                 # set_analytics(self, imvol=None, delta=None, gamma=None, theta=None, vega=None, npv=None):
                 # 
@@ -199,6 +204,8 @@ class AnalyticsEngine(AbstractGatewayListener):
                 
                 continue
              
+
+        
         
 
 

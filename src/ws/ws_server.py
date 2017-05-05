@@ -1,31 +1,35 @@
 from websocket_server import WebsocketServer
 import logging, time, traceback
 from threading import Thread
-import logging
+import logging, copy
 import json
 from comms.ibgw.base_messaging import BaseMessageListener
 # https://github.com/Pithikos/python-websocket-server
 
 
-class WebSocketServerWrapper(BaseMessageListener):
+class BaseWebSocketServerWrapper(BaseMessageListener):
     
-    def __init__(self, name):
+    DEFAULT_CONFIG = {
+      'ws_port': 9001,
+    }    
+    
+    def __init__(self, name, kwargs):
                
         #BaseMessageListener
+        self.kwargs = copy.copy(self.DEFAULT_CONFIG)
+        for key in self.kwargs:
+            if key in kwargs:
+                self.kwargs[key] = kwargs.pop(key)        
+        self.kwargs.update(kwargs)
+        
         self.clients = {}
         
-        PORT=9001
-        server = WebsocketServer(PORT)
+        
+        server = WebsocketServer(self.kwargs['ws_port'])
         self.set_server(server)
         server.set_fn_new_client(self.new_client)
         server.set_fn_client_left(self.client_left)
         server.set_fn_message_received(self.message_received)
-        
-        def run_background():
-            server.run_forever()
-            
-        self.t = Thread(target=run_background)        
-        self.t.start()
         
         
         
@@ -33,14 +37,20 @@ class WebSocketServerWrapper(BaseMessageListener):
         self.server = server
         
     def event_tm_table_row_inserted(self, row):
-        logging.info('WebSocketServerWrapper:event_tm_table_row_inserted %d', row)
+        logging.info('BaseWebSocketServerWrapper:event_tm_table_row_inserted %d', row)
     
     def event_tm_table_row_updated(self, row):
-        logging.info('WebSocketServerWrapper:event_tm_table_row_updated %d', row)
+        logging.info('BaseWebSocketServerWrapper:event_tm_table_row_updated %d', row)
         logging.info(json.dumps(self.port_table.get_values_at(row)))
             
     
     def start_server(self):
+        def run_background():
+            self.server.run_forever()
+            
+        self.t = Thread(target=run_background)        
+        self.t.start()
+        logging.info('BaseWebSocketServerWrapper:start_server. Server started. Awaiting clients on port %d...' % self.kwargs['ws_port'])
         while 1:
             time.sleep(0.5)
             #print 'sending stuff.. %s' % str(list(self.clients.iteritems()))
@@ -49,8 +59,7 @@ class WebSocketServerWrapper(BaseMessageListener):
             #msg = self.encode_message('update_chart', val)
             #map(lambda x: self.server.send_message(x[1], msg), list(self.clients.iteritems()))
             
-    def encode_message(self, event_type, content):
-        
+    def encode_message(self, event_type, content):        
         return json.dumps({'event': event_type, 'value': content})
             
     def new_client(self, client, server):
@@ -67,7 +76,7 @@ class WebSocketServerWrapper(BaseMessageListener):
         print("Client(%d) disconnected" % client['id'])
     
     
-    # Called when a client sends a message
+    # Called when a client sends a message1
     def message_received(self, client, server, message):
         if len(message) > 200:
             message = message[:200]+'..'
@@ -80,16 +89,13 @@ class WebSocketServerWrapper(BaseMessageListener):
             shut_down()
 
 def main():
-    wsw = WebSocketServerWrapper('hello')    
-    #wsw.start_server()
     
-#     PORT=9001
-#     server = WebsocketServer(PORT)
-#     wsw.set_server(server)
-#     server.set_fn_new_client(wsw.new_client)
-#     server.set_fn_client_left(wsw.client_left)
-#     server.set_fn_message_received(wsw.message_received)
-#     server.run_forever()
+    kwargs = {
+      'ws_port': 9001,
+    }       
+    wsw = BaseWebSocketServerWrapper('hello', kwargs)    
+    wsw.start_server()
+
     
     
 if __name__ == "__main__":
