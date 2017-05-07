@@ -13,7 +13,7 @@ from rethink.option_chain import OptionsChain
 from rethink.tick_datastore import TickDataStore
 from rethink.portfolio_item import PortfolioItem, PortfolioRules, Portfolio
 from comms.ibc.tws_client_lib import TWS_client_manager, AbstractGatewayListener
-from ws.ws_server import BaseWebSocketServerWrapper
+
 
 
 
@@ -30,7 +30,8 @@ class PortfolioMonitor(AbstractGatewayListener):
         self.twsc.add_listener_topics(self, kwargs['topics'])
         
         
-        #self.ws_server = 
+        
+        self.ws_server =  None
         '''
             portfolios: {<account>: <portfolio>}
         '''
@@ -41,7 +42,7 @@ class PortfolioMonitor(AbstractGatewayListener):
     def start_engine(self):
         self.twsc.start_manager()
         self.twsc.reqPositions()
-        self.starting_engine = True
+        self.starting_engine = {}
         try:
             logging.info('PortfolioMonitor:main_loop ***** accepting console input...')
             menu = {}
@@ -86,6 +87,11 @@ class PortfolioMonitor(AbstractGatewayListener):
             logging.info('PortfolioMonitor: Service shut down complete...')               
     
         
+    def kproducer(self):
+        # returns a reference to the kafka base producer that we can 
+        # use for sending messages
+        return self.twsc.gw_message_handler()
+    
                 
     def get_portfolio(self, account):
         try:
@@ -152,7 +158,11 @@ class PortfolioMonitor(AbstractGatewayListener):
             port_item.update_position(position, average_cost, extra_info)
             port_item.calculate_pl(contract_key)
             
-            port.fire_table_row_updated(port.ckey_to_row(contract_key))
+            
+            # dispatch the update to internal listeners
+            # and also send out the kafka message to external parties
+            self.notify_table_model_changes(account, port, contract_key, mode='U')
+            
             logging.info('PortfolioMonitor:process_position. Position updated: %s:[%d]' % (contract_key, port.ckey_to_row(contract_key)))
         # new position 
         else:
@@ -178,7 +188,8 @@ class PortfolioMonitor(AbstractGatewayListener):
                     logging.error('PortfolioMonitor:process_position. **** Error in adding the new position %s' % contract_key)
 
                 
-            port.fire_table_row_inserted(port.ckey_to_row(contract_key))
+            
+            self.notify_table_model_changes(account, port, contract_key, mode='I')
             logging.info('PortfolioMonitor:process_position. New position: %s:[%d]' % (contract_key, port.ckey_to_row(contract_key)))
             port.dump_portfolio()
             
@@ -245,7 +256,7 @@ class PortfolioMonitor(AbstractGatewayListener):
                         self.tds.set_symbol_analytics(key_greeks[0], Option.VEGA, key_greeks[1][Option.VEGA])
                         
                         self.portfolios[acct].calculate_item_pl(key_greeks[0])
-                        self.portfolios[acct].fire_table_row_updated(self.portfolios[acct].ckey_to_row(key_greeks[0]))
+                        self.notify_table_model_changes(acct, self.portfolios[acct], key_greeks[0], mode='U')
                         logging.info('PortfolioMonitor:tds_event_tick_updated. Position updated: %s:[%d]' % (key_greeks[0], self.portfolios[acct].ckey_to_row(key_greeks[0])))
                     
                     if results:
@@ -281,14 +292,14 @@ class PortfolioMonitor(AbstractGatewayListener):
             self.process_position(account, contract_key, position, average_cost)
    
         else:
-            # to be run once during start up
+            # to be run once per a/c during start up
             # subscribe to automatic account updates
-            if self.starting_engine:
-                for acct in self.portfolios.keys():
-                    self.twsc.reqAccountUpdates(True, acct)
-                    logging.info('PortfolioMonitor:position. subscribing to auto updates for ac: [%s]' % acct)
-            self.starting_engine = False
-            pass
+            try:
+                self.starting_engine[account]
+            except KeyError:
+                self.twsc.reqAccountUpdates(True, account)
+                logging.info('PortfolioMonitor:position. subscribing to auto updates for ac: [%s]' % account)  
+                self.starting_engine[account] = False
                     
     '''
         the 4 account functions below are invoked by AbstractListener.update_portfolio_account.
@@ -321,6 +332,15 @@ class PortfolioMonitor(AbstractGatewayListener):
         del(items['self'])
         logging.info('%s [[ %s ]]' % (event, items))      
         
+    
+    def notify_table_model_changes(self, account, port, contract_key, mode):
+            row = port.ckey_to_row(contract_key)
+            rvs = port.get_values_at(row)
+            port.fire_table_row_updated(row, rvs)
+            event_type = 'table_row_updated' if mode == 'U' else 'table_row_inserted'
+            self.kproducer().send_message(event_type, json.dumps({'source': 'dt_port-%s' % account, 'row': row, 'row_values': rvs}))
+    
+    
         
 if __name__ == '__main__':
     
@@ -341,7 +361,8 @@ if __name__ == '__main__':
       'clear_offsets':  False,
       'logconfig': {'level': logging.INFO, 'filemode': 'w', 'filename': '/tmp/pm.log'},
       'topics': ['position', 'positionEnd', 'tickPrice', 'update_portfolio_account'],
-      'seek_to_end': ['*']
+      'seek_to_end': ['*'],
+      'ws_port': 9001,
       
       }
 

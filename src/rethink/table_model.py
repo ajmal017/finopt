@@ -2,6 +2,7 @@ from misc2.observer import Subscriber, Publisher
 from misc2.observer import NotImplementedException
 import logging
 
+
 class AbstractTableModel(Publisher):
     
     EVENT_TM_TABLE_CELL_UPDATED = 'event_tm_table_cell_updated'
@@ -19,11 +20,11 @@ class AbstractTableModel(Publisher):
             logging.error("AbstractTableModel:register_listener. Function not implemented in the listener. %s" % e)
             raise NotImplementedException        
     
-    def fire_table_row_updated(self, row):
-        self.dispatch(AbstractTableModel.EVENT_TM_TABLE_ROW_UPDATED, {'row': row})
+    def fire_table_row_updated(self, row, row_values):
+        self.dispatch(AbstractTableModel.EVENT_TM_TABLE_ROW_UPDATED, {'row': row, 'row_values': row_values})
     
-    def fire_table_row_inserted(self, row):
-        self.dispatch(AbstractTableModel.EVENT_TM_TABLE_ROW_INSERTED, {'row': row})
+    def fire_table_row_inserted(self, row, row_values):
+        self.dispatch(AbstractTableModel.EVENT_TM_TABLE_ROW_INSERTED, {'row': row, 'row_values': row_values})
         
         
     def get_column_count(self):
@@ -41,10 +42,18 @@ class AbstractTableModel(Publisher):
     def get_value_at(self, row, col):
         raise NotImplementedException
     
+    def get_values_at(self, row):
+        raise NotImplementedException
+    
     def set_value_at(self, row, col, value):
         raise NotImplementedException
     
     def insert_row(self, values):
         raise NotImplementedException
 
+
+        
     
+
+
+

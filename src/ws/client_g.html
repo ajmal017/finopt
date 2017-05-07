@@ -87,6 +87,7 @@
       // Set event handlers.
       ws.onopen = function() {
         output("onopen");
+        ws.send(JSON.stringify({'request_id':33, ‘request_for': 'init_data_table', 'request_handler': ''}));
       };
       
       ws.onmessage = function(e) {
