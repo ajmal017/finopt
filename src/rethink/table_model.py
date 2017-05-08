@@ -62,9 +62,9 @@ class AbstractPortfolioTableModelListener(BaseMessageListener):
     
     '''
     
-    def __init__(self, name, ws_server):
+    def __init__(self, name):
         BaseMessageListener.__init__(self, name)
-        self.ws_server = ws_server
+        
 
     def event_tm_table_cell_updated(self, event, source, row, row_values):
         logging.info("[%s] received %s content:[%s]" % (self.name, event, vars()))

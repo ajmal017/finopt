@@ -25,6 +25,7 @@ class PortfolioMonitor(AbstractGatewayListener, AbstractPortfolioTableModelListe
         self.kwargs = copy.copy(kwargs)
         self.twsc = TWS_client_manager(kwargs)
         AbstractGatewayListener.__init__(self, kwargs['name'])
+        AbstractPortfolioTableModelListener.__init__(self, kwargs['name'])
     
         self.tds = TickDataStore(kwargs['name'])
         self.tds.register_listener(self)
@@ -80,7 +81,7 @@ class PortfolioMonitor(AbstractGatewayListener, AbstractPortfolioTableModelListe
                 else: 
                     pass                
                 
-                sleep(0.08)
+                sleep(0.15)
             
         except (KeyboardInterrupt, SystemExit):
             logging.error('PortfolioMonitor: caught user interrupt. Shutting down...')
@@ -347,8 +348,9 @@ class PortfolioMonitor(AbstractGatewayListener, AbstractPortfolioTableModelListe
     # handle requests to get data table json
     def event_tm_request_table_structure(self, event, request_id, account):
         try:
-            self.get_kproducer().send_message(AbstractTableModel.EVENT_TM_TABLE_STRUCTURE_CHANGED, 
-                                          request_id, self.portfolios[account].get_JSON())
+            self.get_kproducer().send_message(AbstractTableModel.EVENT_TM_TABLE_STRUCTURE_CHANGED,                                               
+                                          json.dumps({'origin_request_id': request_id, 'account': account, 
+                                                      'data_table_json': self.portfolios[account].get_JSON()}))
         except:
             logging.error("PortfolioMonitor:event_tm_request_table_structure. Error invoking get_JSON[%s]. Client request id:%s, %s" %
                             account, request_id, ', '.join(e for e in sys.exc_info()))
@@ -374,7 +376,7 @@ if __name__ == '__main__':
       'logconfig': {'level': logging.INFO, 'filemode': 'w', 'filename': '/tmp/pm.log'},
       'topics': ['position', 'positionEnd', 'tickPrice', 'update_portfolio_account', 'event_tm_request_table_structure'],
       'seek_to_end': ['*'],
-      'ws_port': 9001,
+      
       
       }
 
