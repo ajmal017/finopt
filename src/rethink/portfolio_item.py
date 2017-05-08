@@ -316,21 +316,24 @@ class Portfolio(AbstractTableModel):
         return self.port['g_table']['header'][col][0]
 
     def get_value_at(self, row, col):
-        ckey = self.port['g_table']['row_to_ckey_index'][row]
-        p_item = self.port['port_items'][ckey]
+#         ckey = self.port['g_table']['row_to_ckey_index'][row]
+#         p_item = self.port['port_items'][ckey]
         raise NotImplementedError
     
     def get_values_at(self, row):
         ckey = self.port['g_table']['row_to_ckey_index'][row]
         p_item = self.port['port_items'][ckey]
-        return self.port_item_to_row_fields(p_item)
+        return self.port_item_to_row_fields((None, p_item))
     
     def port_item_to_row_fields(self, x):
         
         def handle_NaN(n):
             # the function JSON.parse will fail at the javascript side if it encounters
             # a NaN value in the json string. Convert Nan to null to circumvent the issue 
-            return None if math.isnan(n) else n 
+            try:
+                return None if math.isnan(n) else n
+            except:
+                return None 
         
         rf = [{'v': '%s-%s-%s' % (x[1].get_symbol_id(), x[1].get_expiry(), x[1].get_strike())}, 
              {'v': x[1].get_right()},

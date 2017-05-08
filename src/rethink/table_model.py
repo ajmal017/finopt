@@ -1,4 +1,5 @@
 from misc2.observer import Subscriber, Publisher
+from comms.ibgw.base_messaging import BaseMessageListener
 from misc2.observer import NotImplementedException
 import logging
 
@@ -8,7 +9,11 @@ class AbstractTableModel(Publisher):
     EVENT_TM_TABLE_CELL_UPDATED = 'event_tm_table_cell_updated'
     EVENT_TM_TABLE_ROW_INSERTED = 'event_tm_table_row_inserted'
     EVENT_TM_TABLE_ROW_UPDATED = 'event_tm_table_row_updated'
+    EVENT_TM_TABLE_STRUCTURE_CHANGED = 'event_tm_table_structure_changed'
     TM_EVENTS = [EVENT_TM_TABLE_CELL_UPDATED, EVENT_TM_TABLE_ROW_INSERTED, EVENT_TM_TABLE_ROW_UPDATED]
+    
+    EVENT_TM_REQUEST_TABLE_STRUCTURE = "event_tm_request_table_structure"
+    TM_REQUESTS = [EVENT_TM_REQUEST_TABLE_STRUCTURE]
     
     def __init__(self):
         Publisher.__init__(self, AbstractTableModel.TM_EVENTS)
@@ -52,7 +57,30 @@ class AbstractTableModel(Publisher):
         raise NotImplementedException
 
 
+class AbstractPortfolioTableModelListener(BaseMessageListener):
+    '''
+    
+    '''
+    
+    def __init__(self, name, ws_server):
+        BaseMessageListener.__init__(self, name)
+        self.ws_server = ws_server
+
+    def event_tm_table_cell_updated(self, event, source, row, row_values):
+        logging.info("[%s] received %s content:[%s]" % (self.name, event, vars()))
+
         
+    def event_tm_table_row_inserted(self, event, source, row, row_values):
+        logging.info("[%s] received %s content:[%s]" % (self.name, event, vars()))
+
+    def event_tm_table_row_updated(self, event, source, row, row_values):   
+        logging.info("[%s] received %s content:[%s]" % (self.name, event, vars()))
+    
+    def event_tm_table_structure_changed(self, event, origin_request_id, account, data_table_json):
+        logging.info("[%s] received %s content:[%s]" % (self.name, event, vars()))
+        
+    def event_tm_request_table_structure(self, event, request_id, account):
+        logging.info("[%s] received %s content:[%s]" % (self.name, event, vars()))        
     
 
 
