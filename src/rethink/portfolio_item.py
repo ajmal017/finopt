@@ -243,7 +243,7 @@ class Portfolio(AbstractTableModel):
         '''
             update the gtable contract_key to row number index
         '''
-        self.update_ckey_row_xref(contract_key)
+        self.update_ckey_row_xref(contract_key, port_item)
         
                 
     def is_oc_in_portfolio(self, oc_id):
@@ -290,7 +290,10 @@ class Portfolio(AbstractTableModel):
                   ('pos_delta', 'P. Delta', 'number'), ('pos_theta', 'P. Theta', 'number'), ('pos_gamma', 'P. Gamma', 'number'), 
                   ('unreal_pl', 'Unreal P/L', 'number'), ('percent_gain_loss', '% gain/loss', 'number')  
                   ]  
-    def update_ckey_row_xref(self, contract_key):
+    def update_ckey_row_xref(self, contract_key, port_item):
+        
+#         if port_item.get_symbol_id() in PortfolioRules.rule_map['interested_position_types']['symbol'] and \
+#            port_item.get_instrument_type() in  PortfolioRules.rule_map['interested_position_types']['instrument_type']:
         row_id = self.port['g_table']['row_index']
         self.port['g_table']['ckey_to_row_index'][contract_key] = row_id
         self.port['g_table']['row_to_ckey_index'][row_id] = contract_key
@@ -304,10 +307,12 @@ class Portfolio(AbstractTableModel):
     
     def get_row_count(self):
         p_items = [x for x in self.port['port_items'].iteritems()]
-        p1_items = filter(lambda x: x[1].get_symbol_id() in PortfolioRules.rule_map['interested_position_types']['symbol'], p_items)
-        p2_items = filter(lambda x: x[1].get_instrument_type() in  PortfolioRules.rule_map['interested_position_types']['instrument_type'], p1_items)
-        return len(p2_items)
-
+#         p1_items = filter(lambda x: x[1].get_symbol_id() in PortfolioRules.rule_map['interested_position_types']['symbol'], p_items)
+#         p2_items = filter(lambda x: x[1].get_instrument_type() in  PortfolioRules.rule_map['interested_position_types']['instrument_type'], p1_items)
+#         return len(p2_items)
+        return len(p_items)
+    
+    
     def get_column_name(self, col):
         return self.port['g_table']['header'][col][1]
 
@@ -375,9 +380,10 @@ class Portfolio(AbstractTableModel):
         map(lambda hf: dtj['cols'].append({'id': hf[0], 'label': hf[1], 'type': hf[2]}), self.port['g_table']['header'])
         
         p_items = sorted([x for x in self.port['port_items'].iteritems()])
-        p1_items = filter(lambda x: x[1].get_symbol_id() in PortfolioRules.rule_map['interested_position_types']['symbol'], p_items)
-        p2_items = filter(lambda x: x[1].get_instrument_type() in  PortfolioRules.rule_map['interested_position_types']['instrument_type'], p1_items)
-        map(lambda p: dtj['rows'].append({'c': self.port_item_to_row_fields(p)}), p2_items)
+        #p1_items = filter(lambda x: x[1].get_symbol_id() in PortfolioRules.rule_map['interested_position_types']['symbol'], p_items)
+        #p2_items = filter(lambda x: x[1].get_instrument_type() in  PortfolioRules.rule_map['interested_position_types']['instrument_type'], p1_items)
+        #map(lambda p: dtj['rows'].append({'c': self.port_item_to_row_fields(p)}), p2_items)
+        map(lambda p: dtj['rows'].append({'c': self.port_item_to_row_fields(p)}), p_items)
         
         
         return json.dumps(dtj) #, indent=4)            
