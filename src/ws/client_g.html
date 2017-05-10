@@ -105,9 +105,9 @@
 			console.log(d1);
 			data = new google.visualization.DataTable(d1.value);
 			view = new google.visualization.DataView(data);
-			view.setRows(view.getFilteredRows([{column: 6, test: function(value, row, column, table) {
-        return (value != 0) 
-    }}]));
+			/*view.setRows(view.getFilteredRows([{column: 14, test: function(value, row, column, table) {
+        return (value == 'HSI' || value == 'MHI') 
+    }}]));*/
 			table.draw(view, {sortColumn:1});
 			output('number of rows: ' + data.getNumberOfRows());
            

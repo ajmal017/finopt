@@ -133,8 +133,9 @@ class PortfolioItem():
     
         try:
             assert contract_key == self.contract_key
+            spot_px = self.instrument.get_tick_value(4)
             if self.get_instrument_type() == 'OPT':
-                spot_px = self.instrument.get_tick_value(4)
+                #spot_px = self.instrument.get_tick_value(4)
                 multiplier =  PortfolioRules.rule_map['option_structure'][self.get_symbol_id()]['multiplier']
                 
                 pos_delta = self.get_quantity() * self.instrument.get_tick_value(Option.DELTA) * multiplier                                
@@ -157,6 +158,7 @@ class PortfolioItem():
                     average_px = float('nan')
                             
             else:
+                
                 pos_delta = self.get_quantity() * 1.0 * \
                                PortfolioRules.rule_map['option_structure'][self.get_symbol_id()]['multiplier'] 
                 pos_theta = 0
@@ -288,7 +290,8 @@ class Portfolio(AbstractTableModel):
                   ('avgpx', 'Avg Price', 'number'), ('spotpx', 'Spot Price', 'number'), ('pos', 'Quantity', 'number'), 
                   ('delta', 'Delta', 'number'), ('theta', 'Theta', 'number'), ('gamma', 'Gamma', 'number'), 
                   ('pos_delta', 'P. Delta', 'number'), ('pos_theta', 'P. Theta', 'number'), ('pos_gamma', 'P. Gamma', 'number'), 
-                  ('unreal_pl', 'Unreal P/L', 'number'), ('percent_gain_loss', '% gain/loss', 'number')  
+                  ('unreal_pl', 'Unreal P/L', 'number'), ('percent_gain_loss', '% gain/loss', 'number'),
+                  ('symbolid', 'Sym Id', 'string')
                   ]  
     def update_ckey_row_xref(self, contract_key, port_item):
         
@@ -354,7 +357,9 @@ class Portfolio(AbstractTableModel):
              {'v': handle_NaN(x[1].get_port_field(PortfolioItem.POSITION_THETA))},
              {'v': handle_NaN(x[1].get_port_field(PortfolioItem.POSITION_GAMMA))},
              {'v': handle_NaN(x[1].get_port_field(PortfolioItem.UNREAL_PL))},
-             {'v': handle_NaN(x[1].get_port_field(PortfolioItem.PERCENT_GAIN_LOSS))}]
+             {'v': handle_NaN(x[1].get_port_field(PortfolioItem.PERCENT_GAIN_LOSS))},
+             {'v': x[1].get_symbol_id()}
+             ]
         return rf     
     
     

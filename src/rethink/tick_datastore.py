@@ -5,7 +5,7 @@ from misc2.observer import Publisher
 from misc2.observer import NotImplementedException
 from misc2.helpers import ContractHelper
 from comms.ibc.base_client_messaging import AbstractGatewayListener
-import symbol
+import symbol, traceback
 
 class TickDataStore(Publisher):
     """
@@ -167,7 +167,7 @@ class TickDataStore(Publisher):
         except:
             # contract not set up in the datastore, ignore message
             logging.error('tick_datastore:set_symbol_tick_price: exception occured to: %s. Exception could have been triggered due to the dispatched client processing logic' % contract_key)
-            
+            logging.error(traceback.format_exc())
             #self.dump()
             pass
         finally:

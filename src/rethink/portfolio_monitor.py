@@ -24,8 +24,8 @@ class PortfolioMonitor(AbstractGatewayListener, AbstractPortfolioTableModelListe
     def __init__(self, kwargs):
         self.kwargs = copy.copy(kwargs)
         self.twsc = TWS_client_manager(kwargs)
-        AbstractGatewayListener.__init__(self, kwargs['name'])
-        AbstractPortfolioTableModelListener.__init__(self, kwargs['name'])
+        #AbstractGatewayListener.__init__(self, kwargs['name'])
+        #AbstractPortfolioTableModelListener.__init__(self, kwargs['name'])
     
         self.tds = TickDataStore(kwargs['name'])
         self.tds.register_listener(self)
@@ -38,13 +38,13 @@ class PortfolioMonitor(AbstractGatewayListener, AbstractPortfolioTableModelListe
             portfolios: {<account>: <portfolio>}
         '''
         self.portfolios = {}
-        
+        self.starting_engine = {}
         
     
     def start_engine(self):
         self.twsc.start_manager()
         self.twsc.reqPositions()
-        self.starting_engine = {}
+        
         try:
             logging.info('PortfolioMonitor:main_loop ***** accepting console input...')
             menu = {}
@@ -59,7 +59,8 @@ class PortfolioMonitor(AbstractGatewayListener, AbstractPortfolioTableModelListe
                 choices.sort()
                 for entry in choices: 
                     print entry, menu[entry]            
-
+                
+                sleep(0.15)
                 selection = raw_input("Enter command:")
                 if selection =='1':
                     self.twsc.reqPositions()
@@ -81,7 +82,7 @@ class PortfolioMonitor(AbstractGatewayListener, AbstractPortfolioTableModelListe
                 else: 
                     pass                
                 
-                sleep(0.15)
+                
             
         except (KeyboardInterrupt, SystemExit):
             logging.error('PortfolioMonitor: caught user interrupt. Shutting down...')

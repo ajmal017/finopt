@@ -230,8 +230,10 @@ class OptionsChain(Publisher):
         '''
         
         uspot = uspot if not math.isnan(uspot) else self.get_underlying().get_tick_value(4)
+        logging.info('************* cal_option_greeks option= %s' % ContractHelper.makeRedisKeyEx(option.get_contract()))
         premium = premium if not math.isnan(premium) else option.get_tick_value(4)
-        #logging.info('*************after>>>>>>> uspot=%8.2f option last=%8.2f pass premium=%8.2f' % (uspot, option.get_tick_value(4), premium))
+        
+        logging.info('*************after>>>>>>> uspot=%8.2f option last=%8.2f pass premium=%8.2f' % (uspot, option.get_tick_value(4), premium))
         if uspot is None:
             return OptionsChain.EMPTY_GREEKS
         o = option.get_contract()
@@ -240,12 +242,12 @@ class OptionsChain(Publisher):
             
             
         try:
-            #logging.info('OptionChain:cal_option_greeks. ulspot->%8.4f, premium last->%8.4f ' % (uspot_last, option.get_tick_value(4)))
-            #logging.info('OptionChain:cal_option_greeks. o.m_strike %8.4f, o.m_right %s, valuation_date %s, o.m_expiry %s, self.rate %8.4f , self.div  %8.4f, self.trade_vol %8.4f ' % 
-            #            (o.m_strike, o.m_right, valuation_date,  o.m_expiry, self.rate, self.div, self.trade_vol))
+            logging.info('OptionChain:cal_option_greeks. uspot->%8.4f, premium last->%8.4f ' % (uspot, option.get_tick_value(4)))
+            logging.info('OptionChain:cal_option_greeks. o.m_strike %8.4f, o.m_right %s, valuation_date %s, o.m_expiry %s, self.rate %8.4f , self.div  %8.4f, self.trade_vol %8.4f ' % 
+                        (o.m_strike, o.m_right, valuation_date,  o.m_expiry, self.rate, self.div, self.trade_vol))
             iv = cal_implvol(uspot, o.m_strike, o.m_right, valuation_date, 
                                   o.m_expiry, self.rate, self.div, self.trade_vol, premium)
-            #logging.info('OptionChain:cal_option_greeks. cal results:iv=> %s' % str(iv))
+            logging.info('OptionChain:cal_option_greeks. cal results:iv=> %s' % str(iv))
         except RuntimeError:
             logging.warn('OptionChain:cal_option_greeks. Quantlib threw an error while calculating implied vol: use intrinsic: uspot->%8.2f premium->%8.2f strike->%8.2f right->%s sym->%s' % 
                          (uspot, premium, o.m_strike, o.m_right, o.m_symbol))

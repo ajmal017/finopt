@@ -218,18 +218,38 @@ class ContractHelper(BaseHelper):
 #change strike format to 2 dp     
 
 # amend 2017/04/25
-        if contract.m_exchange == None or contract.m_exchange == '':
-            try:
-                contract.m_exchange = ContractHelper.map_rules['exchange'][contract.m_symbol]
-            except:
-                contract.m_exchange = '' 
+        #if contract.m_exchange == None or contract.m_exchange == '':
+        
+# amend 2017/05/10
+        # only symbols with type = HSI/MHI will have the exchange key assigned 
+        # any other symbols will have their exchange set to empty
+        # this is to handle US stocks which could be traded on different exchanges
+        # and thus result in different exchange key but in reality they also refer
+        # to the same stock        
+        #
+        # example: FXP--0.00-0-STK-USD--102
+        #          FXP--0.00--STK-USD-ARCA-102
+        #  
+        try:
+            contract.m_exchange = ContractHelper.map_rules['exchange'][contract.m_symbol]
+        except:
+            contract.m_exchange = '' 
+            
+        
+
+# amend 2017/05/10
    
-        if contract.m_right == None:
+        '''
+            the contract object returned by TWS/IB API is not consistent between
+            different messages (position message and account messages)
+        '''
+        if contract.m_right == None or contract.m_right == '0' or contract.m_right == 0:
             contract.m_right = ''
             
         if contract.m_expiry == None:
             contract.m_expiry = ''
             
+                        
         s = '%s-%s-%.2f-%s-%s-%s-%s-%d' % (contract.m_symbol,
                                                            contract.m_expiry,
                                                            float(contract.m_strike),
