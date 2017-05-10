@@ -67,7 +67,6 @@ class PortfolioMonitor(AbstractGatewayListener, AbstractPortfolioTableModelListe
                 elif selection == '2': 
                     for port in self.portfolios.values():
                         print port.dump_portfolio()
-                        #print self.portfolios[acct]['g_table']
                 elif selection == '3': 
                     print self.tds.dump()
                 elif selection == '4': 
