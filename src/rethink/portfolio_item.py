@@ -282,6 +282,7 @@ class Portfolio(AbstractTableModel):
     
     
     
+    
     '''
         implement AbstractTableModel methods and other routines
     '''
@@ -391,5 +392,8 @@ class Portfolio(AbstractTableModel):
         map(lambda p: dtj['rows'].append({'c': self.port_item_to_row_fields(p)}), p_items)
         
         
-        return json.dumps(dtj) #, indent=4)            
+        return json.dumps(dtj) #, indent=4)     
+    
+    def dump_table_index_map(self):
+        return '\n'.join('[%d]:%s' % (x[0], x[1]) for x in  self.port['g_table']['row_to_ckey_index'].items())       
         

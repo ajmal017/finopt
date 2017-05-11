@@ -23,7 +23,8 @@
 	
 	var view = null;
 	var data = null;
-	var table= null;    	
+	var table= null;   
+        var options = {sortColumn:1, showRowNumber: true, width: '100%', height: '100%'}; 	
 	   //google.charts.load('current', {'packages':['table']});
 	   google.load("visualization", "1.1", {packages:["corechart", 'table','gauge']});
 	   google.setOnLoadCallback(drawTable);
@@ -88,7 +89,7 @@
 
       // Connect to Web Socket
       ws = new WebSocket("ws://localhost:9001/");
-
+   
       // Set event handlers.
       ws.onopen = function() {
         output("onopen");
@@ -108,7 +109,7 @@
 			/*view.setRows(view.getFilteredRows([{column: 14, test: function(value, row, column, table) {
         return (value == 'HSI' || value == 'MHI') 
     }}]));*/
-			table.draw(view, {sortColumn:1});
+			table.draw(view, options);
 			output('number of rows: ' + data.getNumberOfRows());
            
         } else if (d1.event == 'event_tm_table_row_updated'){
@@ -118,7 +119,7 @@
 				data.setCell(d1.value.row, c, d1.value.row_values[c]["v"]);
 
 			}
-			table.draw(view);
+			table.draw(view, options);
 //			table.draw(data);           
 //        	setValueAtRandomCell(getRandomInt(1000, 5000));
         }

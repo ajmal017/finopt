@@ -146,11 +146,13 @@ class PortfolioTableModelListener(BaseMessageListener):
     '''
     
     '''
+    CACHE_MAX = 50
+    TIME_MAX = 3.0
     
     def __init__(self, name, server_wrapper):
         BaseMessageListener.__init__(self, name)
         self.mwss = server_wrapper
-        
+        self.simple_caching = {}
 
     def event_tm_table_cell_updated(self, event, source, row, row_values):
         logging.info("[%s] received %s content:[%d]" % (self.name, event, row))
@@ -163,15 +165,36 @@ class PortfolioTableModelListener(BaseMessageListener):
     def event_tm_table_row_updated(self, event, source, row, row_values):   
         #logging.info("[%s] received %s content:[%s]" % (self.name, event, vars()))
         #logging.info("[%s] received %s content:[%d]" % (self.name, event, row))
-        self.mwss.get_server().send_message_to_all(json.dumps(
+        def notify_client():
+            self.mwss.get_server().send_message_to_all(json.dumps(
                         {'event':event, 'value':{'row': row, 'row_values': row_values}}));
+            
+        try:
+            curr_ts = time.time()
+            if self.simple_caching[row]['count'] < PortfolioTableModelListener.CACHE_MAX or\
+                curr_ts - self.simple_caching[row]['ts'] < PortfolioTableModelListener.TIME_MAX:
+                self.simple_caching[row]['count'] +=1
+                self.simple_caching[row]['ts'] = curr_ts
+            else:
+                logging.info('event_tm_table_row_updated: flush condition met, sending changes to clients. row:[%d] %d %0.2f' %
+                                (row, self.simple_caching[row]['count'], curr_ts - self.simple_caching[row]['ts']))
+                self.simple_caching[row]['count'] = 0
+                self.simple_caching[row]['ts'] = curr_ts
+                notify_client()
+                
+            
+            
+        except KeyError:
+            self.simple_caching[row] = {'count': 1, 'ts': curr_ts}
+            notify_client()    
     
     def event_tm_table_structure_changed(self, event, origin_request_id, account, data_table_json):
         try:
             logging.info("[%s] received %s content:[%d]" % (self.name, event, origin_request_id))
             self.mwss.get_server().send_message(self.mwss.clients[origin_request_id], 
                                                 json.dumps({'event': event, 'value': data_table_json})) 
-        except IndexError:
+        #except IndexError, KeyError:
+        except:
             logging.error('[%s]. index error %d' % (event, origin_request_id))
             
 

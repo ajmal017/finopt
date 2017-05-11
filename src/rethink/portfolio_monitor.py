@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 import sys, traceback
 import logging
-import json
+import json, threading
 import time, datetime
 import copy
 from optparse import OptionParser
@@ -41,48 +41,74 @@ class PortfolioMonitor(AbstractGatewayListener, AbstractPortfolioTableModelListe
         self.starting_engine = {}
         
     
+
+            
+        
+    
     def start_engine(self):
         self.twsc.start_manager()
         self.twsc.reqPositions()
-        
+     
         try:
-            logging.info('PortfolioMonitor:main_loop ***** accepting console input...')
-            menu = {}
-            menu['1']="Request position" 
-            menu['2']="Portfolio dump dtj"
-            menu['3']="TDS dump"
-            menu['4']="Request account updates"
-            menu['5']="Table chart JSON"
-            menu['9']="Exit"
-            while True: 
+            def print_menu():
+                menu = {}
+                menu['1']="Request position" 
+                menu['2']="Portfolio dump dtj"
+                menu['3']="TDS dump"
+                menu['4']="Request account updates"
+                menu['5']="Table chart JSON"
+                menu['6']="Table index mapping"
+                menu['9']="Exit"
+        
                 choices=menu.keys()
                 choices.sort()
                 for entry in choices: 
-                    print entry, menu[entry]            
+                    print entry, menu[entry]                             
                 
-                sleep(0.15)
-                selection = raw_input("Enter command:")
-                if selection =='1':
-                    self.twsc.reqPositions()
-                elif selection == '2': 
-                    for port in self.portfolios.values():
-                        print port.dump_portfolio()
-                elif selection == '3': 
-                    print self.tds.dump()
-                elif selection == '4': 
-                    for acct in self.portfolios.keys():
-                        self.twsc.reqAccountUpdates(True, acct)
-                elif selection == '5':
-                    for port in self.portfolios.values():
-                        print port.get_JSON() 
-                elif selection == '9': 
-                    self.twsc.gw_message_handler.set_stop()
-                    break
-                else: 
-                    pass                
-                
-                
+            def get_user_input(selection):
+                    logging.info('PortfolioMonitor:main_loop ***** accepting console input...')
+                    print_menu()
+                    while 1:
+                        resp = sys.stdin.readline()
+                        response[0]= resp.strip('\n')
+                        #print response[0]
+                                
             
+            response = [None]
+            user_input_th = threading.Thread(target=get_user_input, args=(response,))
+            user_input_th.daemon = True
+            user_input_th.start()               
+            while True:
+                sleep(0.4)
+                
+                if response[0] is not None:
+                    selection = response[0]
+                    if selection =='1':
+                        self.twsc.reqPositions()
+                    elif selection == '2': 
+                        for port in self.portfolios.values():
+                            print port.dump_portfolio()
+                    elif selection == '3': 
+                        
+                        print self.tds.dump()
+                    elif selection == '4': 
+                        for acct in self.portfolios.keys():
+                            self.twsc.reqAccountUpdates(True, acct)
+                    elif selection == '5':
+                        for port in self.portfolios.values():
+                            print port.get_JSON() 
+                    elif selection == '6':
+                        for acct in self.portfolios.keys():
+                            print self.portfolios[acct].dump_table_index_map() 
+                            
+                    elif selection == '9': 
+                        self.twsc.gw_message_handler.set_stop()
+                        break
+                    else: 
+                        pass                        
+                    response[0] = None
+                    print_menu()
+                    
         except (KeyboardInterrupt, SystemExit):
             logging.error('PortfolioMonitor: caught user interrupt. Shutting down...')
             self.twsc.gw_message_handler.set_stop() 
