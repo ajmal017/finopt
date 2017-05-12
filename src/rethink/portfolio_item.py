@@ -385,7 +385,8 @@ class Portfolio(AbstractTableModel):
         # header fields      
         map(lambda hf: dtj['cols'].append({'id': hf[0], 'label': hf[1], 'type': hf[2]}), self.port['g_table']['header'])
         
-        p_items = sorted([x for x in self.port['port_items'].iteritems()])
+        #p_items = sorted([x for x in self.port['port_items'].iteritems()])
+        p_items = [x for x in self.port['port_items'].iteritems()]
         #p1_items = filter(lambda x: x[1].get_symbol_id() in PortfolioRules.rule_map['interested_position_types']['symbol'], p_items)
         #p2_items = filter(lambda x: x[1].get_instrument_type() in  PortfolioRules.rule_map['interested_position_types']['instrument_type'], p1_items)
         #map(lambda p: dtj['rows'].append({'c': self.port_item_to_row_fields(p)}), p2_items)
