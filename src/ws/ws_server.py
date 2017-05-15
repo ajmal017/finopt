@@ -146,7 +146,7 @@ class PortfolioTableModelListener(BaseMessageListener):
     '''
     
     '''
-    CACHE_MAX = 25
+    CACHE_MAX = 15
     TIME_MAX = 1.0
     
     def __init__(self, name, server_wrapper):

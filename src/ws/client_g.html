@@ -25,12 +25,10 @@
 	var view = null;
 	var data = null;
 	var table= null;   
-//        var options = {sortColumn:1, showRowNumber: true, width: '100%', height: '100%'};
-        var options = {sort: 'disable', sortColumn:-1, showRowNumber: true, width: '100%', height: '100%'};
-	   //google.charts.load('current', {'packages':['table']});
-	   google.load("visualization", "1.1", {packages:["corechart", 'table','gauge']});
+    var options = {allowHtml: true, sortColumn:1, showRowNumber: true, width: '100%', height: '100%'};
+	google.load("visualization", "1.1", {packages:["corechart", 'table','gauge']});
 	   //google.setOnLoadCallback(drawTable);
-	   google.setOnLoadCallback(init);
+	google.setOnLoadCallback(init);
 	
 
 	
@@ -46,20 +44,34 @@
 	}
 	
 	
-	   
-	function drawTable() {
-	 
-   	   data= new google.visualization.DataTable();
-	   table = new google.visualization.Table(document.getElementById('table_div'));
-	   table.draw(data, {sort: 'event', sortColumn:-1, showRowNumber: true, width: '100%', height: '100%'});
-	 }
+	function setupFormatter(tableData){
+	    var numF = new google.visualization.NumberFormat(
+    		    {prefix: '$', pattern:'0.00', negativeColor: 'red', negativeParens: true});
+	    var percentF = new google.visualization.NumberFormat(
+	    		{pattern: '##.#%'})
+	    var arrowF = new google.visualization.ArrowFormat();
+        var barF = new google.visualization.BarFormat({width: 80,
+			colorPositive: 'green', max:100 });       
+    			    
+    	var colorF = new google.visualization.ColorFormat();
+    	colorF.addRange(-100, 0, 'white', 'red');
+    	colorF.addRange(0, 100, 'white', 'blue');
+    	 	    
+	    
+	    numF.format(data, 3);  //market value
+	    colorF.format(data, 6); // position
+	    percentF.format(data, 7); //delta		
+	    percentF.format(data, 8); //theta    
+	    numF.format(data, 10); // position delta
+	    numF.format(data, 11); // position theta
+	    numF.format(data, 13); //unreal p/l
+	    barF.format(data, 14) //% gain loss
+		
+	}	   
 	   
 
     var ws;
 	
-	
-	
-    
     function init() {
 
       // Connect to Web Socket
@@ -80,12 +92,13 @@
 
 			console.log(d1);
 			data = new google.visualization.DataTable(d1.value);
-			//view = new google.visualization.DataView(data);
+			view = new google.visualization.DataView(data);
 			/*view.setRows(view.getFilteredRows([{column: 14, test: function(value, row, column, table) {
         return (value == 'HSI' || value == 'MHI') 
     }}]));*/
+    		setupFormatter(data);
 			table = new google.visualization.Table(document.getElementById('table_div'));
-			table.draw(data, options);
+			table.draw(view, options);
 			output('number of rows: ' + data.getNumberOfRows());
            
         } else if (d1.event == 'event_tm_table_row_updated'){
@@ -99,7 +112,7 @@
 			
 			table.draw(data, options);
 //			table.draw(data);           
-//        	setValueAtRandomCell(getRandomInt(1000, 5000));
+
         }
         
       };
