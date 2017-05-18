@@ -342,7 +342,8 @@ class BaseConsumer(threading.Thread, Publisher):
                       
                 """
                 if self.my_topics[message.topic][str(message.partition)] > message.offset:
-                    logging.info('BaseConsumer ********************** old message...discarding %s %d' % (message.topic, message.offset))
+                    logging.info('BaseConsumer ********************** old message...discarding %s %d(%d)' % (message.topic, message.offset, 
+                                                                                        self.my_topics[message.topic][str(message.partition)]))
                 else:
                     #if self.my_topics[message.topic][str(message.partition)] == message.offset:
                     # if the stored offset in redis equals to the current offset

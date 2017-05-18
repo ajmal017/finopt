@@ -8,7 +8,7 @@
 </head>
 
 <body>
-   <div id="table_div"></div>
+   <div id="table_div" style="height:500"></div>
    <button id="change-btn">change columns</button>
    <button id="test-btn">test</button>
   <form onsubmit="onSubmit(); return false;">
@@ -25,12 +25,10 @@
 	var view = null;
 	var data = null;
 	var table= null;   
-//        var options = {sortColumn:1, showRowNumber: true, width: '100%', height: '100%'};
-        var options = {sort: 'disable', sortColumn:-1, showRowNumber: true, width: '100%', height: '100%'};
-	   //google.charts.load('current', {'packages':['table']});
-	   google.load("visualization", "1.1", {packages:["corechart", 'table','gauge']});
+    var options = {allowHtml: true, sortColumn:1, showRowNumber: true, width: '100%', height: '100%'};
+	google.load("visualization", "1.1", {packages:["corechart", 'table','gauge']});
 	   //google.setOnLoadCallback(drawTable);
-	   google.setOnLoadCallback(init);
+	google.setOnLoadCallback(init);
 	
 
 	
@@ -46,20 +44,40 @@
 	}
 	
 	
-	   
-	function drawTable() {
-	 
-   	   data= new google.visualization.DataTable();
-	   table = new google.visualization.Table(document.getElementById('table_div'));
-	   table.draw(data, {sort: 'event', sortColumn:-1, showRowNumber: true, width: '100%', height: '100%'});
-	 }
+	function setupFormatter(tableData){
+	    var numF = new google.visualization.NumberFormat(
+    		    {prefix: '$', pattern:'0.00', negativeColor: 'red', negativeParens: true});
+	    var percentF = new google.visualization.NumberFormat(
+	    		{pattern: '##.#%'})
+	    var arrowF = new google.visualization.ArrowFormat();
+        var barF = new google.visualization.BarFormat({width: 80,
+			colorPositive: 'green', max:100 });       
+    			    
+    	var colorF = new google.visualization.ColorFormat();
+    	colorF.addRange(-100, 0, 'white', 'red');
+    	colorF.addRange(0, 100, 'white', 'blue');
+
+
+	var colorGF = new google.visualization.ColorFormat();
+	colorGF.addGradientRange(null, null, 'white', 'orange', 'blue');
+
+    	 	    
+	    numF.format(data, 2);  //avg cost
+	    numF.format(data, 3);  //market value
+	    colorF.format(data, 6); // position
+	    percentF.format(data, 7); //delta		
+	    
+	    numF.format(data, 10); // position delta
+	    numF.format(data, 11); // position theta
+	    numF.format(data, 12); // position gamma
+	    colorGF.format(data, 13); //unreal p/l
+	    barF.format(data, 14) //% gain loss
+		
+	}	   
 	   
 
     var ws;
 	
-	
-	
-    
     function init() {
 
       // Connect to Web Socket
@@ -80,26 +98,36 @@
 
 			console.log(d1);
 			data = new google.visualization.DataTable(d1.value);
-			//view = new google.visualization.DataView(data);
-			/*view.setRows(view.getFilteredRows([{column: 14, test: function(value, row, column, table) {
+			view = new google.visualization.DataView(data);
+			view.setRows(view.getFilteredRows([{column: 15, test: function(value, row, column, table) {
         return (value == 'HSI' || value == 'MHI') 
-    }}]));*/
+    }}]));
+    		setupFormatter(data);
 			table = new google.visualization.Table(document.getElementById('table_div'));
-			table.draw(data, options);
+			table.draw(view, options);
 			output('number of rows: ' + data.getNumberOfRows());
            
         } else if (d1.event == 'event_tm_table_row_updated'){
 
-			console.log(d1.value.row.toString()+ ':' + d1.value.row_values[0]['v']);
+			//console.log(d1.value.row.toString()+ ':' + d1.value.row_values[0]['v']);
 			for (var c=2; c < d1.value.row_values.length; c++){
 				data.setCell(d1.value.row, c, d1.value.row_values[c]["v"]);
 
 			}
-			data.setCell(d1.value.row, 1, d1.value.row_values[0]['v']);
+			//data.setCell(d1.value.row, 1, d1.value.row_values[0]['v']);
 			
-			table.draw(data, options);
+			options.sortColumn = table.getSortInfo().column;
+			table.draw(view, options);
 //			table.draw(data);           
-//        	setValueAtRandomCell(getRandomInt(1000, 5000));
+
+        } else if (d1.event == 'event_tm_table_row_inserted'){
+        	var newRow = d1.value.row_values.map(function(x){
+        		return x['v'];
+        	});
+        	output('adding new row: ' + newRow.toString());
+        	data.addRow(newRow);
+        	options.sortColumn = table.getSortInfo().column;
+        	table.draw(view, options);
         }
         
       };

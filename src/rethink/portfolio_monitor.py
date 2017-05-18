@@ -295,7 +295,12 @@ class PortfolioMonitor(AbstractGatewayListener, AbstractPortfolioTableModelListe
                                
                     
             else:
-                logging.info('PortfolioMonitor:tds_event_tick_updated ignoring uninterested ticks %s' % contract_key)
+                for acct in self.portfolios:
+                    if self.portfolios[acct].is_contract_in_portfolio(contract_key):
+                        self.portfolios[acct].calculate_item_pl(contract_key)
+                        self.notify_table_model_changes(acct, self.portfolios[acct], contract_key, mode='U')
+                    else:    
+                        logging.info('PortfolioMonitor:tds_event_tick_updated ignoring uninterested ticks %s' % contract_key)
                 continue
              
         
@@ -368,14 +373,15 @@ class PortfolioMonitor(AbstractGatewayListener, AbstractPortfolioTableModelListe
         #logging.info('---- %s' % str(rvs))
         port.fire_table_row_updated(row, rvs)
         event_type = AbstractTableModel.EVENT_TM_TABLE_ROW_UPDATED if mode == 'U' else AbstractTableModel.EVENT_TM_TABLE_ROW_INSERTED
-        self.get_kproducer().send_message(event_type, json.dumps({'source': 'dt_port-%s' % account, 'row': row, 'row_values': rvs}))
+        self.get_kproducer().send_message(event_type, json.dumps({'source': '%s' % port.get_object_name(), 'row': row, 'row_values': rvs}))
     
     # implment AbstractPortfolioTableModelListener
     # handle requests to get data table json
     def event_tm_request_table_structure(self, event, request_id, account):
         try:
             self.get_kproducer().send_message(AbstractTableModel.EVENT_TM_TABLE_STRUCTURE_CHANGED,                                               
-                                          json.dumps({'origin_request_id': request_id, 'account': account, 
+                                          json.dumps({'source': self.portfolios[account].get_object_name(), 
+                                                      'origin_request_id': request_id, 'account': account, 
                                                       'data_table_json': self.portfolios[account].get_JSON()}))
         except:
             logging.error("PortfolioMonitor:event_tm_request_table_structure. Error invoking get_JSON[%s]. Client request id:%s, %s" %

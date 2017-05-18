@@ -77,7 +77,7 @@ class AbstractPortfolioTableModelListener(BaseMessageListener):
     def event_tm_table_row_updated(self, event, source, row, row_values):   
         logging.info("[%s] received %s content:[%s]" % (self.name, event, vars()))
     
-    def event_tm_table_structure_changed(self, event, origin_request_id, account, data_table_json):
+    def event_tm_table_structure_changed(self, event, source, origin_request_id, account, data_table_json):
         logging.info("[%s] received %s content:[%s]" % (self.name, event, vars()))
         
     def event_tm_request_table_structure(self, event, request_id, account):

@@ -146,7 +146,7 @@ class PortfolioTableModelListener(BaseMessageListener):
     '''
     
     '''
-    CACHE_MAX = 25
+    CACHE_MAX = 12
     TIME_MAX = 1.0
     
     def __init__(self, name, server_wrapper):
@@ -161,10 +161,14 @@ class PortfolioTableModelListener(BaseMessageListener):
         
     def event_tm_table_row_inserted(self, event, source, row, row_values):
         logging.info("[%s] received %s content:[%s]" % (self.name, event, vars()))
+        self.handle_tm_table_row_changes(event, source, row, row_values)
+
 
     def event_tm_table_row_updated(self, event, source, row, row_values):   
-        #logging.info("[%s] received %s content:[%s]" % (self.name, event, vars()))
-        #logging.info("[%s] received %s content:[%d]" % (self.name, event, row))
+        self.handle_tm_table_row_changes(event, source, row, row_values)
+
+    def handle_tm_table_row_changes(self, event, source, row, row_values):
+
         def notify_client():
             self.mwss.get_server().send_message_to_all(json.dumps(
                         {'event':event, 'value':{'row': row, 'row_values': row_values}}));
@@ -188,9 +192,9 @@ class PortfolioTableModelListener(BaseMessageListener):
             self.simple_caching[row] = {'count': 1, 'ts': curr_ts}
             notify_client()    
     
-    def event_tm_table_structure_changed(self, event, origin_request_id, account, data_table_json):
+    def event_tm_table_structure_changed(self, event, source, origin_request_id, account, data_table_json):
         try:
-            logging.info("[%s] received %s content:[%d]" % (self.name, event, origin_request_id))
+            logging.info("[%s] received %s from %s. content:[%d]" % (self.name, event, source, origin_request_id))
             self.mwss.get_server().send_message(self.mwss.clients[origin_request_id], 
                                                 json.dumps({'event': event, 'value': data_table_json})) 
         #except IndexError, KeyError:
@@ -237,6 +241,14 @@ class MainWebSocketServer(BaseWebSocketServerWrapper):
         self.message_handler.add_listeners([tbl_listener])
         self.message_handler.start_prosumer()        
         self.clients = {}
+        
+        # stores server side object id to request ws clients
+        # this allows the server to determine
+        # which ws client is to dispatch the returned messages 
+        # from the server end
+        # 
+        # server_handler_map: {<source_id>: client}
+        self.server_handler_map ={}
 
         self.once = False
         

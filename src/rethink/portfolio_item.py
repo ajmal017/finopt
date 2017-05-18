@@ -37,7 +37,7 @@ class PortfolioItem():
     AVERAGE_COST = 7002
     POSITION_DELTA = 7003
     POSITION_THETA = 7004
-    POSITION_GAMMA = 7009
+    GAMMA_PERCENT = 7009
     UNREAL_PL = 7005
     PERCENT_GAIN_LOSS = 7006
     AVERAGE_PRICE = 7007
@@ -140,7 +140,7 @@ class PortfolioItem():
                 
                 pos_delta = self.get_quantity() * self.instrument.get_tick_value(Option.DELTA) * multiplier                                
                 pos_theta = self.get_quantity() * self.instrument.get_tick_value(Option.THETA) * multiplier
-                pos_gamma = self.get_quantity() * self.instrument.get_tick_value(Option.GAMMA) * multiplier                               
+                gamma_percent = pos_delta * (1 + self.instrument.get_tick_value(Option.GAMMA))                               
 
                 #(spot premium * multiplier - avgcost) * pos)
                 try:
@@ -158,22 +158,22 @@ class PortfolioItem():
                     average_px = float('nan')
                             
             else:
-                
-                pos_delta = self.get_quantity() * 1.0 * \
-                               PortfolioRules.rule_map['option_structure'][self.get_symbol_id()]['multiplier'] 
+                multiplier =  PortfolioRules.rule_map['option_structure'][self.get_symbol_id()]['multiplier']
+                pos_delta = self.get_quantity() * 1.0 * multiplier
+                                
                 pos_theta = 0
-                pos_gamma = 0
+                gamma_percent = 0
+                
                 # (S - X) * pos * multiplier
-                unreal_pl = (self.instrument.get_tick_value(4) - self.get_average_cost() ) * self.get_quantity() * \
-                               PortfolioRules.rule_map['option_structure'][self.get_symbol_id()]['multiplier']
+                unreal_pl = (spot_px * multiplier - self.get_average_cost() ) * self.get_quantity() 
                                
-                sign = abs(self.get_quantity()) / self.get_quantity()                                
-                percent_gain_loss = sign * (spot_px - self.get_average_cost() / multiplier) / (self.get_average_cost() / multiplier) * 100
+                #sign = abs(self.get_quantity()) / self.get_quantity()                                
+                percent_gain_loss = unreal_pl / self.get_average_cost() * 100
                 average_px = self.get_average_cost() / multiplier
                         
             self.set_port_field(PortfolioItem.POSITION_DELTA, pos_delta)
             self.set_port_field(PortfolioItem.POSITION_THETA, pos_theta)
-            self.set_port_field(PortfolioItem.POSITION_GAMMA, pos_gamma)
+            self.set_port_field(PortfolioItem.GAMMA_PERCENT, gamma_percent)
             self.set_port_field(PortfolioItem.UNREAL_PL, unreal_pl)
             self.set_port_field(PortfolioItem.AVERAGE_PRICE, average_px)
             self.set_port_field(PortfolioItem.PERCENT_GAIN_LOSS, percent_gain_loss)
@@ -218,6 +218,9 @@ class Portfolio(AbstractTableModel):
         self.create_empty_portfolio()
         AbstractTableModel.__init__(self)
         
+    def get_object_name(self):
+        return 'p-%s-%s' % (self.account, id(self))
+    
     def is_contract_in_portfolio(self, contract_key):
         return self.get_portfolio_port_item(contract_key)
             
@@ -290,7 +293,7 @@ class Portfolio(AbstractTableModel):
         self.port['g_table']['header'] = [('symbol', 'Symbol', 'string'), ('right', 'Right', 'string'), ('avgcost', 'Avg Cost', 'number'), ('market_value', 'Market Value', 'number'), 
                   ('avgpx', 'Avg Price', 'number'), ('spotpx', 'Spot Price', 'number'), ('pos', 'Quantity', 'number'), 
                   ('delta', 'Delta', 'number'), ('theta', 'Theta', 'number'), ('gamma', 'Gamma', 'number'), 
-                  ('pos_delta', 'P. Delta', 'number'), ('pos_theta', 'P. Theta', 'number'), ('pos_gamma', 'P. Gamma', 'number'), 
+                  ('pos_delta', 'P. Delta', 'number'), ('pos_theta', 'P. Theta', 'number'), ('gamma_percent', 'P. Gamma', 'number'), 
                   ('unreal_pl', 'Unreal P/L', 'number'), ('percent_gain_loss', '% gain/loss', 'number'),
                   ('symbolid', 'Sym Id', 'string')
                   ]  
@@ -356,7 +359,7 @@ class Portfolio(AbstractTableModel):
              {'v': handle_NaN(x[1].get_instrument().get_tick_value(Option.GAMMA))},
              {'v': handle_NaN(x[1].get_port_field(PortfolioItem.POSITION_DELTA))},
              {'v': handle_NaN(x[1].get_port_field(PortfolioItem.POSITION_THETA))},
-             {'v': handle_NaN(x[1].get_port_field(PortfolioItem.POSITION_GAMMA))},
+             {'v': handle_NaN(x[1].get_port_field(PortfolioItem.GAMMA_PERCENT))},
              {'v': handle_NaN(x[1].get_port_field(PortfolioItem.UNREAL_PL))},
              {'v': handle_NaN(x[1].get_port_field(PortfolioItem.PERCENT_GAIN_LOSS))},
              {'v': x[1].get_symbol_id()}
@@ -386,7 +389,14 @@ class Portfolio(AbstractTableModel):
         map(lambda hf: dtj['cols'].append({'id': hf[0], 'label': hf[1], 'type': hf[2]}), self.port['g_table']['header'])
         
         #p_items = sorted([x for x in self.port['port_items'].iteritems()])
-        p_items = [x for x in self.port['port_items'].iteritems()]
+        
+        # create a list of port items tuples (contract_key, port_item) ordered by row_id
+        # that is in the order when each items was created and inserted into the map
+        # this ensures that the same sequence is replicated to the google datatable
+        p_items = map(lambda x:(self.port['g_table']['row_to_ckey_index'][x], 
+                        self.port['port_items'][ self.port['g_table']['row_to_ckey_index'][x] ]), range(self.port['g_table']['row_index']))
+        
+
         #p1_items = filter(lambda x: x[1].get_symbol_id() in PortfolioRules.rule_map['interested_position_types']['symbol'], p_items)
         #p2_items = filter(lambda x: x[1].get_instrument_type() in  PortfolioRules.rule_map['interested_position_types']['instrument_type'], p1_items)
         #map(lambda p: dtj['rows'].append({'c': self.port_item_to_row_fields(p)}), p2_items)

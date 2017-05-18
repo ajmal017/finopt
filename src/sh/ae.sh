@@ -11,5 +11,5 @@ else
 	FINOPT_HOME=~/l1304/workspace/finopt-ironfly/finopt/src
 fi
 export PYTHONPATH=$FINOPT_HOME:$PYTHONPATH
-python $FINOPT_HOME/rethink/analytics_engine.py  -c -g AE1  
-#python $FINOPT_HOME/rethink/analytics_engine.py   -g AE1  
+#python $FINOPT_HOME/rethink/analytics_engine.py  -c -g AE1  
+python $FINOPT_HOME/rethink/analytics_engine.py   -g AE1  
