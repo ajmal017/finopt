@@ -146,7 +146,11 @@ class PortfolioTableModelListener(BaseMessageListener):
     '''
     
     '''
+<<<<<<< HEAD
     CACHE_MAX = 12
+=======
+    CACHE_MAX = 15
+>>>>>>> branch 'ironfly' of https://github.com/laxaurus/finopt.git
     TIME_MAX = 1.0
     
     def __init__(self, name, server_wrapper):

@@ -163,7 +163,10 @@ class PortfolioItem():
                                 
                 pos_theta = 0
                 gamma_percent = 0
+<<<<<<< HEAD
                 
+=======
+>>>>>>> branch 'ironfly' of https://github.com/laxaurus/finopt.git
                 # (S - X) * pos * multiplier
                 unreal_pl = (spot_px * multiplier - self.get_average_cost() ) * self.get_quantity() 
                                

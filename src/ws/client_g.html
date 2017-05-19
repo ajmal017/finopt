@@ -56,6 +56,7 @@
     	var colorF = new google.visualization.ColorFormat();
     	colorF.addRange(-100, 0, 'white', 'red');
     	colorF.addRange(0, 100, 'white', 'blue');
+<<<<<<< HEAD
 
 
 	var colorGF = new google.visualization.ColorFormat();
@@ -71,6 +72,17 @@
 	    numF.format(data, 11); // position theta
 	    numF.format(data, 12); // position gamma
 	    colorGF.format(data, 13); //unreal p/l
+=======
+    	 	    
+	    
+	    numF.format(data, 3);  //market value
+	    colorF.format(data, 6); // position
+	    percentF.format(data, 7); //delta		
+	    percentF.format(data, 8); //theta    
+	    numF.format(data, 10); // position delta
+	    numF.format(data, 11); // position theta
+	    numF.format(data, 13); //unreal p/l
+>>>>>>> branch 'ironfly' of https://github.com/laxaurus/finopt.git
 	    barF.format(data, 14) //% gain loss
 		
 	}	   
@@ -99,9 +111,17 @@
 			console.log(d1);
 			data = new google.visualization.DataTable(d1.value);
 			view = new google.visualization.DataView(data);
+<<<<<<< HEAD
 			view.setRows(view.getFilteredRows([{column: 15, test: function(value, row, column, table) {
+=======
+			/*view.setRows(view.getFilteredRows([{column: 14, test: function(value, row, column, table) {
+>>>>>>> branch 'ironfly' of https://github.com/laxaurus/finopt.git
         return (value == 'HSI' || value == 'MHI') 
+<<<<<<< HEAD
     }}]));
+=======
+    }}]));*/
+>>>>>>> branch 'ironfly' of https://github.com/laxaurus/finopt.git
     		setupFormatter(data);
 			table = new google.visualization.Table(document.getElementById('table_div'));
 			table.draw(view, options);
@@ -120,6 +140,7 @@
 			table.draw(view, options);
 //			table.draw(data);           
 
+<<<<<<< HEAD
         } else if (d1.event == 'event_tm_table_row_inserted'){
         	var newRow = d1.value.row_values.map(function(x){
         		return x['v'];
@@ -128,6 +149,8 @@
         	data.addRow(newRow);
         	options.sortColumn = table.getSortInfo().column;
         	table.draw(view, options);
+=======
+>>>>>>> branch 'ironfly' of https://github.com/laxaurus/finopt.git
         }
         
       };
