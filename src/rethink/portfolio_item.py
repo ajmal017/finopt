@@ -213,6 +213,17 @@ class Portfolio(AbstractTableModel):
              }   
                 
     '''    
+    TOTAL_DELTA     = 9000
+    TOTAL_DELTA_F   = 9001
+    TOTAL_DELTA_C   = 9002
+    TOTAL_DELTA_P   = 9003
+    TOTAL_THETA     = 9010
+    TOTAL_THETA_C   = 9012
+    TOTAL_THETA_P   = 9013
+    TOTAL_GAMMA_PERCENT = 9020
+    PUT_CALL_RATIO  = 9030
+     
+    
     def __init__(self, account):
         self.account = account
         self.create_empty_portfolio()
@@ -269,6 +280,9 @@ class Portfolio(AbstractTableModel):
     def calculate_item_pl(self, contract_key):
         self.port['port_items'][contract_key].calculate_pl(contract_key)
         
+    def calculate_port_pl(self):
+        
+        pass
 
     def dump_portfolio(self):
         #<account_id>: {'port_items': {<contract_key>, instrument}, 'opt_chains': {<oc_id>: option_chain}}
