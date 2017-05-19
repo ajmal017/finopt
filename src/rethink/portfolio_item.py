@@ -163,10 +163,7 @@ class PortfolioItem():
                                 
                 pos_theta = 0
                 gamma_percent = 0
-<<<<<<< HEAD
-                
-=======
->>>>>>> branch 'ironfly' of https://github.com/laxaurus/finopt.git
+
                 # (S - X) * pos * multiplier
                 unreal_pl = (spot_px * multiplier - self.get_average_cost() ) * self.get_quantity() 
                                
@@ -193,7 +190,7 @@ class PortfolioItem():
         self.set_port_field(PortfolioItem.AVERAGE_COST, average_cost)
         if extra_info:
             self.set_port_field(PortfolioItem.MARKET_VALUE, extra_info['market_value'])
-        
+
         
         
     def dump(self):
@@ -211,7 +208,8 @@ class Portfolio(AbstractTableModel):
                            'header':{...},
                            'row_index': <curr_index>,
                            'ckey_to_row_index':{<contract_key>: <row_id>}, 
-                           'row_to_ckey_index':{<row_id>: <contract_key>}
+                           'row_to_ckey_index':{<row_id>: <contract_key>},
+                'port_v': port_v
                                             
              }   
                 
@@ -224,7 +222,10 @@ class Portfolio(AbstractTableModel):
     TOTAL_THETA_C   = 9012
     TOTAL_THETA_P   = 9013
     TOTAL_GAMMA_PERCENT = 9020
-    PUT_CALL_RATIO  = 9030
+    NUM_CALLS       = 9031
+    NUM_PUTS       = 9032
+    TOTAL_GAIN_LOSS = 9040
+    
      
     
     def __init__(self, account):
@@ -284,8 +285,53 @@ class Portfolio(AbstractTableModel):
         self.port['port_items'][contract_key].calculate_pl(contract_key)
         
     def calculate_port_pl(self):
+
+
+        p1_items = filter(lambda x: x[1].get_symbol_id() in PortfolioRules.rule_map['interested_position_types']['symbol'], self.port['port_items'].items())
+        p2_items = filter(lambda x: x[1].get_instrument_type() in  PortfolioRules.rule_map['interested_position_types']['instrument_type'], p1_items)
         
-        pass
+        port_v = {
+              Portfolio.TOTAL_DELTA     : 0.0,
+              Portfolio.TOTAL_DELTA_F   : 0.0,
+              Portfolio.TOTAL_DELTA_C   : 0.0,
+              Portfolio.TOTAL_DELTA_P   : 0.0,
+              Portfolio.TOTAL_THETA     : 0.0,
+              Portfolio.TOTAL_THETA_C   : 0.0,
+              Portfolio.TOTAL_THETA_P   : 0.0,
+              Portfolio.TOTAL_GAMMA_PERCENT : 0.0,
+              Portfolio.NUM_CALLS       : 0,
+              Portfolio.NUM_PUTS       : 0,
+              Portfolio.TOTAL_GAIN_LOSS : 0.0
+              
+            } 
+        def cal_port(x_tuple):
+    
+            x = x_tuple[1]
+            if x.get_right() == 'C':
+                port_v[Portfolio.TOTAL_DELTA_C] += x.get_port_field(PortfolioItem.POSITION_DELTA)
+                port_v[Portfolio.TOTAL_THETA_C] += x.get_port_field(PortfolioItem.POSITION_THETA)
+                ##
+                # hard coded logic
+                #
+                port_v[Portfolio.NUM_CALLS] += (
+                    x.get_quantity() * PortfolioRules.rule_map['option_structure'][x.get_symbol_id()]['multiplier'] / 50)
+
+            elif x.get_right() == 'P':
+                port_v[Portfolio.TOTAL_DELTA_P] += x.get_port_field(PortfolioItem.POSITION_DELTA)
+                port_v[Portfolio.TOTAL_THETA_P] += x.get_port_field(PortfolioItem.POSITION_THETA)
+                port_v[Portfolio.NUM_PUTS] += (
+                    x.get_quantity() * PortfolioRules.rule_map['option_structure'][x.get_symbol_id()]['multiplier'] / 50)
+            elif x.get_instrument_type() == 'FUT':
+                port_v[Portfolio.TOTAL_DELTA_F] += x.get_port_field(PortfolioItem.POSITION_DELTA)
+                
+            port_v[Portfolio.TOTAL_DELTA] += x.get_port_field(PortfolioItem.POSITION_DELTA)
+            port_v[Portfolio.TOTAL_THETA] += x.get_port_field(PortfolioItem.POSITION_THETA)
+            port_v[Portfolio.TOTAL_GAIN_LOSS] += x.get_port_field(PortfolioItem.UNREAL_PL)
+            port_v[Portfolio.TOTAL_GAMMA_PERCENT] += x.get_port_field(PortfolioItem.GAMMA_PERCENT)
+            
+        map(cal_port, p2_items)            
+        self.port['port_v'] = port_v 
+        return self.port['port_v']
 
     def dump_portfolio(self):
         #<account_id>: {'port_items': {<contract_key>, instrument}, 'opt_chains': {<oc_id>: option_chain}}

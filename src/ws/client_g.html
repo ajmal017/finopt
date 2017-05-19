@@ -8,7 +8,7 @@
 </head>
 
 <body>
-   <div id="table_div" style="height:500"></div>
+   <div id="table_div" style="height:600"></div>
    <button id="change-btn">change columns</button>
    <button id="test-btn">test</button>
   <form onsubmit="onSubmit(); return false;">
@@ -25,7 +25,9 @@
 	var view = null;
 	var data = null;
 	var table= null;   
-    var options = {allowHtml: true, sortColumn:1, showRowNumber: true, width: '100%', height: '100%'};
+    var options = {allowHtml: true, sortColumn:1, 
+    		showRowNumber: true, width: '100%', height: '100%'};
+    
 	google.load("visualization", "1.1", {packages:["corechart", 'table','gauge']});
 	   //google.setOnLoadCallback(drawTable);
 	google.setOnLoadCallback(init);
@@ -56,34 +58,22 @@
     	var colorF = new google.visualization.ColorFormat();
     	colorF.addRange(-100, 0, 'white', 'red');
     	colorF.addRange(0, 100, 'white', 'blue');
-<<<<<<< HEAD
 
 
-	var colorGF = new google.visualization.ColorFormat();
-	colorGF.addGradientRange(null, null, 'white', 'orange', 'blue');
-
-    	 	    
-	    numF.format(data, 2);  //avg cost
-	    numF.format(data, 3);  //market value
-	    colorF.format(data, 6); // position
-	    percentF.format(data, 7); //delta		
-	    
-	    numF.format(data, 10); // position delta
-	    numF.format(data, 11); // position theta
-	    numF.format(data, 12); // position gamma
-	    colorGF.format(data, 13); //unreal p/l
-=======
-    	 	    
-	    
-	    numF.format(data, 3);  //market value
-	    colorF.format(data, 6); // position
-	    percentF.format(data, 7); //delta		
-	    percentF.format(data, 8); //theta    
-	    numF.format(data, 10); // position delta
-	    numF.format(data, 11); // position theta
-	    numF.format(data, 13); //unreal p/l
->>>>>>> branch 'ironfly' of https://github.com/laxaurus/finopt.git
-	    barF.format(data, 14) //% gain loss
+		var colorGF = new google.visualization.ColorFormat();
+		colorGF.addGradientRange(null, null, 'white', 'orange', 'blue');
+	
+	    	 	    
+		    numF.format(data, 2);  //avg cost
+		    numF.format(data, 3);  //market value
+		    colorF.format(data, 6); // position
+		    percentF.format(data, 7); //delta		
+		    
+		    numF.format(data, 10); // position delta
+		    numF.format(data, 11); // position theta
+		    numF.format(data, 12); // position gamma
+		    colorGF.format(data, 13); //unreal p/l
+		    barF.format(data, 14) //% gain loss
 		
 	}	   
 	   
@@ -111,17 +101,10 @@
 			console.log(d1);
 			data = new google.visualization.DataTable(d1.value);
 			view = new google.visualization.DataView(data);
-<<<<<<< HEAD
+
 			view.setRows(view.getFilteredRows([{column: 15, test: function(value, row, column, table) {
-=======
-			/*view.setRows(view.getFilteredRows([{column: 14, test: function(value, row, column, table) {
->>>>>>> branch 'ironfly' of https://github.com/laxaurus/finopt.git
-        return (value == 'HSI' || value == 'MHI') 
-<<<<<<< HEAD
-    }}]));
-=======
-    }}]));*/
->>>>>>> branch 'ironfly' of https://github.com/laxaurus/finopt.git
+		        return (value == 'HSI' || value == 'MHI') 
+		    }}]));
     		setupFormatter(data);
 			table = new google.visualization.Table(document.getElementById('table_div'));
 			table.draw(view, options);
@@ -129,7 +112,7 @@
            
         } else if (d1.event == 'event_tm_table_row_updated'){
 
-			//console.log(d1.value.row.toString()+ ':' + d1.value.row_values[0]['v']);
+			console.log(d1.value.row.toString()+ ':' + d1.value.row_values[0]['v']);
 			for (var c=2; c < d1.value.row_values.length; c++){
 				data.setCell(d1.value.row, c, d1.value.row_values[c]["v"]);
 
@@ -140,7 +123,6 @@
 			table.draw(view, options);
 //			table.draw(data);           
 
-<<<<<<< HEAD
         } else if (d1.event == 'event_tm_table_row_inserted'){
         	var newRow = d1.value.row_values.map(function(x){
         		return x['v'];
@@ -149,8 +131,6 @@
         	data.addRow(newRow);
         	options.sortColumn = table.getSortInfo().column;
         	table.draw(view, options);
-=======
->>>>>>> branch 'ironfly' of https://github.com/laxaurus/finopt.git
         }
         
       };

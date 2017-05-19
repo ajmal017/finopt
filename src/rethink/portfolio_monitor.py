@@ -2,11 +2,10 @@
 import sys, traceback
 import logging
 import json, threading
-import time, datetime
 import copy
 from optparse import OptionParser
 from time import sleep
-from misc2.observer import Subscriber, Publisher
+import time
 from misc2.helpers import ContractHelper
 from finopt.instrument import Symbol, Option
 from rethink.option_chain import OptionsChain
@@ -88,6 +87,7 @@ class PortfolioMonitor(AbstractGatewayListener, AbstractPortfolioTableModelListe
                     elif selection == '2': 
                         for port in self.portfolios.values():
                             print port.dump_portfolio()
+                            print ''.join('%d:[%6.2f]\n' % (k, v) for k, v in port.calculate_port_pl().iteritems())
                     elif selection == '3': 
                         
                         print self.tds.dump()
@@ -186,6 +186,12 @@ class PortfolioMonitor(AbstractGatewayListener, AbstractPortfolioTableModelListe
             port_item.update_position(position, average_cost, extra_info)
             port_item.calculate_pl(contract_key)
             
+            # if the function call is triggered by accountUpdates from TWS
+            # (that is extra_info is not null)
+            if extra_info:
+                logging.info('PortfolioMonitor:process_position Recal overall port figures...')
+                port.calculate_port_pl()
+                
             
             # dispatch the update to internal listeners
             # and also send out the kafka message to external parties

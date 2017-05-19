@@ -1,8 +1,10 @@
 from websocket_server import WebsocketServer
 import logging, time, traceback
+import json, threading
+from optparse import OptionParser
+from time import sleep
 from threading import Thread
-import logging, copy, sys
-import json
+import copy, sys
 from misc2.observer import NotImplementedException, Subscriber, Publisher
 from rethink.table_model import AbstractTableModel
 from comms.ibgw.base_messaging import BaseMessageListener, Prosumer
@@ -146,11 +148,8 @@ class PortfolioTableModelListener(BaseMessageListener):
     '''
     
     '''
-<<<<<<< HEAD
+
     CACHE_MAX = 12
-=======
-    CACHE_MAX = 15
->>>>>>> branch 'ironfly' of https://github.com/laxaurus/finopt.git
     TIME_MAX = 1.0
     
     def __init__(self, name, server_wrapper):
@@ -235,11 +234,7 @@ class MainWebSocketServer(BaseWebSocketServerWrapper):
 #                   'event_tm_table_row_updated', 'event_tm_table_structure_changed']
         topics = AbstractTableModel.TM_EVENTS
                 
-        self.message_handler = Prosumer(name='tblMessageHandler', kwargs={'bootstrap_host':'localhost', 'bootstrap_port':9092,
-                                        'redis_host':'localhost', 'redis_port':6379, 'redis_db':0,
-                                        'group_id': 'TMH1', 'session_timeout_ms':10000,
-                                                 'topics': topics, 'clear_offsets' : False,
-                                                 'seek_to_end': ['*']})
+        self.message_handler = Prosumer(name='tblMessageHandler', kwargs=kwargs)
         tbl_listener = PortfolioTableModelListener('portTableModelListener', self)
         
         self.message_handler.add_listeners([tbl_listener])
@@ -254,19 +249,75 @@ class MainWebSocketServer(BaseWebSocketServerWrapper):
         # server_handler_map: {<source_id>: client}
         self.server_handler_map ={}
 
-        self.once = False
+        
         
     def loop_forever(self):
-        #logging.info('ChartTableWebSocketServer:loop_forever. Server started. Awaiting clients on port %d...' % self.kwargs['ws_port'])
-        time.sleep(1.5)
-#         if self.once == False:
-#             #self.once = True
-#             pass
-            #print 'sending stuff.. %s' % str(list(self.clients.iteritems()))
-            #val = {"rows": [{"c": [{"v": None}, {"v": 0}, {"v": -1.0}, {"v": -1.0}, {"v": 0}, {"v": 0.10314003859558614}, {"v": 0.7826350260448144}, {"v": -0.8130331453280795}, {"v": 23200.0}, {"v": 199.0}, {"v": 13}, {"v": 200.0}, {"v": 203.0}, {"v": 9}, {"v": 0.1287553281467331}, {"v": -0.25764241296227725}, {"v": -3.9381700903769823}]}, {"c": [{"v": None}, {"v": 5}, {"v": 897.0}, {"v": 937.0}, {"v": 5}, {"v": 0.08665033676603795}, {"v": 0.7518657873829434}, {"v": -0.6491859913057388}, {"v": 23400.0}, {"v": 246.0}, {"v": 8}, {"v": 249.0}, {"v": 252.0}, {"v": 13}, {"v": 0.12467434512421184}, {"v": -0.30878588256514583}, {"v": -4.234706968036659}]}, {"c": [{"v": None}, {"v": 5}, {"v": 756.0}, {"v": 796.0}, {"v": 5}, {"v": 0.06917053429732452}, {"v": 0.7065398873108217}, {"v": -0.4568940724016388}, {"v": 23600.0}, {"v": 307.0}, {"v": 13}, {"v": 308.0}, {"v": 310.0}, {"v": 4}, {"v": 0.12166656748142592}, {"v": -0.3681170702764589}, {"v": -4.515692106261017}]}, {"c": [{"v": 668.0}, {"v": 8}, {"v": 643.0}, {"v": 651.0}, {"v": 15}, {"v": 0.15305605752615425}, {"v": 0.551878304534173}, {"v": -3.783418388352659}, {"v": 23800.0}, {"v": 370.0}, {"v": 13}, {"v": 377.0}, {"v": 380.0}, {"v": 4}, {"v": 0.11601208353248117}, {"v": -0.43234383475205207}, {"v": -4.626457472864576}]}, {"c": [{"v": 536.0}, {"v": 8}, {"v": 524.0}, {"v": 540.0}, {"v": 15}, {"v": 0.14488937693281984}, {"v": 0.496787463346073}, {"v": -3.6799128088230453}, {"v": 24000.0}, {"v": 454.0}, {"v": 13}, {"v": 459.0}, {"v": 463.0}, {"v": 4}, {"v": 0.11243933205263512}, {"v": -0.5040128056340836}, {"v": -4.709556903241067}]}, {"c": [{"v": 433.0}, {"v": 5}, {"v": 422.0}, {"v": 426.0}, {"v": 4}, {"v": 0.14133844893390238}, {"v": 0.4384634388814806}, {"v": -3.635465401601853}, {"v": 24200.0}, {"v": 545.0}, {"v": 8}, {"v": 554.0}, {"v": 559.0}, {"v": 4}, {"v": 0.10680389782080972}, {"v": -0.5813432653714156}, {"v": -4.609331667196781}]}, {"c": [{"v": 339.0}, {"v": 13}, {"v": 333.0}, {"v": 336.0}, {"v": 4}, {"v": 0.13701853367669384}, {"v": 0.3782401877904869}, {"v": -3.4689303296964726}, {"v": 24400.0}, {"v": 663.0}, {"v": 8}, {"v": 664.0}, {"v": 669.0}, {"v": 4}, {"v": 0.10412411926510369}, {"v": -0.6579560810486558}, {"v": -4.478018972534759}]}, {"c": [{"v": 263.0}, {"v": 13}, {"v": 258.0}, {"v": 261.0}, {"v": 9}, {"v": 0.13426029637185147}, {"v": 0.3198261486390377}, {"v": -3.2585790706722135}, {"v": 24600.0}, {"v": 808.0}, {"v": 5}, {"v": 770.0}, {"v": 810.0}, {"v": 5}, {"v": 0.1050354544615176}, {"v": -0.7238166080971229}, {"v": -4.352834698986921}]}, {"c": [{"v": 201.0}, {"v": 8}, {"v": 197.0}, {"v": 199.0}, {"v": 9}, {"v": 0.13217043393596928}, {"v": 0.2649097174462373}, {"v": -2.989063157888885}, {"v": 24800.0}, {"v": None}, {"v": 5}, {"v": 909.0}, {"v": 949.0}, {"v": 5}, {"v": 0.0}, {"v": 0.0}, {"v": 0.0}]}], "cols": [{"type": "number", "id": "last", "label": "last"}, {"type": "number", "id": "bidq", "label": "bidq"}, {"type": "number", "id": "bid", "label": "bid"}, {"type": "number", "id": "ask", "label": "ask"}, {"type": "number", "id": "askq", "label": "askq"}, {"type": "number", "id": "ivol", "label": "ivol"}, {"type": "number", "id": "delta", "label": "delta"}, {"type": "number", "id": "theta", "label": "theta"}, {"type": "number", "id": "strike", "label": "strike"}, {"type": "number", "id": "last", "label": "last"}, {"type": "number", "id": "bidq", "label": "bidq"}, {"type": "number", "id": "bid", "label": "bid"}, {"type": "number", "id": "ask", "label": "ask"}, {"type": "number", "id": "askq", "label": "askq"}, {"type": "number", "id": "ivol", "label": "ivol"}, {"type": "number", "id": "delta", "label": "delta"}, {"type": "number", "id": "theta", "label": "theta"}]}
 
-            #msg = self.encode_message('update_chart', val)
-            #map(lambda x: self.server.send_message(x[1], msg), list(self.clients.iteritems()))
+        try:
+            def print_menu():
+                menu = {}
+                menu['1']="" 
+                menu['2']=""
+                menu['3']=""
+                menu['4']=""
+                menu['5']=""
+                menu['6']=""
+                menu['9']="Exit"
+        
+                choices=menu.keys()
+                choices.sort()
+                for entry in choices: 
+                    print entry, menu[entry]                             
+                
+            def get_user_input(selection):
+                    logging.info('MainWebSocketServer:main_loop ***** accepting console input...')
+                    print_menu()
+                    while 1:
+                        resp = sys.stdin.readline()
+                        response[0]= resp.strip('\n')
+                        #print response[0]
+                                
+            
+            response = [None]
+            user_input_th = threading.Thread(target=get_user_input, args=(response,))
+            user_input_th.daemon = True
+            user_input_th.start()               
+            while True:
+                sleep(0.4)
+                
+                if response[0] is not None:
+                    selection = response[0]
+                    if selection =='1':
+                        pass
+                    elif selection == '2':
+                        pass 
+                    elif selection == '3':
+                        pass                         
+                    elif selection == '4':
+                        pass                         
+                    elif selection == '5':
+                        pass                        
+                    elif selection == '6':
+                        pass
+                    elif selection == '9': 
+                        self.message_handler.set_stop()
+                        sleep(1)
+                        self.stop_server()
+                        sleep(1)
+                        break
+                    else: 
+                        pass                        
+                    response[0] = None
+                    print_menu()
+            
+                    
+        except (KeyboardInterrupt, SystemExit):
+            logging.error('MainWebSocketServer: caught user interrupt. Shutting down...')
+            self.message_handler.set_stop() 
+            logging.info('MainWebSocketServer: Service shut down complete...')   
+
+
+
             
     def encode_message(self, event_type, content):        
         return json.dumps({'event': event_type, 'value': content})
@@ -296,18 +347,55 @@ class MainWebSocketServer(BaseWebSocketServerWrapper):
 def main():
     
     kwargs = {
+      'name': 'WebSocketServer',
+      'bootstrap_host': 'localhost',
+      'bootstrap_port': 9092,
+      'redis_host': 'localhost',
+      'redis_port': 6379,
+      'redis_db': 0,
+      'tws_host': 'localhost',
+      'group_id': 'WS',
+      'session_timeout_ms': 10000,
+      'clear_offsets':  False,
+      'logconfig': {'level': logging.INFO, 'filemode': 'w', 'filename': '/tmp/ws.log'},
+      'topics': AbstractTableModel.TM_EVENTS,
+      'seek_to_end': ['*'],
+              
       'ws_port': 9001,
 
     }       
+    
+
+    usage = "usage: %prog [options]"
+    parser = OptionParser(usage=usage)
+    parser.add_option("-c", "--clear_offsets", action="store_true", dest="clear_offsets",
+                      help="delete all redis offsets used by this program")
+    parser.add_option("-g", "--group_id",
+                      action="store", dest="group_id", 
+                      help="assign group_id to this running instance")
+    parser.add_option("-e", "--evaluation_date",
+                     action="store", dest="evaluation_date", 
+                     help="specify evaluation date for option calculations")   
+    
+    (options, args) = parser.parse_args()
+    if options.evaluation_date == None:
+        options.evaluation_date = time.strftime('%Y%m%d') 
+    
+    for option, value in options.__dict__.iteritems():
+        if value <> None:
+            kwargs[option] = value
+    
+      
+    logconfig = kwargs['logconfig']
+    logconfig['format'] = '%(asctime)s %(levelname)-8s %(message)s'    
+    logging.basicConfig(**logconfig)        
+        
+    
     esw = MainWebSocketServer('ChartTableWS', kwargs)    
     esw.start_server()
 
     
     
 if __name__ == "__main__":
-    logging.basicConfig(
-        format='%(asctime)s.%(msecs)s:%(name)s:%(thread)d:%(levelname)s:%(process)d:%(message)s',
-        level=logging.INFO
-        )
     main()
     
