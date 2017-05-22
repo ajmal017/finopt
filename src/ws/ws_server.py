@@ -256,8 +256,8 @@ class MainWebSocketServer(BaseWebSocketServerWrapper):
         try:
             def print_menu():
                 menu = {}
-                menu['1']="" 
-                menu['2']=""
+                menu['1']="set dirty count1 limit" 
+                menu['2']="set flush timeout"
                 menu['3']=""
                 menu['4']=""
                 menu['5']=""
@@ -360,7 +360,8 @@ def main():
       'logconfig': {'level': logging.INFO, 'filemode': 'w', 'filename': '/tmp/ws.log'},
       'topics': AbstractTableModel.TM_EVENTS,
       'seek_to_end': ['*'],
-              
+      'ws_flush_timeout': 2000,
+      'ws_dirty_count': 15,
       'ws_port': 9001,
 
     }       

@@ -15,6 +15,7 @@ from numpy import average
 from rethink.table_model import AbstractTableModel
 from gtk.keysyms import percent
 
+
 class PortfolioRules():
     rule_map = {
                 'symbol': {'HSI' : 'FUT', 'MHI' : 'FUT', 'QQQ' : 'STK'},
@@ -327,7 +328,11 @@ class Portfolio(AbstractTableModel):
             port_v[Portfolio.TOTAL_DELTA] += x.get_port_field(PortfolioItem.POSITION_DELTA)
             port_v[Portfolio.TOTAL_THETA] += x.get_port_field(PortfolioItem.POSITION_THETA)
             port_v[Portfolio.TOTAL_GAIN_LOSS] += x.get_port_field(PortfolioItem.UNREAL_PL)
-            port_v[Portfolio.TOTAL_GAMMA_PERCENT] += x.get_port_field(PortfolioItem.GAMMA_PERCENT)
+            try:
+                port_v[Portfolio.TOTAL_GAMMA_PERCENT] += x.get_port_field(PortfolioItem.GAMMA_PERCENT)
+            except:
+                logging.error('Portfolio:calculate_port_pl. Error calcuting gamma percent %s' % traceback.format_exc())
+                
             
         map(cal_port, p2_items)            
         self.port['port_v'] = port_v 
@@ -470,4 +475,41 @@ class Portfolio(AbstractTableModel):
     
     def dump_table_index_map(self):
         return '\n'.join('[%d]:%s' % (x[0], x[1]) for x in  self.port['g_table']['row_to_ckey_index'].items())       
+    
+    
+    
+    class PortfolioColumnChart:
+    
+        '''
+        
+            code to handle portfolio column chart
+        
+        
+            row1: <strike>, <month-contract_type-
+            
+        '''
+        def __init__(self, port):
+            self.port = port
+            
+        
+        def get_JSON(self):  
+            
+            
+            p_items = self.port['port_items'].items()
+            
+            # row values domain
+            # find out the strikes of all contracts purchased, for futures, use the average cost 
+            x_range  = set(
+                        map(lambda x:x.get_strike(), filter(lambda x: x.get_right() in 'OPT', p_items)) +   
+                        map(lambda x:x.get_port_field(PortfolioItem.AVERAGE_COST), filter(lambda x: x.get_right() in 'FUT', p_items))
+                       )
+        
+            # column values domain (month,symbol,contract_type)
+            y_range = set(map(lambda x:'%s-%s-%s' % (x.get_expiry(),  x.get_symbol_id(), x.get_instrument_type() ), p_items))
+            
+            x_range = sorted(list(x_range))
+            y_range = sorted(list(y_range))                    
+            
+
+            
         
