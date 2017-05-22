@@ -14,6 +14,7 @@ from rethink.tick_datastore import TickDataStore
 from numpy import average
 from rethink.table_model import AbstractTableModel
 from gtk.keysyms import percent
+import numpy as np
 
 
 class PortfolioRules():
@@ -478,38 +479,60 @@ class Portfolio(AbstractTableModel):
     
     
     
-    class PortfolioColumnChart:
-    
-        '''
-        
-            code to handle portfolio column chart
-        
-        
-            row1: <strike>, <month-contract_type-
-            
-        '''
-        def __init__(self, port):
-            self.port = port
-            
-        
-        def get_JSON(self):  
-            
-            
-            p_items = self.port['port_items'].items()
-            
-            # row values domain
-            # find out the strikes of all contracts purchased, for futures, use the average cost 
-            x_range  = set(
-                        map(lambda x:x.get_strike(), filter(lambda x: x.get_right() in 'OPT', p_items)) +   
-                        map(lambda x:x.get_port_field(PortfolioItem.AVERAGE_COST), filter(lambda x: x.get_right() in 'FUT', p_items))
-                       )
-        
-            # column values domain (month,symbol,contract_type)
-            y_range = set(map(lambda x:'%s-%s-%s' % (x.get_expiry(),  x.get_symbol_id(), x.get_instrument_type() ), p_items))
-            
-            x_range = sorted(list(x_range))
-            y_range = sorted(list(y_range))                    
-            
+class PortfolioColumnChart:
 
-            
+    '''
+    
+        code to handle portfolio column chart
+    
+    
+        row1: <strike>, <month-contract_type-
+        
+    '''
+    def __init__(self, port):
+        self.port = port
+        
+    
+    def get_JSON(self):  
+        
+        
+        p_items = self.port['port_items'].items()
+        
+        # row values domain
+        # find out the strikes of all contracts purchased, for futures, use the average cost 
+        x_range  = set(
+                    map(lambda x:x.get_strike(), filter(lambda x: x.get_right() in 'OPT', p_items)) +   
+                    map(lambda x:x.get_port_field(PortfolioItem.AVERAGE_COST), filter(lambda x: x.get_right() in 'FUT', p_items))
+                   )
+    
+        # column values domain (month,symbol,contract_type)
+        y_range = set(map(lambda x:'%s-%s-%s' % (x.get_expiry(),  x.get_symbol_id(), x.get_instrument_type() ), p_items))
+        
+        # sort the list then create a map that stores kv pairs of value:index_pos
+        x_range = sorted(list(x_range))
+        x_map = {}
+        for i in range(len(x_range)):
+            x_map[x_range[i]] = i
+        
+
+        y_range = sorted(list(y_range))
+        y_map = {}
+        for i in range(len(y_range)):
+            y_map[y_range[i]] = i  
+        
+        
+        def set_ij(p_item):
+            i = x_map[p_item.get_strike()]
+            j = y_map['%s-%s-%s' % (p_item.get_expiry(),  p_item.get_symbol_id(), p_item.get_instrument_type())]
+            v = p_item.get_quantity()
+            return (i,j,v)
+        
+        ijv_dist = map(set_ij, p_items)
+        xy_arr = np.array((len(x_range), len(y_range)))
+        
+        def update_ijv(ijv):
+            xy_arr[ijv[0], ijv[1]] = ijv[2]
+            return 1
+        
+        map(update_ijv, ijv_dist)
         

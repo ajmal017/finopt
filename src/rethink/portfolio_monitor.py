@@ -186,7 +186,8 @@ class PortfolioMonitor(AbstractGatewayListener, AbstractPortfolioTableModelListe
             port_item.update_position(position, average_cost, extra_info)
             port_item.calculate_pl(contract_key)
             
-            # if the function call is triggered by accountUpdates from TWS
+            # if the function call is triggered by event accountUpdates from TWS
+            # compute the overall portfolio greeks and p/l
             # (that is extra_info is not null)
             if extra_info:
                 logging.info('PortfolioMonitor:process_position Recal overall port figures...')

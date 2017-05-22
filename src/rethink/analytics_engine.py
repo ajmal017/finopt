@@ -40,7 +40,7 @@ class AnalyticsEngine(AbstractGatewayListener):
         
         oc2.set_option_structure(contract, 200, 50, 0.0012, 0.0328, expiry)        
         
-        oc2.build_chain(24172, 0.04, 0.22)
+        oc2.build_chain(25280, 0.04, 0.22)
         
 #         expiry='20170324'
 #         contractTuple = ('QQQ', 'STK', 'SMART', 'USD', '', 0, '')
@@ -65,7 +65,7 @@ class AnalyticsEngine(AbstractGatewayListener):
          
         oc3.set_option_structure(contract, 200, 50, 0.0012, 0.0328, expiry)        
          
-        oc3.build_chain(24172, 0.04, 0.22)
+        oc3.build_chain(25280, 0.04, 0.22)
 
 #         expiry = '20170331'
 #         contractTuple = ('QQQ', 'STK', 'SMART', 'USD', '', 0, '')
