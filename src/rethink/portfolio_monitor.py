@@ -10,7 +10,7 @@ from misc2.helpers import ContractHelper
 from finopt.instrument import Symbol, Option
 from rethink.option_chain import OptionsChain
 from rethink.tick_datastore import TickDataStore
-from rethink.portfolio_item import PortfolioItem, PortfolioRules, Portfolio
+from rethink.portfolio_item import PortfolioItem, PortfolioRules, Portfolio, PortfolioColumnChart
 from rethink.table_model import AbstractTableModel, AbstractPortfolioTableModelListener
 from comms.ibc.tws_client_lib import TWS_client_manager, AbstractGatewayListener
 
@@ -57,6 +57,7 @@ class PortfolioMonitor(AbstractGatewayListener, AbstractPortfolioTableModelListe
                 menu['4']="Request account updates"
                 menu['5']="Table chart JSON"
                 menu['6']="Table index mapping"
+                menu['7']="Position Distribution JSON"
                 menu['9']="Exit"
         
                 choices=menu.keys()
@@ -100,6 +101,10 @@ class PortfolioMonitor(AbstractGatewayListener, AbstractPortfolioTableModelListe
                     elif selection == '6':
                         for acct in self.portfolios.keys():
                             print self.portfolios[acct].dump_table_index_map() 
+                    elif selection == '7':
+                        for acct in self.portfolios.keys():
+                            pc = PortfolioColumnChart(self.portfolios[acct])
+                            print pc.get_JSON()
                             
                     elif selection == '9': 
                         self.twsc.gw_message_handler.set_stop()
@@ -113,7 +118,11 @@ class PortfolioMonitor(AbstractGatewayListener, AbstractPortfolioTableModelListe
             logging.error('PortfolioMonitor: caught user interrupt. Shutting down...')
             self.twsc.gw_message_handler.set_stop() 
             logging.info('PortfolioMonitor: Service shut down complete...')               
-    
+        except:
+            logging.error('PortfolioMonitor. caught user interrupt. Shutting down...%s' % traceback.format_exc())
+ 
+            self.twsc.gw_message_handler.set_stop() 
+            logging.info('PortfolioMonitor: Service shut down complete...')               
         
     def get_kproducer(self):
         # returns a reference to the kafka base producer that we can 
