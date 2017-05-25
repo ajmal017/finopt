@@ -182,27 +182,30 @@ def get_historical_prices(symbol, start_date, end_date):
     """
     Get historical prices for the given ticker symbol.
     Date format is 'YYYYMMDD'
-    http://www.google.com/finance/historical?q=AAPL&startdate=Nov%201,%202011&enddate=Nov%2030,%202011&output=csv
+    
     Returns a nested list.
     """
-#     url = 'http://ichart.yahoo.com/table.csv?s=%s&' % symbol + \
-#           'd=%s&' % str(int(end_date[4:6]) - 1) + \
-#           'e=%s&' % str(int(end_date[6:8])) + \
-#           'f=%s&' % str(int(end_date[0:4])) + \
-#           'g=d&' + \
-#           'a=%s&' % str(int(start_date[4:6]) - 1) + \
-#           'b=%s&' % str(int(start_date[6:8])) + \
-#           'c=%s&' % str(int(start_date[0:4])) + \
-#           'ignore=.csv'
-#     days = urllib.urlopen(url).readlines()
-#     data = [day[:-2].split(',') for day in days]
-#     return data
-    url = 'https://www.google.com/finance/historical?q=%s&startdate=%s&enddate=%s&output=csv' % (symbol, start_date, end_date)
+    url = 'http://ichart.yahoo.com/table.csv?s=%s&' % symbol + \
+          'd=%s&' % str(int(end_date[4:6]) - 1) + \
+          'e=%s&' % str(int(end_date[6:8])) + \
+          'f=%s&' % str(int(end_date[0:4])) + \
+          'g=d&' + \
+          'a=%s&' % str(int(start_date[4:6]) - 1) + \
+          'b=%s&' % str(int(start_date[6:8])) + \
+          'c=%s&' % str(int(start_date[0:4])) + \
+          'ignore=.csv'
+    days = urllib.urlopen(url).readlines()
+    data = [day[:-2].split(',') for day in days]
+    return data
+
+
+#ss = [["0001.HK",2.5],["0002.HK",1.86],["0003.HK",1.62],["0004.HK",1.27],["0005.HK",15.02],["0006.HK",1.44],["0011.HK",1.42],["0012.HK",0.82],["0013.HK",2.53],["0016.HK",2.53],["0017.HK",0.7],["0019.HK",1.01],["0023.HK",0.67],["0066.HK",0.67],["0083.HK",0.66],["0101.HK",0.94],["0144.HK",0.46],["0151.HK",1.14],["0267.HK",0.18],["0291.HK",0.46],["0293.HK",0.24],["0322.HK",0.71],["0330.HK",0.25],["0386.HK",1.88],["0388.HK",1.86],["0494.HK",1.06],["0688.HK",1.25],["0700.HK",4.52],["0762.HK",0.94],["0836.HK",0.49],["0857.HK",3.29],["0883.HK",4.38],["0939.HK",7.08],["0941.HK",8.08],["1044.HK",0.91],["1088.HK",1.59],["1109.HK",0.53],["1199.HK",0.27],["1299.HK",4.69],["1398.HK",5.25],["1880.HK",1.01],["1898.HK",0.43],["1928.HK",1.06],["2318.HK",1.85],["2388.HK",1.42],["2600.HK",0.19],["2628.HK",2.56],["3328.HK",0.71],["3988.HK",3.63]]
+#for s in ss:
+#    chg_percent = float(get_change(s[0]))/ float(get_price(s[0])) 
+#    print '["%s","HSI",%f,%f],' % (s[0], s[1], chg_percent)
     
-    #url = 'http://www.google.com/finance/historical?q=HSI&startdate=jan%201,2017&enddate=may%2019,2017&output=csv'
-    print url
-    csv = urllib.urlopen(url).readlines()
-    print csv
+    
+        
 
 
    

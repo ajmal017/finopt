@@ -10,7 +10,8 @@ from misc2.helpers import ContractHelper
 from finopt.instrument import Symbol, Option
 from rethink.option_chain import OptionsChain
 from rethink.tick_datastore import TickDataStore
-from rethink.portfolio_item import PortfolioItem, PortfolioRules, Portfolio, PortfolioColumnChart
+from rethink.portfolio_item import PortfolioItem, PortfolioRules, Portfolio
+from rethink.portfolio_column_chart import PortfolioColumnChart,PortfolioColumnChartTM
 from rethink.table_model import AbstractTableModel, AbstractPortfolioTableModelListener
 from comms.ibc.tws_client_lib import TWS_client_manager, AbstractGatewayListener
 
@@ -39,6 +40,11 @@ class PortfolioMonitor(AbstractGatewayListener, AbstractPortfolioTableModelListe
         self.portfolios = {}
         self.starting_engine = {}
         
+        
+        '''
+            portfolio_charts: {<account>, {'<chart type'>, <chart object ref>...
+        '''
+        self.portfolio_charts = {'PortfolioColumnChart': None}
     
 
             
@@ -135,6 +141,10 @@ class PortfolioMonitor(AbstractGatewayListener, AbstractPortfolioTableModelListe
             return self.portfolios[account]
         except KeyError:
             self.portfolios[account] = Portfolio(account)
+            #
+            # set up portfolio chart objects
+            #
+            self.portfolio_charts[account] = {'PortfolioColumnChartTM': PortfolioColumnChartTM(self.portfolios[account])}
         return self.portfolios[account]
     
     def deduce_option_underlying(self, option):
@@ -390,6 +400,8 @@ class PortfolioMonitor(AbstractGatewayListener, AbstractPortfolioTableModelListe
         port.fire_table_row_updated(row, rvs)
         event_type = AbstractTableModel.EVENT_TM_TABLE_ROW_UPDATED if mode == 'U' else AbstractTableModel.EVENT_TM_TABLE_ROW_INSERTED
         self.get_kproducer().send_message(event_type, json.dumps({'source': '%s' % port.get_object_name(), 'row': row, 'row_values': rvs}))
+    
+        
     
     # implment AbstractPortfolioTableModelListener
     # handle requests to get data table json

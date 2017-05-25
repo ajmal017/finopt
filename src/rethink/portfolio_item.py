@@ -13,8 +13,7 @@ from rethink.option_chain import OptionsChain
 from rethink.tick_datastore import TickDataStore
 from numpy import average
 from rethink.table_model import AbstractTableModel
-from gtk.keysyms import percent
-import numpy as np
+
 
 
 class PortfolioRules():
@@ -481,107 +480,3 @@ class Portfolio(AbstractTableModel):
         return '\n'.join('[%d]:%s' % (x[0], x[1]) for x in  self.port['g_table']['row_to_ckey_index'].items())       
     
     
-    
-class PortfolioColumnChart:
-
-    '''
-    
-        code to handle portfolio column chart
-    
-    
-        row1: <strike>, <month-contract_type-
-        
-    '''
-    def __init__(self, pf):
-        self.pf = pf
-        
-    
-    def get_JSON(self):  
-        
-        
-        p2_items = self.pf.get_portfolio_port_items().values()
-        p1_items = filter(lambda x: x.get_symbol_id() in PortfolioRules.rule_map['interested_position_types']['symbol'], p2_items)
-        p_items = filter(lambda x: x.get_instrument_type() in  PortfolioRules.rule_map['interested_position_types']['instrument_type'], p1_items)
-        
-        print ','.join(str(x.get_strike()) for x in p_items)
-        # row values domain
-        # find out the strikes of all contracts purchased, for futures, use the average cost 
-        x_range  = set(
-                    map(lambda x:int(round(x.get_strike(),-1)), filter(lambda x: x.get_instrument_type() in 'OPT', p_items)) +   
-                    map(lambda x:int(round(x.get_port_field(PortfolioItem.AVERAGE_PRICE),-1)), filter(lambda x: x.get_instrument_type() in 'FUT', p_items))
-                   )
-    
-        # column values domain (month,symbol,contract_type, right)
-        y_range = set(map(lambda x:'%s-%s-%s-%s' % (x.get_expiry(),  x.get_symbol_id(), 
-                                                    x.get_instrument_type(), x.get_right() ), p_items))
-        
-
-
-        # sort the list then create a map that stores kv pairs of value:index_pos
-        x_range = sorted(list(x_range))
-        print x_range
-        x_map = {}
-        x_map_reverse = {}
-        for i in range(len(x_range)):
-            x_map[x_range[i]] = i
-            x_map_reverse[i] = x_range[i]
-        print '---xmap and xmap reverse' 
-        print x_map
-        print x_map_reverse
-        print '----'
-
-        y_range = sorted(list(y_range))
-        y_map = {}
-        y_map_reverse = {}
-        for i in range(len(y_range)):
-            y_map[y_range[i]] = i
-            y_map_reverse[i]= y_range[i]  
-        
-        print '---ymap and ymap reverse' 
-        print y_map
-        print y_map_reverse
-        print '----'
-        def set_ij(p_item):
-            if p_item.get_instrument_type() == 'FUT':
-                i = x_map[int(round(p_item.get_port_field(PortfolioItem.AVERAGE_PRICE), -1))]
-                #
-                # hard code logic below to convert number of MHI in HSI unit (that is 5:1)
-                v = p_item.get_quantity() *\
-                 (PortfolioRules.rule_map['option_structure'][p_item.get_symbol_id()]['multiplier'] /
-                  PortfolioRules.rule_map['option_structure']['HSI']['multiplier'] 
-                  )
-                
-                
-            else:
-                i = x_map[int(round(p_item.get_strike(), -1))]
-                v = p_item.get_quantity()
-            j = y_map['%s-%s-%s-%s' % (p_item.get_expiry(),  p_item.get_symbol_id(), p_item.get_instrument_type(), p_item.get_right())]
-            
-            return (i,j,v)
-        
-        ijv_dist = map(set_ij, p_items)
-        print ijv_dist
-        xy_arr = np.zeros((len(x_range), len(y_range)))
-        
-        def update_ijv(ijv):
-            xy_arr[ijv[0], ijv[1]] = ijv[2]
-            return 1
-        
-        map(update_ijv, ijv_dist)
-        print xy_arr
-        
-        def gen_datatable():
-            ccj = {'cols':[{'id': 'strike', 'label': 'strike', 'type': 'number'}], 'rows':[]}
-            for j in range(len(y_map_reverse)):
-                ccj['cols'].append({'id': y_map_reverse[j], 'label': y_map_reverse[j], 'type': 'number' })
-                
-            def row_item(i):
-                for m in range(xy_arr.shape[1]):
-                    ccj['rows'][i]['c'].append({'v':xy_arr[i][m]})     
-                               
-            for i in range(len(x_map_reverse)):
-                ccj['rows'].append({'c':[{'v':x_map_reverse[i]}]})
-                row_item(i)
-            return ccj    
-                
-        return gen_datatable()
