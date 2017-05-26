@@ -412,20 +412,20 @@ class PortfolioMonitor(AbstractGatewayListener, AbstractPortfolioTableModelListe
         self.get_kproducer().send_message(event_type, json.dumps({'source': '%s' % port.get_object_name(), 'row': row, 'row_values': rvs}))
     
         # notify chart objects to do their thing...
-        try:
-            pcc = self.portfolio_charts[account]['PortfolioColumnChartTM']
-            if mode == 'I':
-                
-                pcc.fire_table_structure_changed(AbstractTableModel.EVENT_TM_TABLE_STRUCTURE_CHANGED, 
-                                                 pcc.get_object_name(), None, account, pcc.get_JSON())
-            else:
-                row = pcc.ckey_to_row(contract_key)
-                rvs = pcc.get_values_at(row)
-                pcc.fire_table_row_updated(row, rvs)
-                
-        except KeyError:
-            # object does not exist yet?
-            logging.error('PortfolioMonitor:notify_table_model_changes. %s' % traceback.format_exc() )
+#         try:
+#             pcc = self.portfolio_charts[account]['PortfolioColumnChartTM']
+#             if mode == 'I':
+#                 
+#                 pcc.fire_table_structure_changed(AbstractTableModel.EVENT_TM_TABLE_STRUCTURE_CHANGED, 
+#                                                  pcc.get_object_name(), None, account, pcc.get_JSON())
+#             else:
+#                 row = pcc.ckey_to_row(contract_key)
+#                 rvs = pcc.get_values_at(row)
+#                 pcc.fire_table_row_updated(row, rvs)
+#                 
+#         except KeyError:
+#             # object does not exist yet?
+#             logging.error('PortfolioMonitor:notify_table_model_changes. %s' % traceback.format_exc() )
     
     # implment AbstractPortfolioTableModelListener
     # handle requests to get data table json

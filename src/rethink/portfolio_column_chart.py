@@ -168,6 +168,7 @@ class PortfolioColumnChartTM(PortfolioColumnChart, AbstractTableModel, AbstractP
     def __init__(self, name, pf,  kproducer):
         
         PortfolioColumnChart.__init__(self, pf)
+        AbstractTableModel.__init__(self)
         AbstractPortfolioTableModelListener.__init__(self, name)
         self.request_ids = {}
         self.kproducer = kproducer
