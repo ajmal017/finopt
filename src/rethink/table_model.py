@@ -31,8 +31,11 @@ class AbstractTableModel(Publisher):
     
     def fire_table_row_inserted(self, row, row_values):
         self.dispatch(AbstractTableModel.EVENT_TM_TABLE_ROW_INSERTED, {'row': row, 'row_values': row_values})
-        
-        
+     
+    def fire_table_structure_changed(self, event, source, origin_request_id, account, data_table_json):
+        self.dispatch(AbstractTableModel.EVENT_TM_TABLE_STRUCTURE_CHANGED, {'source': source, 
+                                                      'origin_request_id': origin_request_id, 'account': account, 
+                                                      'data_table_json': data_table_json})
     def get_column_count(self):
         raise NotImplementedException
     
@@ -80,7 +83,7 @@ class AbstractPortfolioTableModelListener(BaseMessageListener):
     def event_tm_table_structure_changed(self, event, source, origin_request_id, account, data_table_json):
         logging.info("[%s] received %s content:[%s]" % (self.name, event, vars()))
         
-    def event_tm_request_table_structure(self, event, request_id, account):
+    def event_tm_request_table_structure(self, event, request_id, target_resource, account):
         logging.info("[%s] received %s content:[%s]" % (self.name, event, vars()))        
     
 

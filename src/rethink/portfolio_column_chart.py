@@ -37,6 +37,8 @@ class PortfolioColumnChart():
         self.col_header = {'y_map': None, 'y_map_reverse': None}
         self.row_header = {'x_map': None, 'x_map_reverse': None}
     
+    def get_object_name(self):
+        return 'p-%s' % (id(self))   
     
     def ckey_to_row(self, contract_key):
         
@@ -162,6 +164,16 @@ class PortfolioColumnChart():
     
 class PortfolioColumnChartTM(PortfolioColumnChart, AbstractTableModel, AbstractPortfolioTableModelListener):
     
+    
+    def __init__(self, name, pf,  kproducer):
+        
+        PortfolioColumnChart.__init__(self, pf)
+        AbstractPortfolioTableModelListener.__init__(self, name)
+        self.request_ids = {}
+        self.kproducer = kproducer
+        
+        
+        
 #     def get_column_count(self):
 #         raise NotImplementedException
 #     
@@ -185,7 +197,13 @@ class PortfolioColumnChartTM(PortfolioColumnChart, AbstractTableModel, AbstractP
 #     
 #     def insert_row(self, values):
 #         raise NotImplementedException
+
+
+    def event_tm_table_structure_changed(self, event, source, origin_request_id, account, data_table_json):
+        logging.info("[PortfolioColumnChartTM:%s] received %s content:[%s]" % (self.name, event, vars()))
     
-    def event_tm_request_table_structure(self, event, request_id, account):
-        logging.info("[PortfolioColumnChartTM:%s] received %s content:[%s]" % (self.name, event, vars()))       
+    def event_tm_request_table_structure(self, event, request_id, target_resource, account):
+        self.request_ids[request_id] = {'request_id': request_id, 'account': account}
+        logging.info("[PortfolioColumnChartTM:%s] received %s content:[%s]" % (self.name, event, vars()))
+               
     

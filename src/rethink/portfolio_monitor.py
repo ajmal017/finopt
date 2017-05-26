@@ -44,7 +44,7 @@ class PortfolioMonitor(AbstractGatewayListener, AbstractPortfolioTableModelListe
         '''
             portfolio_charts: {<account>, {'<chart type'>, <chart object ref>...
         '''
-        self.portfolio_charts = {'PortfolioColumnChart': None}
+        self.portfolio_charts = {}
     
 
             
@@ -140,11 +140,21 @@ class PortfolioMonitor(AbstractGatewayListener, AbstractPortfolioTableModelListe
         try:
             return self.portfolios[account]
         except KeyError:
+            # create a new portfolio
             self.portfolios[account] = Portfolio(account)
             #
-            # set up portfolio chart objects
+            # set up portfolio chart objects1
             #
-            self.portfolio_charts[account] = {'PortfolioColumnChartTM': PortfolioColumnChartTM(self.portfolios[account])}
+            pcc = PortfolioColumnChartTM('PortfolioColumnChartTM-%s' % account,
+                                                                     self.portfolios[account], 
+                                                                     self.get_kproducer())
+            self.portfolio_charts[account] = {'PortfolioColumnChartTM': pcc}
+                                              
+            print 'here2'
+            self.twsc.add_listener_topics(pcc, kwargs['topics'])
+            print 'here3'
+            logging.info('PortfoioMonitor:get_portfolio creating port and chart object...%s' % account)
+            print 'end'
         return self.portfolios[account]
     
     def deduce_option_underlying(self, option):
@@ -401,11 +411,25 @@ class PortfolioMonitor(AbstractGatewayListener, AbstractPortfolioTableModelListe
         event_type = AbstractTableModel.EVENT_TM_TABLE_ROW_UPDATED if mode == 'U' else AbstractTableModel.EVENT_TM_TABLE_ROW_INSERTED
         self.get_kproducer().send_message(event_type, json.dumps({'source': '%s' % port.get_object_name(), 'row': row, 'row_values': rvs}))
     
-        
+        # notify chart objects to do their thing...
+        try:
+            pcc = self.portfolio_charts[account]['PortfolioColumnChartTM']
+            if mode == 'I':
+                
+                pcc.fire_table_structure_changed(AbstractTableModel.EVENT_TM_TABLE_STRUCTURE_CHANGED, 
+                                                 pcc.get_object_name(), None, account, pcc.get_JSON())
+            else:
+                row = pcc.ckey_to_row(contract_key)
+                rvs = pcc.get_values_at(row)
+                pcc.fire_table_row_updated(row, rvs)
+                
+        except KeyError:
+            # object does not exist yet?
+            logging.error('PortfolioMonitor:notify_table_model_changes. %s' % traceback.format_exc() )
     
     # implment AbstractPortfolioTableModelListener
     # handle requests to get data table json
-    def event_tm_request_table_structure(self, event, request_id, account):
+    def event_tm_request_table_structure(self, event, request_id, target_resource, account):
         try:
             self.get_kproducer().send_message(AbstractTableModel.EVENT_TM_TABLE_STRUCTURE_CHANGED,                                               
                                           json.dumps({'source': self.portfolios[account].get_object_name(), 
@@ -435,6 +459,7 @@ if __name__ == '__main__':
       'clear_offsets':  False,
       'logconfig': {'level': logging.INFO, 'filemode': 'w', 'filename': '/tmp/pm.log'},
       'topics': ['position', 'positionEnd', 'tickPrice', 'update_portfolio_account', 'event_tm_request_table_structure'],
+      'tm_topics': AbstractTableModel.TM_EVENTS + AbstractTableModel.TM_REQUESTS,
       'seek_to_end': ['*'],
       
       
