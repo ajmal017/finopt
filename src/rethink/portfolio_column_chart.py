@@ -10,7 +10,10 @@ class PortfolioColumnChart():
     '''
     
         code to handle portfolio column chart
-    
+        
+        vertical down: each row (i) is a strike price for an option or the avg px for a futures contract
+        across: each column (j) is the contract type
+        the value [i,j] stores the quantity of a contract (j) with the corresponding strike/avg cost (i)
     
         [[ 0.   0.   0.  -2.   0. ]
          [ 0.   0.   0.  -1.   0. ]
@@ -34,8 +37,8 @@ class PortfolioColumnChart():
     def __init__(self, pf):
         self.pf = pf
         self.xy_arr = None
-        self.col_header = {'y_map': None, 'y_map_reverse': None}
-        self.row_header = {'x_map': None, 'x_map_reverse': None}
+        self.col_header = {'j_contract_to_col_num': None, 'j_contract_to_col_num_reverse': None}
+        self.row_header = {'i_strike_to_row_num': None, 'i_strike_to_row_num_reverse': None}
     
     def get_object_name(self):
         return 'p-%s' % (id(self))   
@@ -45,17 +48,19 @@ class PortfolioColumnChart():
         p_item= self.pf.is_contract_in_portfolio(contract_key)
         if p_item:
             if p_item.get_instrument_type() == 'OPT':
-                row = self.row_header['x_map'][p_item.get_strike()]
+                logging.info('*********************8 ckey_to_row: %d' % int(p_item.get_strike()))
+                row = self.row_header['i_strike_to_row_num'][int(p_item.get_strike())]
+                logging.info('*********************8 ckey_to_row row # %d' % row)
                 return row
             else:  #FUT average price 
-                col = self.col_header['y_map'][self.make_col_header(p_item)]
+                col = self.col_header['j_contract_to_col_num'][self.make_col_header(p_item)]
                 for i in self.xy_arr.shape[0]:
                     if self.xy_arr[i][col] <> 0:
                         return i
         
            
     def get_values_at(self, row):
-        rf = [{'v': self.row_header['x_map_reverse'][row]}]
+        rf = [{'v': self.row_header['i_strike_to_row_num_reverse'][row]}]
         for rv in self.xy_arr[row]:
             rf.append({'v': rv})
         
@@ -72,51 +77,60 @@ class PortfolioColumnChart():
         p1_items = filter(lambda x: x.get_symbol_id() in PortfolioRules.rule_map['interested_position_types']['symbol'], p2_items)
         p_items = filter(lambda x: x.get_instrument_type() in  PortfolioRules.rule_map['interested_position_types']['instrument_type'], p1_items)
         
-        print ','.join(str(x.get_strike()) for x in p_items)
+        #i_strikes_range ','.join(str(x.get_strike()) for x in p_items)
         # row values domain
         # find out the strikes of all contracts purchased, for futures, use the average cost 
-        x_range  = set(
+        
+#         for p in p_items:
+#             print '%f %s' % (p.get_port_field(PortfolioItem.AVERAGE_COST), p.get_instrument_type() )
+            
+        
+        i_strikes_range  = set(
                     map(lambda x:int(round(x.get_strike(),-1)), filter(lambda x: x.get_instrument_type() in 'OPT', p_items)) +   
-                    map(lambda x:int(round(x.get_port_field(PortfolioItem.AVERAGE_PRICE),-1)), filter(lambda x: x.get_instrument_type() in 'FUT', p_items))
+                    map(lambda x:int(round(x.get_port_field(PortfolioItem.AVERAGE_COST) / 10,-1)), filter(lambda x: x.get_instrument_type() in 'FUT', p_items))
                    )
     
         # column values domain (month,symbol,contract_type, right)
-        y_range = set(map(self.make_col_header, p_items))
+        j_contract_types = set(map(self.make_col_header, p_items))
         
 
 
         # sort the list then create a map that stores kv pairs of value:index_pos
-        x_range = sorted(list(x_range))
-        print x_range
-        x_map = {}
-        x_map_reverse = {}
-        for i in range(len(x_range)):
-            x_map[x_range[i]] = i
-            x_map_reverse[i] = x_range[i]
-        print '---xmap and xmap reverse' 
-        print x_map
-        print x_map_reverse
-        print '----'
-        self.row_header['x_map'] = x_map
-        self.row_header['x_map_reverse'] = x_map_reverse
-
-        y_range = sorted(list(y_range))
-        y_map = {}
-        y_map_reverse = {}
-        for i in range(len(y_range)):
-            y_map[y_range[i]] = i
-            y_map_reverse[i]= y_range[i]  
+        i_strikes_range = sorted(list(i_strikes_range))
+        #print i_strikes_range
+        i_strike_to_row_num = {}
+        i_strike_to_row_num_reverse = {}
+        for m in range(len(i_strikes_range)):
+            i_strike_to_row_num[i_strikes_range[m]] = m
+            i_strike_to_row_num_reverse[m] = i_strikes_range[m]
         
-        print '---ymap and ymap reverse' 
-        print y_map
-        print y_map_reverse
-        print '----'
-        self.col_header['y_map'] = y_map
-        self.col_header['y_map_reverse'] = y_map_reverse
+        #print '---xmap and xmap reverse' 
+        print i_strike_to_row_num
+        #print i_strike_to_row_num_reverse
+        #print '---'
+        
+        
+        self.row_header['i_strike_to_row_num'] = i_strike_to_row_num
+        self.row_header['i_strike_to_row_num_reverse'] = i_strike_to_row_num_reverse
+
+        j_contract_types = sorted(list(j_contract_types))
+        j_contract_to_col_num = {}
+        j_contract_to_col_num_reverse = {}
+        for n in range(len(j_contract_types)):
+            j_contract_to_col_num[j_contract_types[n]] = n
+            j_contract_to_col_num_reverse[n]= j_contract_types[n]  
+        
+#         print '---ymap and ymap reverse' 
+        print j_contract_to_col_num
+#         print j_contract_to_col_num_reverse
+#         print '----'
+
+        self.col_header['j_contract_to_col_num'] = j_contract_to_col_num
+        self.col_header['j_contract_to_col_num_reverse'] = j_contract_to_col_num_reverse
         
         def set_ij(p_item):
             if p_item.get_instrument_type() == 'FUT':
-                i = x_map[int(round(p_item.get_port_field(PortfolioItem.AVERAGE_PRICE), -1))]
+                i = i_strike_to_row_num[int(round(p_item.get_port_field(PortfolioItem.AVERAGE_PRICE), -1))]
                 #
                 # hard code logic below to convert number of MHI in HSI unit (that is 5:1)
                 v = p_item.get_quantity() *\
@@ -126,15 +140,15 @@ class PortfolioColumnChart():
                 
                 
             else:
-                i = x_map[int(round(p_item.get_strike(), -1))]
+                i = i_strike_to_row_num[int(round(p_item.get_strike(), -1))]
                 v = p_item.get_quantity()
-            j = y_map[self.make_col_header(p_item)]
+            j = j_contract_to_col_num[self.make_col_header(p_item)]
             
             return (i,j,v)
         
         ijv_dist = map(set_ij, p_items)
         print ijv_dist
-        xy_arr = np.zeros((len(x_range), len(y_range)))
+        xy_arr = np.zeros((len(i_strikes_range), len(j_contract_types)))
         
         
         
@@ -147,15 +161,15 @@ class PortfolioColumnChart():
         
         def gen_datatable():
             ccj = {'cols':[{'id': 'strike', 'label': 'strike', 'type': 'number'}], 'rows':[]}
-            for j in range(len(y_map_reverse)):
-                ccj['cols'].append({'id': y_map_reverse[j], 'label': y_map_reverse[j], 'type': 'number' })
+            for j in range(len(j_contract_to_col_num_reverse)):
+                ccj['cols'].append({'id': j_contract_to_col_num_reverse[j], 'label': j_contract_to_col_num_reverse[j], 'type': 'number' })
                 
             def row_item(i):
                 for m in range(xy_arr.shape[1]):
                     ccj['rows'][i]['c'].append({'v':xy_arr[i][m]})     
                                
-            for i in range(len(x_map_reverse)):
-                ccj['rows'].append({'c':[{'v':x_map_reverse[i]}]})
+            for i in range(len(i_strike_to_row_num_reverse)):
+                ccj['rows'].append({'c':[{'v':i_strike_to_row_num_reverse[i]}]})
                 row_item(i)
             return ccj    
                 

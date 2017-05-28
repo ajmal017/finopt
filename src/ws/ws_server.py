@@ -338,7 +338,7 @@ class MainWebSocketServer(BaseWebSocketServerWrapper):
     def message_received(self, client, server, message):
         print 'message received %s' % message
         self.message_handler.send_message(AbstractTableModel.EVENT_TM_REQUEST_TABLE_STRUCTURE, 
-                                          json.dumps({'request_id' : client['id'], 'account': 'U8379890'}))
+                                          json.dumps({'request_id' : client['id'], 'target_resource': 'Portfolio', 'account': 'U8379890'}))
 
 
 

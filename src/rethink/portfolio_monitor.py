@@ -151,7 +151,7 @@ class PortfolioMonitor(AbstractGatewayListener, AbstractPortfolioTableModelListe
             self.portfolio_charts[account] = {'PortfolioColumnChartTM': pcc}
                                               
             print 'here2'
-            self.twsc.add_listener_topics(pcc, kwargs['topics'])
+            self.twsc.add_listener_topics(pcc, [AbstractTableModel.EVENT_TM_TABLE_STRUCTURE_CHANGED] )
             print 'here3'
             logging.info('PortfoioMonitor:get_portfolio creating port and chart object...%s' % account)
             print 'end'
@@ -260,7 +260,8 @@ class PortfolioMonitor(AbstractGatewayListener, AbstractPortfolioTableModelListe
             
             
             
-            
+    def update(self, event, param=None):
+        logging.warn('***** no handler for event %s. Captured by the default handler: update() ****')            
     
     #         EVENT_OPTION_UPDATED = 'oc_option_updated'
     #         EVENT_UNDERLYING_ADDED = 'oc_underlying_added
@@ -412,20 +413,21 @@ class PortfolioMonitor(AbstractGatewayListener, AbstractPortfolioTableModelListe
         self.get_kproducer().send_message(event_type, json.dumps({'source': '%s' % port.get_object_name(), 'row': row, 'row_values': rvs}))
     
         # notify chart objects to do their thing...
-#         try:
-#             pcc = self.portfolio_charts[account]['PortfolioColumnChartTM']
-#             if mode == 'I':
-#                 
-#                 pcc.fire_table_structure_changed(AbstractTableModel.EVENT_TM_TABLE_STRUCTURE_CHANGED, 
-#                                                  pcc.get_object_name(), None, account, pcc.get_JSON())
-#             else:
-#                 row = pcc.ckey_to_row(contract_key)
-#                 rvs = pcc.get_values_at(row)
-#                 pcc.fire_table_row_updated(row, rvs)
-#                 
-#         except KeyError:
-#             # object does not exist yet?
-#             logging.error('PortfolioMonitor:notify_table_model_changes. %s' % traceback.format_exc() )
+        try:
+            pcc = self.portfolio_charts[account]['PortfolioColumnChartTM']
+            if mode == 'I':
+                pcc.fire_table_structure_changed(AbstractTableModel.EVENT_TM_TABLE_STRUCTURE_CHANGED, 
+                                                 pcc.get_object_name(), None, account, pcc.get_JSON())
+            else:
+                row = pcc.ckey_to_row(contract_key)
+                rvs = pcc.get_values_at(row)
+                logging.info('PortfolioMonitor:notify_table_model_changes. PortfolioColumnChartTM %d' % row)
+                #pcc.fire_table_row_updated(row, rvs)
+                  
+        except: # KeyError:
+            # object does not exist yet?
+            # fields have no value causing computing errors? None objects?
+            logging.error('**** Error PortfolioMonitor:notify_table_model_changes. %s' % traceback.format_exc() )
     
     # implment AbstractPortfolioTableModelListener
     # handle requests to get data table json
@@ -439,6 +441,8 @@ class PortfolioMonitor(AbstractGatewayListener, AbstractPortfolioTableModelListe
             logging.error("PortfolioMonitor:event_tm_request_table_structure. Error invoking get_JSON[%s]. Client request id:%s, %s" %
                             account, request_id, ', '.join(e for e in sys.exc_info()))
             
+    def event_tm_table_structure_changed(self, event, source, origin_request_id, account, data_table_json):
+        logging.info("[PortfolioColumnChartTM:] received %s  content:[%s]" % (event, data_table_json)    )        
         
 if __name__ == '__main__':
     
@@ -458,8 +462,8 @@ if __name__ == '__main__':
       'session_timeout_ms': 10000,
       'clear_offsets':  False,
       'logconfig': {'level': logging.INFO, 'filemode': 'w', 'filename': '/tmp/pm.log'},
-      'topics': ['position', 'positionEnd', 'tickPrice', 'update_portfolio_account', 'event_tm_request_table_structure'],
-      'tm_topics': AbstractTableModel.TM_EVENTS + AbstractTableModel.TM_REQUESTS,
+      'topics': ['position', 'positionEnd', 'tickPrice', 'update_portfolio_account', 'event_tm_request_table_structure', AbstractTableModel.EVENT_TM_TABLE_STRUCTURE_CHANGED],
+      'tm_topics': [AbstractTableModel.EVENT_TM_TABLE_STRUCTURE_CHANGED, AbstractTableModel.EVENT_TM_REQUEST_TABLE_STRUCTURE],
       'seek_to_end': ['*'],
       
       

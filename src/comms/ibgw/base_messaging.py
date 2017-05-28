@@ -465,8 +465,8 @@ class Prosumer(BaseProducer):
     def add_listener_topics(self, listener, topics):
         try:
             map(lambda e: self.kconsumer.register(e, listener, getattr(listener, e)), topics)
-        except AttributeError as e:
-            logging.error("Prosumer:add_listener_topics. Function not implemented in the listener. %s" % e)
+        except AttributeError as ex:
+            logging.error("Prosumer:add_listener_topics. Function not implemented in the listener. %s" % ex)
             raise NotImplementedException
             
         
