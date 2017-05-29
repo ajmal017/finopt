@@ -235,7 +235,7 @@ class Portfolio(AbstractTableModel):
         AbstractTableModel.__init__(self)
         
     def get_object_name(self):
-        return 'p-%s-%s' % (self.account, id(self))
+        return json.dumps({'account': self.account, 'id': id(), 'class': self.__class__.__name__})
     
     def is_contract_in_portfolio(self, contract_key):
         return self.get_portfolio_port_item(contract_key)

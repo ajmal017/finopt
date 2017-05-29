@@ -199,7 +199,7 @@ class PortfolioTableModelListener(BaseMessageListener):
         try:
             logging.info("[%s] received %s from %s. content:[%d]" % (self.name, event, source, origin_request_id))
             self.mwss.get_server().send_message(self.mwss.clients[origin_request_id], 
-                                                json.dumps({'event': event, 'value': data_table_json})) 
+                                                json.dumps({'source': source, 'event': event, 'value': data_table_json})) 
         #except IndexError, KeyError:
         except:
             logging.error('[%s]. index error %d' % (event, origin_request_id))

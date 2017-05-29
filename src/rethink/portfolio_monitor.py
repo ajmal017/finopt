@@ -38,7 +38,7 @@ class PortfolioMonitor(AbstractGatewayListener, AbstractPortfolioTableModelListe
             portfolios: {<account>: <portfolio>}
         '''
         self.portfolios = {}
-        self.starting_engine = {}
+        self.starting_engine = True
         
         
         '''
@@ -111,6 +111,7 @@ class PortfolioMonitor(AbstractGatewayListener, AbstractPortfolioTableModelListe
                         for acct in self.portfolios.keys():
                             pc = PortfolioColumnChart(self.portfolios[acct])
                             print pc.get_JSON()
+                            print pc.get_xy_array()
                             
                     elif selection == '9': 
                         self.twsc.gw_message_handler.set_stop()
@@ -149,12 +150,9 @@ class PortfolioMonitor(AbstractGatewayListener, AbstractPortfolioTableModelListe
                                                                      self.portfolios[account], 
                                                                      self.get_kproducer())
             self.portfolio_charts[account] = {'PortfolioColumnChartTM': pcc}
-                                              
-            print 'here2'
-            self.twsc.add_listener_topics(pcc, [AbstractTableModel.EVENT_TM_TABLE_STRUCTURE_CHANGED] )
-            print 'here3'
+            self.twsc.add_listener_topics(pcc, [AbstractTableModel.EVENT_TM_REQUEST_TABLE_STRUCTURE, AbstractTableModel.EVENT_TM_TABLE_STRUCTURE_CHANGED] )            
             logging.info('PortfoioMonitor:get_portfolio creating port and chart object...%s' % account)
-            print 'end'
+
         return self.portfolios[account]
     
     def deduce_option_underlying(self, option):
@@ -258,10 +256,7 @@ class PortfolioMonitor(AbstractGatewayListener, AbstractPortfolioTableModelListe
             port.dump_portfolio()
             
             
-            
-            
-    def update(self, event, param=None):
-        logging.warn('***** no handler for event %s. Captured by the default handler: update() ****')            
+              
     
     #         EVENT_OPTION_UPDATED = 'oc_option_updated'
     #         EVENT_UNDERLYING_ADDED = 'oc_underlying_added
@@ -357,6 +352,7 @@ class PortfolioMonitor(AbstractGatewayListener, AbstractPortfolioTableModelListe
         pass
  
     def position(self, event, account, contract_key, position, average_cost, end_batch):
+        
         if not end_batch:
             #logging.info('PortfolioMonitor:position. received position message contract=%s' % contract_key)
             self.process_position(account, contract_key, position, average_cost)
@@ -364,12 +360,11 @@ class PortfolioMonitor(AbstractGatewayListener, AbstractPortfolioTableModelListe
         else:
             # to be run once per a/c during start up
             # subscribe to automatic account updates
-            try:
-                self.starting_engine[account]
-            except KeyError:
-                self.twsc.reqAccountUpdates(True, account)
-                logging.info('PortfolioMonitor:position. subscribing to auto updates for ac: [%s]' % account)  
-                self.starting_engine[account] = False
+            if self.starting_engine:
+                for acct in self.portfolios.keys():
+                    self.twsc.reqAccountUpdates(True, account)
+                    logging.info('PortfolioMonitor:position. subscribing to auto updates for ac: [%s]' % account)  
+                    self.starting_engine = False
                     
     '''
         the 4 account functions below are invoked by AbstractListener.update_portfolio_account.
@@ -415,13 +410,28 @@ class PortfolioMonitor(AbstractGatewayListener, AbstractPortfolioTableModelListe
         # notify chart objects to do their thing...
         try:
             pcc = self.portfolio_charts[account]['PortfolioColumnChartTM']
-            if mode == 'I':
-                pcc.fire_table_structure_changed(AbstractTableModel.EVENT_TM_TABLE_STRUCTURE_CHANGED, 
-                                                 pcc.get_object_name(), None, account, pcc.get_JSON())
+            if self.starting_engine == False:
+                if pcc.never_been_run == True:
+                    pcc.fire_table_structure_changed(AbstractTableModel.EVENT_TM_TABLE_STRUCTURE_CHANGED, 
+                                                  pcc.get_object_name(), None, account, pcc.get_JSON())
+                    pcc.never_been_run = False
+                    logging.info('PortfolioMonitor:notify_table_model_changes. first time trigger columnchart %d' % pcc.get_last_tally())
+                elif pcc.get_last_tally() <> pcc.count_tally():
+                    pcc.fire_table_structure_changed(AbstractTableModel.EVENT_TM_TABLE_STRUCTURE_CHANGED, 
+                                                  pcc.get_object_name(), None, account, pcc.get_JSON())
+                    logging.info('PortfolioMonitor:notify_table_model_changes. tally count %d...dump json' % pcc.get_last_tally())
+                    pcc.update_tally_count()
             else:
-                row = pcc.ckey_to_row(contract_key)
-                rvs = pcc.get_values_at(row)
-                logging.info('PortfolioMonitor:notify_table_model_changes. PortfolioColumnChartTM %d' % row)
+                pcc.update_tally_count()
+                logging.info('PortfolioMonitor:notify_table_model_changes. tally count %d' % pcc.get_last_tally())
+#            if mode == 'I':
+#                 pcc.fire_table_structure_changed(AbstractTableModel.EVENT_TM_TABLE_STRUCTURE_CHANGED, 
+#                                                  pcc.get_object_name(), None, account, pcc.get_JSON())
+#            else:
+                
+#                 row = pcc.ckey_to_row(contract_key)
+#                 rvs = pcc.get_values_at(row)
+#                 logging.info('PortfolioMonitor:notify_table_model_changes. PortfolioColumnChartTM %d' % row)
                 #pcc.fire_table_row_updated(row, rvs)
                   
         except: # KeyError:
@@ -433,7 +443,8 @@ class PortfolioMonitor(AbstractGatewayListener, AbstractPortfolioTableModelListe
     # handle requests to get data table json
     def event_tm_request_table_structure(self, event, request_id, target_resource, account):
         try:
-            self.get_kproducer().send_message(AbstractTableModel.EVENT_TM_TABLE_STRUCTURE_CHANGED,                                               
+            if target_resource['class'] == 'Portfolio':
+                self.get_kproducer().send_message(AbstractTableModel.EVENT_TM_TABLE_STRUCTURE_CHANGED,                                               
                                           json.dumps({'source': self.portfolios[account].get_object_name(), 
                                                       'origin_request_id': request_id, 'account': account, 
                                                       'data_table_json': self.portfolios[account].get_JSON()}))
@@ -463,7 +474,6 @@ if __name__ == '__main__':
       'clear_offsets':  False,
       'logconfig': {'level': logging.INFO, 'filemode': 'w', 'filename': '/tmp/pm.log'},
       'topics': ['position', 'positionEnd', 'tickPrice', 'update_portfolio_account', 'event_tm_request_table_structure', AbstractTableModel.EVENT_TM_TABLE_STRUCTURE_CHANGED],
-      'tm_topics': [AbstractTableModel.EVENT_TM_TABLE_STRUCTURE_CHANGED, AbstractTableModel.EVENT_TM_REQUEST_TABLE_STRUCTURE],
       'seek_to_end': ['*'],
       
       

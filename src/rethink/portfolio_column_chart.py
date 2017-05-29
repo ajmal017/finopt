@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-import sys, traceback, logging
+import sys, traceback, logging, json
 from rethink.portfolio_item import PortfolioRules, PortfolioItem, Portfolio
 import numpy as np
 from rethink.table_model import AbstractPortfolioTableModelListener, AbstractTableModel
@@ -39,9 +39,11 @@ class PortfolioColumnChart():
         self.xy_arr = None
         self.col_header = {'j_contract_to_col_num': None, 'j_contract_to_col_num_reverse': None}
         self.row_header = {'i_strike_to_row_num': None, 'i_strike_to_row_num_reverse': None}
+        self.last_tally = 0
+        self.never_been_run = True
     
     def get_object_name(self):
-        return 'p-%s' % (id(self))   
+        return json.dumps({'account': self.pf.account, 'id': id(), 'class': self.__class__.__name__})
     
     def ckey_to_row(self, contract_key):
         
@@ -57,7 +59,17 @@ class PortfolioColumnChart():
                 for i in self.xy_arr.shape[0]:
                     if self.xy_arr[i][col] <> 0:
                         return i
-        
+    
+    def update_tally_count(self):
+        self.last_tally = self.count_tally()
+    
+    
+    def get_xy_array(self):
+        return self.xy_arr
+    
+    
+    def get_last_tally(self):
+        return self.last_tally   
            
     def get_values_at(self, row):
         rf = [{'v': self.row_header['i_strike_to_row_num_reverse'][row]}]
@@ -69,6 +81,17 @@ class PortfolioColumnChart():
     def make_col_header(self, p_item):
         return  '%s-%s-%s-%s' % (p_item.get_expiry(),  p_item.get_symbol_id(), 
                                                     p_item.get_instrument_type(), p_item.get_right() )  
+    
+    
+    def count_tally(self):
+        p2_items = self.pf.get_portfolio_port_items().values()
+        p1_items = filter(lambda x: x.get_symbol_id() in PortfolioRules.rule_map['interested_position_types']['symbol'], p2_items)
+        p_items = filter(lambda x: x.get_instrument_type() in  PortfolioRules.rule_map['interested_position_types']['instrument_type'], p1_items)
+        try:
+            tally =  reduce(lambda x,y: x+y, map(lambda x: abs(x.get_quantity()), p_items))
+            return tally
+        except:
+            return 0
     
     def get_JSON(self):  
         
@@ -105,7 +128,7 @@ class PortfolioColumnChart():
             i_strike_to_row_num_reverse[m] = i_strikes_range[m]
         
         #print '---xmap and xmap reverse' 
-        print i_strike_to_row_num
+        #print i_strike_to_row_num
         #print i_strike_to_row_num_reverse
         #print '---'
         
@@ -121,7 +144,7 @@ class PortfolioColumnChart():
             j_contract_to_col_num_reverse[n]= j_contract_types[n]  
         
 #         print '---ymap and ymap reverse' 
-        print j_contract_to_col_num
+        #print j_contract_to_col_num
 #         print j_contract_to_col_num_reverse
 #         print '----'
 
@@ -147,7 +170,7 @@ class PortfolioColumnChart():
             return (i,j,v)
         
         ijv_dist = map(set_ij, p_items)
-        print ijv_dist
+        
         xy_arr = np.zeros((len(i_strikes_range), len(j_contract_types)))
         
         
@@ -158,6 +181,7 @@ class PortfolioColumnChart():
         
         map(update_ijv, ijv_dist)
         print xy_arr
+        logging.info('PortfolioColumnChart: JSON array->\n%s' % xy_arr)
         
         def gen_datatable():
             ccj = {'cols':[{'id': 'strike', 'label': 'strike', 'type': 'number'}], 'rows':[]}
@@ -188,7 +212,9 @@ class PortfolioColumnChartTM(PortfolioColumnChart, AbstractTableModel, AbstractP
         self.kproducer = kproducer
         
         
-        
+    def get_kproducer(self):
+        return self.kproducer
+      
 #     def get_column_count(self):
 #         raise NotImplementedException
 #     
@@ -216,9 +242,17 @@ class PortfolioColumnChartTM(PortfolioColumnChart, AbstractTableModel, AbstractP
 
     def event_tm_table_structure_changed(self, event, source, origin_request_id, account, data_table_json):
         logging.info("[PortfolioColumnChartTM:%s] received %s content:[%s]" % (self.name, event, vars()))
+        
+        
     
     def event_tm_request_table_structure(self, event, request_id, target_resource, account):
         self.request_ids[request_id] = {'request_id': request_id, 'account': account}
         logging.info("[PortfolioColumnChartTM:%s] received %s content:[%s]" % (self.name, event, vars()))
+        if target_resource['class'] == self.get_object_name()['class']:
+            self.get_kproducer().send_message(AbstractTableModel.EVENT_TM_TABLE_STRUCTURE_CHANGED,                                               
+                                      json.dumps({'source': self.get_object_name(), 
+                                                  'origin_request_id': request_id, 'account': account, 
+                                                  'data_table_json': self.get_JSON()}))
+                
                
     

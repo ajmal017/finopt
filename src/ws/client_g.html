@@ -9,6 +9,7 @@
 
 <body>
    <div id="table_div" style="height:600"></div>
+   <div id="chart_div"></div> 
    <button id="change-btn">change columns</button>
    <button id="test-btn">test</button>
   <form onsubmit="onSubmit(); return false;">
@@ -27,6 +28,19 @@
 	var table= null;   
     var options = {allowHtml: true, sortColumn:1, 
     		showRowNumber: true, width: '100%', height: '100%'};
+    
+    var chartOptions = {
+            width: 600,
+            height: 400,
+            legend: { position: 'top', maxLines: 3 },
+            bar: { groupWidth: '75%' },
+            isStacked: true,allowHtml: true,
+         /*series: {
+    			0:{color:'lightgreen'},
+    			1:{color:'black'},
+    			2:{color:'#1E90FF',},
+    			}*/ 
+    };
     
 	google.load("visualization", "1.1", {packages:["corechart", 'table','gauge']});
 	   //google.setOnLoadCallback(drawTable);
