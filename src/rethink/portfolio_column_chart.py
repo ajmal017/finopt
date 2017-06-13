@@ -43,7 +43,7 @@ class PortfolioColumnChart():
         self.never_been_run = True
     
     def get_object_name(self):
-        return json.dumps({'account': self.pf.account, 'id': id(), 'class': self.__class__.__name__})
+        return json.dumps({'account': self.pf.account, 'id': id(self), 'class': self.__class__.__name__})
     
     def ckey_to_row(self, contract_key):
         

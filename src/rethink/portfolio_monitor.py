@@ -450,7 +450,7 @@ class PortfolioMonitor(AbstractGatewayListener, AbstractPortfolioTableModelListe
                                                       'data_table_json': self.portfolios[account].get_JSON()}))
         except:
             logging.error("PortfolioMonitor:event_tm_request_table_structure. Error invoking get_JSON[%s]. Client request id:%s, %s" %
-                            account, request_id, ', '.join(e for e in sys.exc_info()))
+                            (account, request_id, ', '.join(e for e in sys.exc_info())))
             
     def event_tm_table_structure_changed(self, event, source, origin_request_id, account, data_table_json):
         logging.info("[PortfolioColumnChartTM:] received %s  content:[%s]" % (event, data_table_json)    )        
