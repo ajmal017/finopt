@@ -43,7 +43,8 @@ class PortfolioColumnChart():
         self.never_been_run = True
     
     def get_object_name(self):
-        return json.dumps({'account': self.pf.account, 'id': id(self), 'class': self.__class__.__name__})
+        #return json.dumps({'account': self.pf.account, 'id': id(self), 'class': self.__class__.__name__})
+        return {'account': self.pf.account, 'id': id(self), 'class': self.__class__.__name__}
     
     def ckey_to_row(self, contract_key):
         
@@ -248,6 +249,8 @@ class PortfolioColumnChartTM(PortfolioColumnChart, AbstractTableModel, AbstractP
     def event_tm_request_table_structure(self, event, request_id, target_resource, account):
         self.request_ids[request_id] = {'request_id': request_id, 'account': account}
         logging.info("[PortfolioColumnChartTM:%s] received %s content:[%s]" % (self.name, event, vars()))
+        
+        logging.info("[PortfolioColumnChartTM: self class: %s, incoming target class %s" % (self.get_object_name()['class'], target_resource['class']))
         if target_resource['class'] == self.get_object_name()['class']:
             self.get_kproducer().send_message(AbstractTableModel.EVENT_TM_TABLE_STRUCTURE_CHANGED,                                               
                                       json.dumps({'source': self.get_object_name(), 

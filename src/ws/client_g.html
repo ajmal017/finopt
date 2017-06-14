@@ -93,6 +93,7 @@
 	   
 
     var ws;
+    var account = 'U8379890';
 	
     function init() {
 
@@ -102,7 +103,9 @@
       // Set event handlers.
       ws.onopen = function() {
         output("onopen");
-        ws.send(JSON.stringify({'request_for': 'init_data_table', 'request_handler': ''}));
+        ws.send(JSON.stringify({event: 'event_tm_request_table_structure', target_resource:{'class': 'Portfolio'}, 'account': 'UU777'}));
+        ws.send(JSON.stringify({event: 'event_tm_request_table_structure', target_resource:{'class': 'PortfolioColumnChartTM'}, 'account': 'UU777'}));
+        
       };
       
       ws.onmessage = function(e) {
@@ -110,9 +113,14 @@
         
         //output("onmessage: " + e.data);
         d1=  JSON.parse(e.data);
+		console.log(d1.source);
+		console.log(d1);
+        
+        if (d1.source.data == 'PortfolioColumnChartTM'){
+        	console.log('skip...');
+        	return;
+        }
         if (d1.event == "event_tm_table_structure_changed"){
-
-			console.log(d1);
 			data = new google.visualization.DataTable(d1.value);
 			view = new google.visualization.DataView(data);
 
@@ -159,6 +167,12 @@
       };
 
     }
+    
+    function handleTableChartEvents(){
+    	
+    	
+    }
+    
     
     function onSubmit() {
       var input = document.getElementById("input");
