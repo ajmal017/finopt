@@ -103,8 +103,8 @@
       // Set event handlers.
       ws.onopen = function() {
         output("onopen");
-        ws.send(JSON.stringify({event: 'event_tm_request_table_structure', target_resource:{'class': 'Portfolio'}, 'account': 'UU777'}));
-        ws.send(JSON.stringify({event: 'event_tm_request_table_structure', target_resource:{'class': 'PortfolioColumnChartTM'}, 'account': 'UU777'}));
+        ws.send(JSON.stringify({event: 'event_tm_request_table_structure', target_resource:{'class': 'Portfolio'}, 'account': account}));
+        ws.send(JSON.stringify({event: 'event_tm_request_table_structure', target_resource:{'class': 'PortfolioColumnChartTM'}, 'account': account}));
         
       };
       
@@ -113,24 +113,21 @@
         
         //output("onmessage: " + e.data);
         d1=  JSON.parse(e.data);
-		console.log(d1.source);
 		console.log(d1);
         
-        if (d1.source.data == 'PortfolioColumnChartTM'){
-        	console.log('skip...');
-        	return;
-        }
         if (d1.event == "event_tm_table_structure_changed"){
 			data = new google.visualization.DataTable(d1.value);
 			view = new google.visualization.DataView(data);
 
-			view.setRows(view.getFilteredRows([{column: 15, test: function(value, row, column, table) {
-		        return (value == 'HSI' || value == 'MHI') 
-		    }}]));
-    		setupFormatter(data);
-			table = new google.visualization.Table(document.getElementById('table_div'));
-			table.draw(view, options);
-			output('number of rows: ' + data.getNumberOfRows());
+			if (d1.source.class == 'Portfolio'){
+				view.setRows(view.getFilteredRows([{column: 15, test: function(value, row, column, table) {
+			        return (value == 'HSI' || value == 'MHI') 
+			    }}]));
+	    		setupFormatter(data);
+				table = new google.visualization.Table(document.getElementById('table_div'));
+				table.draw(view, options);
+				output('number of rows: ' + data.getNumberOfRows());
+			}
            
         } else if (d1.event == 'event_tm_table_row_updated'){
 

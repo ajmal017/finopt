@@ -174,7 +174,7 @@ class PortfolioTableModelListener(BaseMessageListener):
 
         def notify_client():
             self.mwss.get_server().send_message_to_all(json.dumps(
-                        {'event':event, 'value':{'row': row, 'row_values': row_values}}));
+                        {'event':event, 'value':{'source': source, 'row': row, 'row_values': row_values}}));
             
         try:
             curr_ts = time.time()
@@ -337,8 +337,10 @@ class MainWebSocketServer(BaseWebSocketServerWrapper):
     # Called when a client sends a message1
     def message_received(self, client, server, message):
         print 'message received %s' % message
-        self.message_handler.send_message(AbstractTableModel.EVENT_TM_REQUEST_TABLE_STRUCTURE, 
-                                          json.dumps({'request_id' : client['id'], 'target_resource': {'class': 'Portfolio'}, 'account': 'U8379890'}))
+        message = json.loads(message)
+        if message['event'] == AbstractTableModel.EVENT_TM_REQUEST_TABLE_STRUCTURE:
+            self.message_handler.send_message(AbstractTableModel.EVENT_TM_REQUEST_TABLE_STRUCTURE, 
+                                          json.dumps({'request_id' : client['id'], 'target_resource': message['target_resource'], 'account': message['account']}))
 
 
 

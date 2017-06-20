@@ -405,7 +405,7 @@ class PortfolioMonitor(AbstractGatewayListener, AbstractPortfolioTableModelListe
         #logging.info('---- %s' % str(rvs))
         port.fire_table_row_updated(row, rvs)
         event_type = AbstractTableModel.EVENT_TM_TABLE_ROW_UPDATED if mode == 'U' else AbstractTableModel.EVENT_TM_TABLE_ROW_INSERTED
-        self.get_kproducer().send_message(event_type, json.dumps({'source': '%s' % port.get_object_name(), 'row': row, 'row_values': rvs}))
+        self.get_kproducer().send_message(event_type, json.dumps({'source': port.get_object_name(), 'row': row, 'row_values': rvs}))
     
         # notify chart objects to do their thing...
         try:
@@ -450,7 +450,7 @@ class PortfolioMonitor(AbstractGatewayListener, AbstractPortfolioTableModelListe
                                                       'data_table_json': self.portfolios[account].get_JSON()}))
         except:
             logging.error("PortfolioMonitor:event_tm_request_table_structure. Error invoking get_JSON[%s]. Client request id:%s, %s" %
-                            (account, request_id, ', '.join(e for e in sys.exc_info())))
+                            (account, request_id, ', '.join(str(e) for e in sys.exc_info())))
             
     def event_tm_table_structure_changed(self, event, source, origin_request_id, account, data_table_json):
         logging.info("[PortfolioColumnChartTM:] received %s  content:[%s]" % (event, data_table_json)    )        
