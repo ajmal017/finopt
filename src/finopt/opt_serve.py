@@ -15,10 +15,7 @@ import json
 import optcal
 import ConfigParser
 import portfolio
-from comms.alert_bot import AlertHelper
-from ws4py.server.cherrypyserver import WebSocketPlugin, WebSocketTool
-from ws4py.websocket import WebSocket
-from ws4py.websocket import EchoWebSocket
+#from comms.alert_bot import AlertHelper
 from sets import Set
 import thread
 
@@ -703,53 +700,12 @@ class QServer(object):
         f = open(html)
         return f.read()
     
-class OptWebSocket(WebSocket):
+    @cherrypy.expose
+    def ws_client_g(self):
+        html = '%s%s/client_g.html' % (cherrypy.request.app.config['/']['tools.staticdir.root'], cherrypy.request.app.config['/static']['tools.staticdir.tmpl'])
+        f = open(html)
+        return f.read()
     
-#     def __init__(self):
-#         logging.debug('instantiated.')
-
-
-        
-    def received_message(self, message):
-        self.send(message.data, message.is_binary)
-        logging.info('received %s' % message.data)   
-        
-        
-#     def opened(self):
-#         logging.info('web socket opened')
-        #self.send('hello')
-#         while 1:
-#             self.send('%f' % time.time(), False)
-#             time.sleep(2)
-
-            
-
-    def opened(self):
-
-        logging.info('web socket opened')
-        def data_provider():   
-            
-            while 1:         
-#                print ('%f' % time.time())
-#                time.sleep(2)
-            
-                def cb():
-                    #for i in range(1, 200, 25):
-                    #    yield "#" * i
-                    yield '%f' % time.time()
-                
-                   
-                self.send(cb())
-        
-                logging.info('--- here')
-                time.sleep(2)  
-            
-        thread.start_new_thread(data_provider())
-        
-              
-    def closed(self, code, reason=None):
-        print "Closed down", code, reason
-        
                  
 if __name__ == '__main__':
             
@@ -784,9 +740,6 @@ if __name__ == '__main__':
     r_conn = redis.Redis(host,port,db)
 
 
-    
-    WebSocketPlugin(cherrypy.engine).subscribe()
-    cherrypy.tools.websocket = WebSocketTool()    
     cherrypy.quickstart(QServer(r_conn, config), '/', cfg_path[0])
     
    

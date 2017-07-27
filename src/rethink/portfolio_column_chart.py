@@ -99,7 +99,12 @@ class PortfolioColumnChart():
         
         p2_items = self.pf.get_portfolio_port_items().values()
         p1_items = filter(lambda x: x.get_symbol_id() in PortfolioRules.rule_map['interested_position_types']['symbol'], p2_items)
-        p_items = filter(lambda x: x.get_instrument_type() in  PortfolioRules.rule_map['interested_position_types']['instrument_type'], p1_items)
+        
+# 2017-7-26
+# filter out zero positions
+        p0_items = filter(lambda x: x.get_port_field(PortfolioItem.POSITION) <> 0, p1_items)
+        p_items = filter(lambda x: x.get_instrument_type() in  PortfolioRules.rule_map['interested_position_types']['instrument_type'], p0_items)
+        
         
         #i_strikes_range ','.join(str(x.get_strike()) for x in p_items)
         # row values domain

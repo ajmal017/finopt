@@ -11,5 +11,5 @@ else
 	FINOPT_HOME=~/l1304/workspace/finopt-ironfly/finopt/src
 fi
 export PYTHONPATH=$FINOPT_HOME:$PYTHONPATH
-python $FINOPT_HOME/ws/ws_server.py  -c -g AE1  
-#python $FINOPT_HOME/ws/ws_server.py   -g AE1  
+#python $FINOPT_HOME/ws/ws_server.py  -c -g AE1  
+python $FINOPT_HOME/ws/ws_server.py   -g AE1  

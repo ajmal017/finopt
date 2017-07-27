@@ -22,17 +22,11 @@
 	$('#test-btn').click(function(){
 		alert('hereee');
 	});  
-	
-	var view = null;
-	var data = null;
-	var table= null;   
-    var options = {allowHtml: true, sortColumn:1, 
-    		showRowNumber: true, width: '100%', height: '100%'};
-    
+
     var chartOptions = {
-            width: 600,
-            height: 400,
-            legend: { position: 'top', maxLines: 3 },
+            width: 800,
+            height: 500,
+            legend: { position: 'right', maxLines: 3 },
             bar: { groupWidth: '75%' },
             isStacked: true,allowHtml: true,
          /*series: {
@@ -41,6 +35,15 @@
     			2:{color:'#1E90FF',},
     			}*/ 
     };
+	var columnChart = {'view': null, 'data': null, 'chart': null, 'options': chartOptions};
+
+    var tableOptions = {allowHtml: true, sortColumn:1, 
+    		showRowNumber: true, width: '100%', height: '100%'};
+	var tableChart = {'view': null, 'data': null, 'chart': null, 'options': tableOptions};
+	
+
+    
+
     
 	google.load("visualization", "1.1", {packages:["corechart", 'table','gauge']});
 	   //google.setOnLoadCallback(drawTable);
@@ -49,11 +52,7 @@
 
 	
 	
-	function setValueAtRandomCell(value){
-		data.setCell(getRandomInt(0, data.getNumberOfRows()-1), 
-			getRandomInt(0, data.getNumberOfColumns()-1), value);
-		table.draw(data);
-	}
+
 	
 	function getRandomInt(min, max) {
 	    return Math.floor(Math.random() * (max - min + 1)) + min;
@@ -78,16 +77,16 @@
 		colorGF.addGradientRange(null, null, 'white', 'orange', 'blue');
 	
 	    	 	    
-		    numF.format(data, 2);  //avg cost
-		    numF.format(data, 3);  //market value
-		    colorF.format(data, 6); // position
-		    percentF.format(data, 7); //delta		
+		    numF.format(tableChart.data, 2);  //avg cost
+		    numF.format(tableChart.data, 3);  //market value
+		    colorF.format(tableChart.data, 6); // position
+		    percentF.format(tableChart.data, 7); //delta		
 		    
-		    numF.format(data, 10); // position delta
-		    numF.format(data, 11); // position theta
-		    numF.format(data, 12); // position gamma
-		    colorGF.format(data, 13); //unreal p/l
-		    barF.format(data, 14) //% gain loss
+		    numF.format(tableChart.data, 10); // position delta
+		    numF.format(tableChart.data, 11); // position theta
+		    numF.format(tableChart.data, 12); // position gamma
+		    colorGF.format(tableChart.data, 13); //unreal p/l
+		    barF.format(tableChart.data, 14) //% gain loss
 		
 	}	   
 	   
@@ -98,7 +97,7 @@
     function init() {
 
       // Connect to Web Socket
-      ws = new WebSocket("ws://localhost:9001/");
+      ws = new WebSocket("ws://vorsprung:9001/");
    
       // Set event handlers.
       ws.onopen = function() {
@@ -116,31 +115,46 @@
 		console.log(d1);
         
         if (d1.event == "event_tm_table_structure_changed"){
-			data = new google.visualization.DataTable(d1.value);
-			view = new google.visualization.DataView(data);
 
 			if (d1.source.class == 'Portfolio'){
-				view.setRows(view.getFilteredRows([{column: 15, test: function(value, row, column, table) {
-			        return (value == 'HSI' || value == 'MHI') 
-			    }}]));
-	    		setupFormatter(data);
-				table = new google.visualization.Table(document.getElementById('table_div'));
-				table.draw(view, options);
-				output('number of rows: ' + data.getNumberOfRows());
+				tableChart.data = new google.visualization.DataTable(d1.value);
+				tableChart.view = new google.visualization.DataView(tableChart.data);
+				tableChart.view.setRows(tableChart.view.getFilteredRows([{column: 15, test: function(value, row, column, table) {
+			        return (value == 'HSI' || value == 'MHI')
+			    }},
+			    {column: 6, test: function(value, row, column, table) {
+			        return (value != 0)
+			    }},
+			     
+			    ]));
+
+
+
+	    		setupFormatter(tableChart.data);
+	    		tableChart.chart = new google.visualization.Table(document.getElementById('table_div'));
+	    		tableChart.chart.draw(tableChart.view, tableChart.options);
+				output('number of rows: ' + tableChart.data.getNumberOfRows());
+				
+			} else if (d1.source.class == 'PortfolioColumnChartTM'){
+				columnChart.data = new google.visualization.DataTable(d1.value);
+				columnChart.view = new google.visualization.DataView(columnChart.data);
+				columnChart.chart = new google.visualization.ColumnChart(
+				        document.getElementById('chart_div'));
+				columnChart.chart.draw(columnChart.view, columnChart.options);
 			}
            
         } else if (d1.event == 'event_tm_table_row_updated'){
 
 			console.log(d1.value.row.toString()+ ':' + d1.value.row_values[0]['v']);
 			for (var c=2; c < d1.value.row_values.length; c++){
-				data.setCell(d1.value.row, c, d1.value.row_values[c]["v"]);
+				tableChart.data.setCell(d1.value.row, c, d1.value.row_values[c]["v"]);
 
 			}
 			//data.setCell(d1.value.row, 1, d1.value.row_values[0]['v']);
 			
-			options.sortColumn = table.getSortInfo().column;
-			table.draw(view, options);
-//			table.draw(data);           
+			tableChart.options.sortColumn = tableChart.chart.getSortInfo().column;
+			tableChart.chart.draw(tableChart.view, tableChart.options);
+           
 
         } else if (d1.event == 'event_tm_table_row_inserted'){
         	var newRow = d1.value.row_values.map(function(x){
@@ -165,11 +179,7 @@
 
     }
     
-    function handleTableChartEvents(){
-    	
-    	
-    }
-    
+
     
     function onSubmit() {
       var input = document.getElementById("input");

@@ -25,7 +25,7 @@ class BaseWebSocketServerWrapper(Subscriber):
                 self.kwargs[key] = kwargs.pop(key)        
         self.kwargs.update(kwargs)
                       
-        server = WebsocketServer(self.kwargs['ws_port'])
+        server = WebsocketServer(self.kwargs['ws_port'], '0.0.0.0')
         self.set_server(server)
         server.set_fn_new_client(self.new_client)
         server.set_fn_client_left(self.client_left)
