@@ -14,11 +14,13 @@ from misc2.helpers import ContractHelper, ConfigMap
 from optparse import OptionParser
 from comms.ibgw.base_messaging import Prosumer
 from comms.ibgw.tws_event_handler import TWS_event_handler
+from comms.ibgw.ib_heartbeat import IbHeartBeat
 from comms.ibgw.client_request_handler import ClientRequestHandler
 from comms.ibgw.subscription_manager import SubscriptionManager
 from comms.tws_protocol_helper import TWS_Protocol 
 import redis
 import threading
+from threading import Lock
          
 class TWS_gateway():
 
@@ -100,12 +102,11 @@ class TWS_gateway():
             sys.exit(-1)
         else:
             # start heart beat monitor
-            pass
-#             logging.info('starting up IB heart beat monitor...')
-#             self.tlock = Lock()
-#             self.ibh = IbHeartBeat(config)
-#             self.ibh.register_listener([self.on_ib_conn_broken])
-#             self.ibh.run()  
+            logging.info('starting up IB heart beat monitor...')
+            self.tlock = Lock()
+            self.ibh = IbHeartBeat(self.kwargs)
+            self.ibh.register_listener([self.on_ib_conn_broken])
+            self.ibh.run()  
 
 
         logging.info('instantiating listeners...cli_req_handler')        
@@ -175,15 +176,16 @@ class TWS_gateway():
             if self.ib_conn_status == 'OK': # check status
                 return                      # if already fixed up while waiting, return 
             
-            self.eDisconnect()
-            self.eConnect()
+            #self.disconnect_tws()
+            self.connect_tws()
             while not self.tws_connection.isConnected():
                 logging.error('TWS_gateway: attempt to reconnect...')
-                self.eConnect()
+                self.connect_tws()
                 sleep(2)
             
             # we arrived here because the connection has been restored
             # resubscribe tickers again!
+            self.ib_conn_status = 'OK'
             logging.info('TWS_gateway: IB connection restored...resubscribe contracts')
             self.contract_subscription_mgr.force_resubscription()             
             
@@ -216,6 +218,7 @@ class TWS_gateway():
                 logging.error('TWS_gateway: caught user interrupt. Shutting down...')
                 self.gw_message_handler.set_stop()
                 self.gw_message_handler.join()
+                self.ibh.shutdown()
                 logging.info('TWS_gateway: Service shut down complete...')
                 sys.exit(0)        
 
