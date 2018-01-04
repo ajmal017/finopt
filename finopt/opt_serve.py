@@ -345,7 +345,7 @@ class QServer(object):
         strikes =[e for e in Set(map(lambda x:x[4], plist))]
         # sort the months in ascending order
         months = sorted([e for e in Set(map(lambda x:x[2], plist))])
-	print klist
+        print klist
         print strikes
         # print months
         # print len(klist), len(s)
@@ -396,6 +396,96 @@ class QServer(object):
         return s    
     
     
+    def generate_garray_ex(self, plist):
+    
+    #[['HSI', 'FUT', '20170126', 'None', '0', '50.0', '0.0000', '0.0000'], 
+    # ['HSI', 'OPT', '20170126', 'C', '23000', '50.0', '-4.0000', '3240.3350'], ['HSI', 'OPT', '20170126', 'P', '22600', '50.0', '-1.0000', '1330.9600'], ['HSI', 'OPT', '20170227', 'C', '23400', '50.0', '-2.0000', '9880.9600'], ['HSI', 'OPT', '20170227', 'C', '23600', '50.0', '-1.0000', '9530.9600'], ['HSI', 'OPT', '20170227', 'P', '20200', '50.0', '-3.0000', '980.9600'], ['HSI', 'OPT', '20170227', 'P', '20400', '50.0', '-1.0000', '7664.2933'], ['HSI', 'OPT', '20170227', 'P', '21800', '50.0', '-3.0000', '5197.6267'], ['MHI', 'FUT', '20170126', 'None', '0', '10.0', '5.0000', '230459.6680']]
+        
+        
+        # generate a key map with month-right-strike
+        # example: ('20160330-C-20000', 0.2),...
+        
+        #klist = map(lambda x: ('%s-%s-%s' % (x[2], x[3] if x[3] <> 'None' else 'F', x[4]), float(x[5])/50.0*float(x[6])), plist)
+        
+        # 2017 - handle futures price 
+        
+        def getX(x):
+            val = x[4] if x[3] <> 'None' else str(int(round(float(x[7])/ float(x[5]),-1)))
+    #        print val
+            return val
+        
+        plist = filter(lambda x: int(float(x[6])) <> 0, plist)
+        klist = map(lambda x: ('%s-%s-%s' % (x[2], x[3] if x[3] <> 'None' else 'F', getX(x)), float(x[5])/50.0*float(x[6])), plist)
+        # for e in sorted(klist):
+        #     print e
+    
+        # get the unique keys in klist
+        unique_keys= Set(map(lambda x:x[0], klist))
+        
+        
+        #strikes =[e for e in Set(map(lambda x:x[4], plist))]
+        # 2017 
+        strikes = [e for e in Set(map(lambda x:getX(x), plist))]
+        
+         
+        # sort the months in ascending order
+        months = sorted([e for e in Set(map(lambda x:x[2], plist))])
+        print klist
+        print strikes
+        # print months
+        # print len(klist), len(s)
+        
+        # group and sum position by month, strike, right
+        grouped_pos = []
+        for elem in unique_keys:
+            grp1 = filter(lambda x: x[0] == elem, klist)
+            print grp1
+            # sum items with same key
+            # example: [('20160330-P-19600', -1.0), ('20160330-P-19600', 0.2)]
+            grouped_pos.append( grp1[0] if len(grp1) == 1 else reduce(lambda x,y: (x[0], x[1]+y[1]), grp1) )
+            print '---'
+        
+        print grouped_pos    
+            
+        garr = {}
+        def init_garray(x):
+            garr[x] = {}
+        map(init_garray, sorted(strikes))
+        print garr
+        
+        def set_garray(x):
+            vals = x[0].split(('-'))
+            
+            if vals[0] == months[0]:
+                
+                if vals[1] == 'C':
+                    garr[vals[2]]['NEAR_C'] = x[1]
+                elif vals[1] =='P':
+                    garr[vals[2]]['NEAR_P'] = x[1]
+                else:
+                    garr[vals[2]]['NEAR_F'] = x[1]
+            elif vals[0] == months[1]:
+        
+                if vals[1] == 'C':
+                    garr[vals[2]]['FAR_C'] = x[1]
+                elif vals[1] =='P':
+                    garr[vals[2]]['FAR_P'] = x[1]
+                else:
+                    garr[vals[2]]['FAR_F'] = x[1]
+        # find all C of near month
+        map(set_garray, grouped_pos)
+        print garr
+        s=''
+        for k, v in garr.iteritems():
+            s+= '[%s, %s,%s,%s,%s,%s,%s],' % (k, v['NEAR_P'] if 'NEAR_P' in v else '0',
+                                         v['NEAR_C'] if 'NEAR_C' in v else '0',  
+                                         v['FAR_P'] if 'FAR_P' in v else '0', 
+                                         v['FAR_C'] if 'FAR_C' in v else '0', 
+                                         v['NEAR_F'] if 'NEAR_F' in v else '0', 
+                                         v['FAR_F'] if 'FAR_F' in v else '0', )
+                                         
+        return s        
+    
     @cherrypy.expose
     def ws_position_chart_ex(self):
         p = portfolio.PortfolioManager(config)
@@ -404,7 +494,10 @@ class QServer(object):
         f = open(opt_pos_chart_tmpl)
         html_tmpl = f.read()
 
-        html_tmpl = html_tmpl.replace('{{{dataPCpos}}}', self.generate_garray(p.get_tbl_pos_list()))
+        #html_tmpl = html_tmpl.replace('{{{dataPCpos}}}', self.generate_garray(p.get_tbl_pos_list()))
+        # 2017 - handles futures
+
+        html_tmpl = html_tmpl.replace('{{{dataPCpos}}}', self.generate_garray_ex(p.get_tbl_pos_list()))
         
         html_tmpl = html_tmpl.replace('{{{dataTablePos}}}', p.get_tbl_pos_csv())
         

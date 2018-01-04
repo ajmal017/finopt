@@ -188,14 +188,20 @@ class OptionsMarketDataManager():
         
         def derive_mid_price(field_id):
             bidask = 2 if (field_id == 1) else 1
+	    logging.debug("********** dump %s" % str(DataMap().get(msg.tickerId)))
+	    # 2018 lc
+            mid = None 
             if bidask in DataMap().get(msg.tickerId):
                 if DataMap().get(msg.tickerId)[bidask] > 0.0:
                     mid = (DataMap().get(msg.tickerId)[bidask] + msg.price) / 2
                 else:
                     mid = msg.price
-            logging.debug("OptionsMarketDataManager: incoming price field%d == %0.4f datamap field%d ==2 %0.4f"\
+            	logging.debug("OptionsMarketDataManager: incoming price field%d == %0.4f datamap field%d ==2 %0.4f"\
                            % (field_id, msg.price, bidask, DataMap().get(msg.tickerId)[bidask]))                                 
-            return mid
+		
+	    #return mid
+	    # 2018 lc - fix no mid assigned error
+            return mid if (mid != None) else msg.price 
         
         premium = derive_mid_price(msg.field)
         
@@ -549,7 +555,9 @@ class DataMap():
         holiday_key = '%s%s' % (holiday_key_prefix, year)
         holidays = rs.get(holiday_key)
                     
-        if holidays == None:
+#        if holidays == None:
+#	fix 2017-01-03
+        if holidays == 'null':
             holidays = optcal.get_hk_holidays(year)
             logging.info("options_data:set_option_calendar: retrieved from gov.hk --> update Redis: [%s]: %s", holiday_key, json.dumps(holidays))
             rs.set(holiday_key, json.dumps(holidays))    
@@ -563,7 +571,12 @@ class DataMap():
         undly_months_prices = eval(config.get("market", "option.underlying.month_price").strip('"').strip("'"))
         
         undly_months_prices[0][0] = optcal.get_HSI_last_trading_day(holidays, month, year)
-        undly_months_prices[1][0] = optcal.get_HSI_last_trading_day(holidays, (month + 1) % 12, year)
+	next_month = (month + 1) % 12 if (month + 1) % 12 <> 0 else (month + 1) % 12 + 12
+#2016/12 lc - fix year end bug 
+	year = year if next_month <> 1 else year + 1
+	
+        logging.info("options_data:set_option_calendar: next month: year %s:%s " % (next_month, year))
+        undly_months_prices[1][0] = optcal.get_HSI_last_trading_day(holidays, next_month, year)
         
         logging.info("options_data:set_option_calendar:  %s " % str(undly_months_prices))
         return undly_months_prices
@@ -1100,7 +1113,7 @@ def add_portfolio_subscription(config, omd):
     p = portfolio.PortfolioManager(config)
     p.retrieve_position()
     
-    
+    logging.debug("************ complete retrieve pos ****") 
 #    undly_months_prices = eval(config.get("market", "option.underlying.month_price").strip('"').strip("'"))
     # 20160612
     undly_months_prices = DataMap().rskeys['option.underlying.month_price']

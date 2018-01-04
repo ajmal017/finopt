@@ -340,28 +340,36 @@ class PortfolioManager():
         # 2016/06/11
         # add 2 new columns: avgcost in points, unreal_pl ratio
         #s = '["symbol","right","avgcost","spotpx","pos","delta","theta","pos_delta","pos_theta","unreal_pl","last_updated"],'
-        s = '["symbol","right","avgcost","avgpx","spotpx","pos","delta","theta","pos_delta","pos_theta","unreal_pl","unreal%","last_updated"],'
+        s = '["symbol","right","avgcost","avgpx","spotpx","pos","delta","theta","pos_delta","pos_theta","unreal_pl","%gain/loss" ],'
         
         def split_toks(x):
             try: # 
                 pmap = json.loads(self.r_conn.get(x))
-                #print pmap
+            #    print pmap
                 gmap = json.loads(self.r_conn.get(x[3:]))
-                #print gmap
-#                 s = '["%s","%s",%f,%f,%f,%f,%f,%f,%f,%f,"%s"],' % (x[3:], x[len(x)-1:], pmap['6001'], gmap['5006'], pmap['6002'],\
-#                                                                              gmap['5002'],gmap['5004'],\
-#                                                                              pmap['6005'],pmap['6006'],pmap['6008'],pmap['last_updated'])
-        # 2016/06/11        
-                s = '["%s","%s",%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,"%s"],' % (x[3:], x[len(x)-1:], pmap['6001'], pmap['6001'] / pmap['6007'], gmap['5006'], pmap['6002'],\
-                                                                             gmap['5002'],gmap['5004'],\
-                                                                             pmap['6005'],pmap['6006'],pmap['6008'],
-                                                                             
-                                                                             (gmap['5002'] - (pmap['6001'] / pmap['6007'])) / pmap['6001'] / pmap['6007'],
-                                                                             pmap['last_updated'])                
+            #    print gmap
+                str = None
+                if not 'FUT' in x:
+                    pl_percent = (1 - gmap['5006'] / (pmap['6001'] / pmap['6007'])) * 100.0 if pmap['6002'] < 0 else  (gmap['5006'] - pmap['6001'] / pmap['6007']) / (pmap['6001'] / pmap['6007']) * 100  
+    
+    #                 s = '["%s","%s",%f,%f,%f,%f,%f,%f,%f,%f,"%s"],' % (x[3:], x[len(x)-1:], pmap['6001'], gmap['5006'], pmap['6002'],\
+    #                                                                              gmap['5002'],gmap['5004'],\
+    #                                                                              pmap['6005'],pmap['6006'],pmap['6008'],pmap['last_updated'])
+            # 2016/06/11        
+                    str = '["%s","%s",%f,%f,%f,%f,%f,%f,%f,%f,%f,%f],' % (x[3:], x[len(x)-1:], pmap['6001'], pmap['6001'] / pmap['6007'], gmap['5006'], pmap['6002'],\
+                                                                                 gmap['5002'],gmap['5004'],\
+                                                                                 pmap['6005'],pmap['6006'],pmap['6008'],
+                                                                                 pl_percent)
+                else:
+                    str = '["%s","%s",%f,%f,%f,%f,%f,%f,%f,%f,%f,%f],' % (x[3:], 'F', pmap['6001'], pmap['6001'] / pmap['6007'], 0, pmap['6002'],\
+                                                                                 0, 0,\
+                                                                                 pmap['6005'],0,-1,
+                                                                                 -1)
+                    
             except:
-                logging.error('entry %s skipped due to an exception. Please validate your position' % x)
+                logging.error('split_toks: entry %s skipped due to an exception. Please validate your position' % x)
                 return ''
-            return s                                                          
+            return str                                                         
             
         end_s = s + ''.join (split_toks( x ) for x in pall)
         return end_s 
@@ -394,7 +402,12 @@ class PortfolioManager():
         for l in sorted(self.port):
             content = []    
             toks= l.split(',')
- #           print toks
+            #
+            # lc - 2017
+            # skip futures entries 
+#             if toks[1] == 'FUT':
+#                 continue
+
             for i in s_cols:
                 content.append(toks[i])
             for i in i_cols:
@@ -417,17 +430,181 @@ class PortfolioManager():
         logging.debug('recal_port: acquiring lock...%s' % threading.currentThread())
         self.tlock.acquire()
         try:
-            s = self.recal_port_rentrant_unsafe()
+            #s = self.recal_port_rentrant_unsafe()
+            s = self.recal_port_rentrant_unsafe_ex()
         finally:
             logging.debug('recal_port: completed recal. releasing lock...')
             self.tlock.release()  
             
         return s
 
-    def recal_port_rentrant_unsafe(self):
+#     def recal_port_rentrant_unsafe(self):
+#         
+#         
+#         logging.debug('PortfolioManager: recal_port')
+# 
+#         # retrieve the portfolio entries from redis, strip the prefix in front
+#         plines = map(lambda k: (k.replace(self.rs_port_keys['port_prefix'] + '_', '')),\
+#                                  self.r_conn.keys(pattern=('%s*'% self.rs_port_keys['port_prefix'])))
+#                                  
+# 	# lc 2017
+# 	# temp fix to bypass errors when encountering futures contract
+# 	plines = filter(lambda k: not 'FUT' in k, plines)
+#         logging.info ("PortfolioManager: recal_port-> gathering position entries from redis %s" % plines)
+#         
+#         
+#         # 2017 added a new colum delta_f
+#         pos_summary = {'delta_c': 0.0, 'delta_p': 0.0, 'delta_all': 0.0, \
+#                        'theta_c': 0.0, 'theta_p': 0.0, 'theta_all': 0.0,\
+#                        'delta_1percent' : 0.0, 'theta_1percent' : 0.0,\
+#                        'iv_plus1p': 0.0, 'iv_minus1p': 0.0, 'unreal_pl': 0.0}
+#         l_gmap = []
+#         l_skipped_pos =[]       
+#         t_pos_multiplier = 0.0
+#         
+#         for ckey in plines:
+#         
+#             gmap = self.get_greeks(ckey)
+#             logging.debug('PortfolioManager: recal_port greeks market data %s->%s ' % (ckey, gmap))
+#             logging.debug('PortfolioManager: recal_port position-map->%s' % (self.r_get(ckey)))
+#             pmap = json.loads(self.r_get(ckey)) 
+#             
+#             
+#             
+#             if gmap:
+#             
+#             # Tick Value      Description
+#             # 5001            impl vol
+#             # 5002            delta
+#             # 5003            gamma
+#             # 5004            theta
+#             # 5005            vega
+#             # 5006            premium        
+#             # 6001            avgCost
+#             # 6002            pos
+#             # 6003            totCost
+#             # 6004            avgPx
+#             # 6005            pos delta
+#             # 6006            pos theta
+#             # 6007            multiplier
+#             # 6009            curr_port_value
+#             # 6008            unreal_pl
+#             # 6020            pos value impact +1% vol change
+#             # 6021            pos value impact -1% vol change
+#             
+#            
+#                 def pos_delta():                 
+#                     pd = pmap['6002'] * gmap['5002'] * pmap['6007']
+#                     logging.debug('PortfolioManager: recal_port: pos_delta: %f' % pd)
+#                     return pd
+#                 
+#                 def pos_theta():
+#                     pd = pmap['6002'] * gmap['5004'] * pmap['6007']
+#                     logging.debug('PortfolioManager: recal_port: pos_theta: %f' % pd)
+#                     return pd
+#  
+#                 def pos_avg_px():
+#                     pd = pmap['6001'] / pmap['6007']
+#                     logging.debug('PortfolioManager: recal_port: pos_avg_px: %f' % pd)
+#                     return pd                   
+#                     
+#                 def pos_tot_cost():
+#                     pd = pmap['6001'] * pmap['6002'] * pmap['6007']
+#                     logging.debug('PortfolioManager: recal_port: pos_tot_cost: %f' % pd)
+#                     return pd                   
+#                 
+#                 def pos_unreal_pl():
+#                     #(spot premium * multiplier - avgcost) * pos) 
+#                     v = (gmap['5006'] * pmap['6007'] - pmap['6001']) * pmap['6002'] 
+#                     return v 
+#     
+#                 
+#     
+#                 #logging.debug('PortfolioManager: recal_port greeks %f' % pos_delta(gmap))
+#                 
+#                 pmap['6005'] = pos_delta()
+#                 pmap['6006'] = pos_theta()
+#                 pmap['6004'] = pos_avg_px()
+#                 pmap['6003'] = pos_tot_cost()
+#                 pmap['6008'] = pos_unreal_pl()
+#                 pmap['last_updated'] = datetime.datetime.now().strftime('%Y%m%d%H%M%S')
+#                 
+#                 l_gmap.append(pmap)          
+# 
+#                 #t_pos_multiplier += (pmap['6002'] * pmap['6007'])
+# 
+#                 right = ckey.split('-')[3].lower()
+#                 pos_summary['delta_' + right] += pmap['6005']
+#                 pos_summary['delta_all'] += pmap['6005']
+#                 pos_summary['theta_' + right] += pmap['6006']
+#                 pos_summary['theta_all'] += pmap['6006']
+#                 pos_summary['unreal_pl'] += pmap['6008']
+# 
+#                 
+#                 
+#                 #pos_summary['delta_1percent'] += (pos_summary['delta_all'] / (pmap['6002'] * pmap['6007']))
+#                 # delta_1% = pos_ / (pos * multiplier)
+#                 
+#                 
+#                 #print 'con,right,avgcost,spot px,pos,delta,theta, pos_delta,pos_theta,pos_unreal_pl,last_updated'
+# #                 print ( 'PT_entries: %s,%s,%f,%f,%f,%f,%f,%f,%f,%f,%s' % (ckey, right, pmap['6001'], gmap['5006'], pmap['6002'],\
+# #                                                                      gmap['5002'],gmap['5004'],\
+# #                                                                      pmap['6005'],pmap['6006'],pmap['6008'],pmap['last_updated']
+# #                                                                      ))
+# #20150911                
+#                 #print pmap
+#                 #print json.dumps(pmap)
+#                 self.r_set(ckey, json.dumps(pmap))
+#                 
+#                 logging.debug('PortfolioManager: update position in redis %s' % self.r_get(ckey))
+#                 
+#             else:
+#                 l_skipped_pos.append(ckey)
+# 
+#             
+# #            self.r_set(ckey, json.dumps(pmap))
+# #            logging.debug('PortfolioManager: update position in redis %s' % self.r_get(ckey))
+# 
+#  
+#         #pos_summary['delta_1percent'] = (pos_summary['delta_all'] / t_pos_multiplier)
+#         
+#         
+# 
+#  
+#         if len(l_skipped_pos) > 0:
+#             logging.warn('***************** PortfolioManager: recal_port. SOME POSITIONS WERE NOT PROCESSED!')
+#             logging.warn('----------------- DO NOT rely on the numbers in the Summary dictionary (pos_summary)')
+#             logging.warn('----------------- Please check your portfolio through other means or subscribe missing')
+#             logging.warn('----------------- market data in options_serve.py console. ')
+#         logging.info('-------------- POSITION SUMMARY')
+#         pos_summary['last_updated'] = datetime.datetime.now().strftime('%Y%m%d%H%M%S')    
+#         pos_summary['entries_skipped'] = l_skipped_pos
+#         pos_summary['status'] = 'OK' if len(l_skipped_pos) == 0 else 'NOT_OK'
+#         #self.r_set(self.rs_port_keys['port_summary'], json.dumps(pos_summary) )
+#         t_pos_summary = json.dumps(pos_summary)
+#         self.r_conn.set(self.rs_port_keys['port_summary'], t_pos_summary )
+#         self.r_conn.set(self.rs_port_keys['port_items'], json.dumps(l_gmap))
+#         #print pos_summary
+#         #print l_gmap      
+#         # broadcast 
+#         if self.epc['epc']:
+#             try:
+#                 self.epc['epc'].post_portfolio_summary(pos_summary)
+#                 self.epc['epc'].post_portfolio_items(l_gmap)
+#             except:
+#                 logging.exception("Exception in function: recal_port_rentrant_unsafe")
+# 
+#         #logging.info(pos_summary)
+#         
+#         logging.warn('-------------- Entries for which the greeks are not computed!! %s' %\
+#                         ','.join(' %s' % k for k in l_skipped_pos))
+#         
+#         return l_gmap
+ 
+    def recal_port_rentrant_unsafe_ex(self):
         
         
-        logging.debug('PortfolioManager: recal_port')
+        logging.debug('PortfolioManager: recal_port_ex')
 
         # retrieve the portfolio entries from redis, strip the prefix in front
         plines = map(lambda k: (k.replace(self.rs_port_keys['port_prefix'] + '_', '')),\
@@ -435,7 +612,10 @@ class PortfolioManager():
                                  
         logging.info ("PortfolioManager: recal_port-> gathering position entries from redis %s" % plines)
         
-        pos_summary = {'delta_c': 0.0, 'delta_p': 0.0, 'delta_all': 0.0,\
+        
+        # 2017 lc
+        # add a new column: delta_f
+        pos_summary = {'delta_c': 0.0, 'delta_p': 0.0, 'delta_f': 0.0, 'delta_all': 0.0,\
                        'theta_c': 0.0, 'theta_p': 0.0, 'theta_all': 0.0,\
                        'delta_1percent' : 0.0, 'theta_1percent' : 0.0,\
                        'iv_plus1p': 0.0, 'iv_minus1p': 0.0, 'unreal_pl': 0.0}
@@ -446,15 +626,18 @@ class PortfolioManager():
         for ckey in plines:
         
             gmap = self.get_greeks(ckey)
-            logging.debug('PortfolioManager: recal_port greeks market data %s->%s ' % (ckey, gmap))
-            logging.debug('PortfolioManager: recal_port position-map->%s' % (self.r_get(ckey)))
-            pmap = json.loads(self.r_get(ckey)) 
             
+            print "*** ckey %s gmap %s" % (ckey,str(gmap))
             
-            
-            if gmap:
-            
-            # Tick Value      Description
+            # if gmap is not None, it implies it could be either an option with greek values in the redis map OR
+            # a futures contract (no option greeks but contains market data fields in the gmap)
+            # if gmap is None, it implies that the entry is either an option with no greek values OR
+            # a MHI contract 
+            # 
+            # why so complicate? the original design did not save MHI into the redis map
+            # the next if stmt tests for an entry and test whether it is a HSI, MHI, or an option with greeks map
+            if gmap or (not gmap and 'MHI' in ckey): 
+                # Tick Value      Description
             # 5001            impl vol
             # 5002            delta
             # 5003            gamma
@@ -472,33 +655,63 @@ class PortfolioManager():
             # 6008            unreal_pl
             # 6020            pos value impact +1% vol change
             # 6021            pos value impact -1% vol change
-            
+                def is_futures(ckey):
+                    return 'FUT' in ckey
            
-                def pos_delta():                 
-                    pd = pmap['6002'] * gmap['5002'] * pmap['6007']
+                def pos_delta():
+                    delta = 0.0     
+                    if not is_futures(ckey):
+                        
+                        delta = gmap['5002']
+                    else:
+                        delta = 1.0
+                          
+                    print "***** delta chosen %f" % delta         
+                    pd = pmap['6002'] * delta * pmap['6007']
                     logging.debug('PortfolioManager: recal_port: pos_delta: %f' % pd)
                     return pd
                 
                 def pos_theta():
-                    pd = pmap['6002'] * gmap['5004'] * pmap['6007']
+                    pd = pmap['6002'] * gmap['5004'] * pmap['6007'] if not is_futures(ckey) else 0
                     logging.debug('PortfolioManager: recal_port: pos_theta: %f' % pd)
                     return pd
  
                 def pos_avg_px():
-                    pd = pmap['6001'] / pmap['6007']
+                    pd = pmap['6001'] / pmap['6007'] # if not is_futures(ckey) else pmap['6001'] 
                     logging.debug('PortfolioManager: recal_port: pos_avg_px: %f' % pd)
                     return pd                   
                     
                 def pos_tot_cost():
-                    pd = pmap['6001'] * pmap['6002'] * pmap['6007']
+                    pd = pmap['6001'] * pmap['6002'] * pmap['6007'] if not is_futures(ckey) else pmap['6001'] * pmap['6002'] 
                     logging.debug('PortfolioManager: recal_port: pos_tot_cost: %f' % pd)
                     return pd                   
                 
                 def pos_unreal_pl():
                     #(spot premium * multiplier - avgcost) * pos) 
-                    v = (gmap['5006'] * pmap['6007'] - pmap['6001']) * pmap['6002'] 
+                    if not is_futures(ckey):
+                        v = (gmap['5006'] * pmap['6007'] - pmap['6001']) * pmap['6002']
+                    else: 
+                        try:
+                            v = 0
+                            nkey = ckey.replace('MHI', 'HSI')
+                            data = self.r_conn.get(nkey)
+                            
+                            if data != None:
+                                #
+                                # (S - X) * pos * multiplier
+                                
+                                spot = json.loads(data)['4']
+                                v = (spot - pmap['6001']) * pmap['6007'] * pmap['6002']                         
+                        except:
+                            # there could be no data before market open
+                            # the look up for last price could have failed. 
+                            logging.error("PortfolioManager:pos_unreal_pl error: unable to calculate futures P/L!")
+                            
                     return v 
     
+                logging.debug('PortfolioManager: recal_port greeks market data %s->%s ' % (ckey, gmap))
+                logging.debug('PortfolioManager: recal_port position-map->%s' % (self.r_get(ckey)))
+                pmap = json.loads(self.r_get(ckey)) 
                 
     
                 #logging.debug('PortfolioManager: recal_port greeks %f' % pos_delta(gmap))
@@ -514,19 +727,18 @@ class PortfolioManager():
 
                 #t_pos_multiplier += (pmap['6002'] * pmap['6007'])
 
-                right = ckey.split('-')[3].lower()
-                pos_summary['delta_' + right] += pmap['6005']
-                pos_summary['delta_all'] += pmap['6005']
-                pos_summary['theta_' + right] += pmap['6006']
-                pos_summary['theta_all'] += pmap['6006']
-                pos_summary['unreal_pl'] += pmap['6008']
+                if not is_futures(ckey):
+                    right = ckey.split('-')[3].lower()
+                    pos_summary['delta_' + right] += pmap['6005']
+                    pos_summary['delta_all'] += pmap['6005']
+                    pos_summary['theta_' + right] += pmap['6006']
+                    pos_summary['theta_all'] += pmap['6006']
+                    pos_summary['unreal_pl'] += pmap['6008']
+                else:
+                    pos_summary['delta_f'] += pmap['6005']
+                    pos_summary['delta_all'] += pmap['6005']
+                    print "**** adding delta %f cum_delta_f %f cum_delta_all %f" % (pmap['6005'], pos_summary['delta_f'], pos_summary['delta_all'])
 
-                
-                
-                #pos_summary['delta_1percent'] += (pos_summary['delta_all'] / (pmap['6002'] * pmap['6007']))
-                # delta_1% = pos_ / (pos * multiplier)
-                
-                
                 #print 'con,right,avgcost,spot px,pos,delta,theta, pos_delta,pos_theta,pos_unreal_pl,last_updated'
 #                 print ( 'PT_entries: %s,%s,%f,%f,%f,%f,%f,%f,%f,%f,%s' % (ckey, right, pmap['6001'], gmap['5006'], pmap['6002'],\
 #                                                                      gmap['5002'],gmap['5004'],\
@@ -538,9 +750,13 @@ class PortfolioManager():
                 self.r_set(ckey, json.dumps(pmap))
                 
                 logging.debug('PortfolioManager: update position in redis %s' % self.r_get(ckey))
+ 
+            else: # greeks entry not found
                 
-            else:
                 l_skipped_pos.append(ckey)
+            
+           
+                
 
             
 #            self.r_set(ckey, json.dumps(pmap))
@@ -562,7 +778,10 @@ class PortfolioManager():
         pos_summary['entries_skipped'] = l_skipped_pos
         pos_summary['status'] = 'OK' if len(l_skipped_pos) == 0 else 'NOT_OK'
         #self.r_set(self.rs_port_keys['port_summary'], json.dumps(pos_summary) )
+        
         t_pos_summary = json.dumps(pos_summary)
+        
+        print "****** %s" % t_pos_summary
         self.r_conn.set(self.rs_port_keys['port_summary'], t_pos_summary )
         self.r_conn.set(self.rs_port_keys['port_items'], json.dumps(l_gmap))
         #print pos_summary
@@ -581,7 +800,7 @@ class PortfolioManager():
                         ','.join(' %s' % k for k in l_skipped_pos))
         
         return l_gmap
- 
+
 
     def construct_port(self, pos_msg):
         # port structure
@@ -610,7 +829,10 @@ class PortfolioManager():
         
 #         print toks
 #         print '---> %s' % s
-        self.port.append(s)
+        
+	# 2018.1.2 fix to discard duplicate position message entries
+	if s not in self.port:
+        	self.port.append(s)
                 
         ckey = options_data.ContractHelper.makeRedisKey(pos_msg.contract)
         multiplier = 50.0 if toks[0][1:] == 'HSI' else 10.0
@@ -668,9 +890,11 @@ if __name__ == '__main__':
     p.retrieve_position()
     print p.get_portfolio_summary()
     print p.get_tbl_pos_csv()
-    p.group_pos_by_strike_by_month()
-    print p.grouped_options
-    print p.get_grouped_options_str_array_stacked()
+    print "***********************"
+    print p.get_tbl_pos_list()
+#     p.group_pos_by_strike_by_month()
+#     print p.grouped_options
+#     print p.get_grouped_options_str_array_stacked()
 
     # sample ouput    
 # ["exch","type","contract_mth","right","strike","con_ration","pos","avgcost"],["HSI","OPT","20150828","C","22600",50.0,0.0000,0.0000,],["HSI","OPT","20150828","C","23000",50.0,-1.0000,1770.0000,],["HSI","OPT","20150828","C","23600",50.0,-2.0000,1470.0000,],["HSI","OPT","20150828","C","23800",50.0,-1.0000,920.0000,],["HSI","OPT","20150828","C","24000",50.0,-2.0000,1820.0000,],["HSI","OPT","20150828","C","24200",50.0,-1.0000,3120.0000,],["HSI","OPT","20150828","C","24800",50.0,-1.0000,220.0000,],["HSI","OPT","20150828","P","18000",50.0,-2.0000,1045.0000,],["HSI","OPT","20150828","P","18600",50.0,-1.0000,1120.0000,],["HSI","OPT","20150828","P","18800",50.0,-1.0000,1570.0000,],["HSI","OPT","20150828","P","19800",50.0,-1.0000,870.0000,],["HSI","OPT","20150828","P","20200",50.0,-1.0000,970.0000,],["HSI","OPT","20150828","P","20800",50.0,-2.0000,970.0000,],["HSI","OPT","20150828","P","21600",50.0,-1.0000,1570.0000,],["HSI","OPT","20150828","P","21800",50.0,-7.0000,1955.7143,],["HSI","OPT","20150828","P","23200",50.0,1.0000,25930.0000,],["HSI","OPT","20150929","C","24400",50.0,1.0000,24880.0000,],["HSI","OPT","20150929","P","21600",50.0,0.0000,0.0000,],["HSI","OPT","20150929","P","21800",50.0,2.0000,52713.3333,],["HSI","OPT","20150929","P","22600",50.0,3.0000,39763.3333,],["MHI","OPT","20150828","C","24400",10.0,-1.0000,2603.0000,],["MHI","OPT","20150828","P","20800",10.0,-1.0000,313.0000,],["MHI","OPT","20150828","P","21000",10.0,-1.0000,363.0000,],["MHI","OPT","20150828","P","23600",10.0,5.0000,4285.0000,],["MHI","OPT","20150929","C","24400",10.0,1.0000,4947.0000,],["MHI","OPT","20150929","P","21600",10.0,1.0000,12657.0000,],["MHI","OPT","20150929","P","22600",10.0,1.0000,9877.0000,],["MHI","OPT","20150929","P","23600",10.0,4.0000,7757.0000,],

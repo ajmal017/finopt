@@ -105,7 +105,10 @@ def get_hk_holidays(year):
         if str(year) == (Date().todaysDate() + Period("1y")).ISO()[0:4]:
             url = 'http://www.gov.hk/en/about/abouthk/holiday/'
         else:
-            url = 'http://www.gov.hk/en/about/abouthk/holiday/{{year}}.htm'
+            #url = 'http://www.gov.hk/en/about/abouthk/holiday/{{year}}.htm'
+	    # lc 2017-01-03
+	    # just use the same url for both cases
+            url = 'http://www.gov.hk/en/about/abouthk/holiday/'
             url = url.replace('{{year}}', str(year))
 
 
@@ -120,8 +123,9 @@ def get_hk_holidays(year):
         soup = BeautifulSoup(html, 'html5lib')
         
         tds = soup.findAll('h3')[0].parent.findAll('td', 'date')
-        
-        d1 = map(lambda x: (int(x.text.split(' ')[0]), x.text.split(' ')[1]), tds[1:])
+        #d1 = map(lambda x: (int(x.text.split(' ')[0]), x.text.split(' ')[1]), tds[1:])
+	#2017 fix
+        d1 = map(lambda x: (int(x.text.split()[0]), x.text.split()[1]), tds[1:])
         holidays =  map(lambda x: '%d%02d%02d' % (year, int(month_names[x[1]]), int(x[0]) ), d1)
         #return map(lambda x: strftime('%Y%m%d', time.strptime('%s %s %s' % (month_names.index(x[1])+1, x[0], year), "%m %d %Y")), d1)
         #print d1
@@ -327,3 +331,5 @@ if __name__ == '__main__':
         dd = get_HSI_last_trading_day(holidays, i, 2017)
         print dd
         
+    print holidays	
+    print get_HSI_last_trading_day(['20170128'], 1, 2017)
