@@ -34,13 +34,13 @@ class AnalyticsEngine(AbstractGatewayListener):
         
     
     def test_oc(self, oc2):
-        expiry = '20170529'
+        expiry = '20170830'
         contractTuple = ('HSI', 'FUT', 'HKFE', 'HKD', expiry, 0, '')
         contract = ContractHelper.makeContract(contractTuple)  
         
         oc2.set_option_structure(contract, 200, 50, 0.0012, 0.0328, expiry)        
         
-        oc2.build_chain(25280, 0.04, 0.22)
+        oc2.build_chain(27000, 0.04, 0.22)
         
 #         expiry='20170324'
 #         contractTuple = ('QQQ', 'STK', 'SMART', 'USD', '', 0, '')
@@ -59,13 +59,13 @@ class AnalyticsEngine(AbstractGatewayListener):
         
     
     def test_oc3(self, oc3):
-        expiry = '20170629'
+        expiry = '20170928'
         contractTuple = ('HSI', 'FUT', 'HKFE', 'HKD', expiry, 0, '')
         contract = ContractHelper.makeContract(contractTuple)  
          
         oc3.set_option_structure(contract, 200, 50, 0.0012, 0.0328, expiry)        
          
-        oc3.build_chain(25280, 0.04, 0.22)
+        oc3.build_chain(27000, 0.04, 0.22)
 
 #         expiry = '20170331'
 #         contractTuple = ('QQQ', 'STK', 'SMART', 'USD', '', 0, '')
@@ -92,7 +92,21 @@ class AnalyticsEngine(AbstractGatewayListener):
             self.tds.add_symbol(o)
         self.tds.add_symbol(oc3.get_underlying())
         
-    
+    def init_oc_from_params(self, **args):
+        oc = OptionsChain(args['name'])
+        contractTuple = (args['m_symbol'], args['m_secType'], args['m_exchange'], args['m_currency'], 
+                         args['m_expiry'], args['m_strike'], args['m_right'])
+        contract = ContractHelper.makeContract(contractTuple)  
+        #underlying, spd_size, multiplier, rate, div, expiry, trade_vol=0.15)
+        oc.set_option_structure(contract, args['spd_size'], args['multiplier'], args['rate'], args['div'], args['m_expiry'], 
+                                args['trade_vol'])                                                  
+        oc.build_chain(args['undly_price'], args['bound'], args['trade_vol'])
+        
+            
+        for o in oc.get_option_chain():
+            self.tds.add_symbol(o)
+        self.tds.add_symbol(oc.get_underlying())
+        return oc
     
     def start_engine(self):
         self.twsc.start_manager()
@@ -258,7 +272,10 @@ if __name__ == '__main__':
       'clear_offsets':  False,
       'logconfig': {'level': logging.INFO, 'filemode': 'w', 'filename': '/tmp/ae.log'},
       'topics': ['tickPrice', 'tickSize'],
-      'seek_to_end': ['*']
+      'seek_to_end': ['*'],
+#       'ocs':[
+#             name, underlying, spd_size, multiplier, rate, div, expiry, trade_vol)
+#             ]
 
       #'seek_to_end':['tickSize', 'tickPrice','gw_subscriptions', 'gw_subscription_changed']
       }

@@ -1,4 +1,5 @@
-from sklearn.naive_bayes import BernoulliNB
+from sklearn.naive_bayes import BernoulliNB, MultinomialNB
+from sklearn import metrics
 import numpy as np
 import finopt.ystockquote as yq
 import datetime
@@ -10,7 +11,7 @@ def weather_play():
     # implementing the example in the blog link below
     # http://www.analyticsvidhya.com/blog/2015/09/naive-bayes-explained/
     # each vector in x represents a predictor of type 'weather' with
-    # attributes = ['sunny', 'overcast', 'rainy']
+    # attributes = ['overcast', 'rainy', 'sunny']
     # the label / class in y are ['NO', 'YES'] or 0,1
     
     # using Bernoulli because the vectors are in binary 
@@ -19,16 +20,22 @@ def weather_play():
                 [0,1,0],[0,1,0],[0,1,0],[0,1,0],[0,1,0],
                 [0,0,1],[0,0,1],[0,0,1],[0,0,1],[0,0,1]])
                 
-    y = np.array([1,1,1,1,0,0,0,1,1,0,0,1,1,1])
+    y = np.array([1,1,1,1,
+                  0,0,0,1,1
+                  ,0,0,1,1,1])
     
     model = BernoulliNB()
+    
+    #model = MultinomialNB()
     model.fit(x,y)
-    predicted = model.predict([[0,0,1],[1,0,0]])
+    print(model)
+    predicted = model.predict(x)
     print predicted
-    print model.predict_proba([[0,0,1],[1,0,0],[0,1,0]])
+    print model.predict_proba([[1,0,0],[0,1,0],[0,0,1]])
     print model.feature_count_
 
-
+    print(metrics.classification_report(y, predicted))
+    print(metrics.confusion_matrix(y, predicted))
 
 def str2datetime(yyyymmdd):
     #print '%d%d%d'% (int(yyyymmdd[6:8]), int(yyyymmdd[4:6])-1 , int(yyyymmdd[0:4])) 
@@ -296,8 +303,8 @@ def set_biz_calendar():
     
     #print np.array(s1)
 if __name__ == '__main__':
-    #weather_play()
-    #test()
+    weather_play()
+    test()
     
     #
     # 
@@ -307,9 +314,9 @@ if __name__ == '__main__':
     # the dow jones or some other indices closed high on 
     # the previous trading day?
     #
-    rs = set_biz_calendar()
-    print ''.join('%s,\n' % rs[i] for i in range(5)), rs.after(str2datetime('20160324')),\
-                                                           datetime2ystr(rs.after(str2datetime('20160324')))
+    #rs = set_biz_calendar()
+    #print ''.join('%s,\n' % rs[i] for i in range(5)), rs.after(str2datetime('20160324')),\
+    #                                                       datetime2ystr(rs.after(str2datetime('20160324')))
      
     #ewh_hsi(rs)
-    predict(rs)
+    #predict(rs)

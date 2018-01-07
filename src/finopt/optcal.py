@@ -122,11 +122,15 @@ def get_hk_holidays(year):
                 
         
         
-        soup = BeautifulSoup(html, 'html5lib')
+        soup = BeautifulSoup(html, 'lxml')
         
         tds = soup.findAll('h3')[0].parent.findAll('td', 'date')
         
-        d1 = map(lambda x: (int(x.text.split(' ')[0]), x.text.split(' ')[1]), tds[1:])
+        print tds[1:]
+        #d1 = map(lambda x: ((x.text.split('\xa0')[0]), x.text.split('\xa0')[1]), tds[1:])
+        d1 = map(lambda x: ((x.text.split()[0]), x.text.split()[1]), tds[1:])
+        print d1
+        
         holidays =  map(lambda x: '%d%02d%02d' % (year, int(month_names[x[1]]), int(x[0]) ), d1)
         #return map(lambda x: strftime('%Y%m%d', time.strptime('%s %s %s' % (month_names.index(x[1])+1, x[0], year), "%m %d %Y")), d1)
         #print d1
@@ -338,9 +342,9 @@ if __name__ == '__main__':
     #spot 24119.0, X 25000, right: P, evaldate: 20150812, expiry: 20150828, rate: 0.0005, div: 0.0005, vol: 0.2000, premium: 334.0000
     #spot 24149.0, X 25200, right: P, evaldate: 20150812, expiry: 20150828, rate: 0.0005, div: 0.0005, vol: 0.2000, premium: 437.5000
     
-    test()
-    test2()
-    test3(100, 24200, 'C', '20170327', '20170330', 0.00012, 0.0328, 0.120)
+#     test()
+#     test2()
+#     test3(100, 24200, 'C', '20170327', '20170330', 0.00012, 0.0328, 0.120)
 #     results = cal_option(23067.0, 22000, 'P', '20151018', '20151029', 0.0009, 0.0328, 0.2918)
 #     npv1 = results['npv']
 #     v1 = 0.2918
@@ -383,7 +387,7 @@ if __name__ == '__main__':
 #     print chk.advance(Date(17, October, 2015), 1, 2)
     #print get_HSI_expiry(2016)
     
-#     holidays = get_hk_holidays(2017)
+     holidays = get_hk_holidays(2018)
 # 
 #     
 #     

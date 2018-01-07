@@ -11,6 +11,8 @@
 
 
 import urllib
+import json
+import urllib2
 
 
 """
@@ -206,15 +208,40 @@ def get_historical_prices(symbol, start_date, end_date):
     
     
         
-
-
+class Alphavantage():
+    
+    api_key = 'RH87SY4LF3D62WNA'
+    
+    
+    
+    def __init__(self, api_key= None):
+        self.api_key = api_key if api_key <> None else self.api_key
+    
+    def url_request(self, params):
+        url = 'https://www.0afrs.co/query?%s&apikey=%s' % (''.join('&%s=%s' % (k, v) for k, v in params.iteritems()), self.api_key)
+        return url
+    # TIME_SERIES_DAILY_ADJUSTED
+    def time_series_daily_adjusted(self, symbol, datatype=None, outputsize=None):
+        url = self.url_request({'function': 'time_series_daily_adjusted', 'symbol':symbol, 'datatype': datatype, 'outputsize':outputsize})
+        print url
+        if datatype == 'csv':
+            days = urllib2.urlopen(url).readlines()
+            data = [day[:-2].split(',') for day in days]
+            return data
+        else:
+            return json.loads(urllib2.urlopen(url))
+        
    
-
-
+if __name__ == '__main__':
+    av = Alphavantage()
+    d = av.time_series_daily_adjusted('AUDUSD=X', 'csv', 'full')
+    print d 
+    print len(d)
 #ss = [["0001.HK",2.5],["0002.HK",1.86],["0003.HK",1.62],["0004.HK",1.27],["0005.HK",15.02],["0006.HK",1.44],["0011.HK",1.42],["0012.HK",0.82],["0013.HK",2.53],["0016.HK",2.53],["0017.HK",0.7],["0019.HK",1.01],["0023.HK",0.67],["0066.HK",0.67],["0083.HK",0.66],["0101.HK",0.94],["0144.HK",0.46],["0151.HK",1.14],["0267.HK",0.18],["0291.HK",0.46],["0293.HK",0.24],["0322.HK",0.71],["0330.HK",0.25],["0386.HK",1.88],["0388.HK",1.86],["0494.HK",1.06],["0688.HK",1.25],["0700.HK",4.52],["0762.HK",0.94],["0836.HK",0.49],["0857.HK",3.29],["0883.HK",4.38],["0939.HK",7.08],["0941.HK",8.08],["1044.HK",0.91],["1088.HK",1.59],["1109.HK",0.53],["1199.HK",0.27],["1299.HK",4.69],["1398.HK",5.25],["1880.HK",1.01],["1898.HK",0.43],["1928.HK",1.06],["2318.HK",1.85],["2388.HK",1.42],["2600.HK",0.19],["2628.HK",2.56],["3328.HK",0.71],["3988.HK",3.63]]
 #for s in ss:
 #    chg_percent = float(get_change(s[0]))/ float(get_price(s[0])) 
 #    print '["%s","HSI",%f,%f],' % (s[0], s[1], chg_percent)
-    
+
+
     
         

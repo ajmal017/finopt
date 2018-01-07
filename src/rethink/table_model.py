@@ -61,11 +61,7 @@ class AbstractTableModel(Publisher):
         raise NotImplementedException
 
 
-class AbstractPortfolioTableModelListener(BaseMessageListener):
-    '''
-    
-    '''
-    
+class AbstractTableModelListener(BaseMessageListener):
     def __init__(self, name):
         BaseMessageListener.__init__(self, name)
         
@@ -85,6 +81,13 @@ class AbstractPortfolioTableModelListener(BaseMessageListener):
         
     def event_tm_request_table_structure(self, event, request_id, target_resource, account):
         logging.info("[%s] received %s content:[%s]" % (self.name, event, vars()))        
+
+class AbstractPortfolioTableModelListener(AbstractTableModelListener):
+    pass
+
+
+
+
     
 
 

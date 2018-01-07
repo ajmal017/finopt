@@ -833,7 +833,11 @@ class PortfolioManager():
         
 #         print toks
 #         print '---> %s' % s
-        self.port.append(s)
+        # 2017 fix
+        # the position retrieve method sends back multiple messages
+        # add a filter logic to leave out duplicates
+        if s not in self.port:  
+            self.port.append(s)
                 
         ckey = options_data.ContractHelper.makeRedisKey(pos_msg.contract)
         multiplier = 50.0 if toks[0][1:] == 'HSI' else 10.0
