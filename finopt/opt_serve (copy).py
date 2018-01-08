@@ -4,7 +4,7 @@ import logging
 import os
 import ast
 import urllib, urllib2, cookielib
-import datetime, time
+import datetime
 import re
 import json
 import cherrypy
@@ -16,11 +16,6 @@ import optcal
 import ConfigParser
 import portfolio
 from comms.alert_bot import AlertHelper
-from ws4py.server.cherrypyserver import WebSocketPlugin, WebSocketTool
-from ws4py.websocket import WebSocket
-from ws4py.websocket import EchoWebSocket
-from sets import Set
-import thread
 
 
 class QServer(object):
@@ -41,7 +36,7 @@ class QServer(object):
     @cherrypy.expose
     def index(self):
         
-        #s_line = 'welcome!'
+        s_line = 'welcome!'
         #r_host = cherrypy.request.app.config['redis']['redis.server']
         #r_port = cherrypy.request.app.config['redis']['redis.port']
         #r_db = cherrypy.request.app.config['redis']['redis.db']
@@ -50,20 +45,14 @@ class QServer(object):
         #rs = redis.Redis(r_host, r_port, r_db)
         rs = QServer.r_conn
         s_line = rs.info()
-	
         html =''
         for k, v in cherrypy.request.app.config.iteritems():
             html = html + '<dt>%s</dt><dd>%s</dd>' % (k, v)
        
-        impl_link = "<a href=./opt_implv><img src='public/chart.png' width='42' height=42'/>options implied vol curves</a>"
-        pos_link = "<a href=./ws_position_chart><img src='public/moneyup.png' width='42' height='42'/>Positions</a>" 
-        stackpos_link = "<a href=./ws_position_chart_ex><img src='public/scale.png' width='42' height='42' />Positions (Stacked View)</a>"
-        bubble_link = "<a href=./port_bubble_chart><img src='public/Market-Risk-Icon.png' width='42' height='42' />Risk Distributions</a>"
-
-	html = ''
-	s_line = ''
-
-        return """<html><body><li>%s</li><li>%s</li><li>%s</li><li>%s</li><br><dl>%s</dl></br>%s</body></html>""" % (bubble_link, impl_link, pos_link, stackpos_link, html, s_line)
+        impl_link = "<a href='./opt_implv'>options implied vol curves</a>"
+        pos_link = "<a href=./ws_position_chart>Positions</a>" 
+        bubble_link = "<a href=./port_bubble_chart>Risk Distributions</a>"
+        return """<html><body><li>%s</li><li>%s</li><li>%s</li><br><dl>%s</dl></br>%s</body></html>""" % (bubble_link, impl_link, pos_link, html, s_line)
  
  
     @cherrypy.expose
@@ -322,197 +311,6 @@ class QServer(object):
         
         
         return html_tmpl
-    
-    #
-    # ws_position_chart_ex
-    #
-    # 
-    # this is an extended version of ws_position_chart
-    # shows options by month, strikes, right instead of just strikes and right
-    # 2016-03-23
-    def generate_garray(self, plist):
-        
-        
-        # generate a key map with month-right-strike
-        # example: ('20160330-C-20000', 0.2),...
-        
-        klist = map(lambda x: ('%s-%s-%s' % (x[2], x[3], x[4]), float(x[5])/50.0*float(x[6])), plist)
-        # for e in sorted(klist):
-        #     print e
-        
-        # get the unique keys in klist
-        unique_keys= Set(map(lambda x:x[0], klist))
-        strikes =[e for e in Set(map(lambda x:x[4], plist))]
-        # sort the months in ascending order
-        months = sorted([e for e in Set(map(lambda x:x[2], plist))])
-        print klist
-        print strikes
-        # print months
-        # print len(klist), len(s)
-        
-        # group and sum position by month, strike, right
-        grouped_pos = []
-        for elem in unique_keys:
-            grp1 = filter(lambda x: x[0] == elem, klist)
-            print grp1
-            # sum items with same key
-            # example: [('20160330-P-19600', -1.0), ('20160330-P-19600', 0.2)]
-            grouped_pos.append( grp1[0] if len(grp1) == 1 else reduce(lambda x,y: (x[0], x[1]+y[1]), grp1) )
-            print '---'
-        
-        print grouped_pos    
-            
-        garr = {}
-        def init_garray(x):
-            garr[x] = {}
-        map(init_garray, sorted(strikes))
-        print garr
-        
-        def set_garray(x):
-            vals = x[0].split(('-'))
-            
-            if vals[0] == months[0]:
-                
-                if vals[1] == 'C':
-                    garr[vals[2]]['NEAR_C'] = x[1]
-                else:
-                    garr[vals[2]]['NEAR_P'] = x[1]
-            elif vals[0] == months[1]:
-        
-                if vals[1] == 'C':
-                    garr[vals[2]]['FAR_C'] = x[1]
-                else:
-                    garr[vals[2]]['FAR_P'] = x[1]
-                  
-        # find all C of near month
-        map(set_garray, grouped_pos)
-        print garr
-        s=''
-        for k, v in garr.iteritems():
-            s+= '[%s, %s,%s,%s,%s],' % (k, v['NEAR_P'] if 'NEAR_P' in v else '0',
-                                         v['NEAR_C'] if 'NEAR_C' in v else '0',  
-                                         v['FAR_P'] if 'FAR_P' in v else '0', 
-                                         v['FAR_C'] if 'FAR_C' in v else '0', )
-        return s    
-    
-    
-    def generate_garray_ex(self, plist):
-    
-    #[['HSI', 'FUT', '20170126', 'None', '0', '50.0', '0.0000', '0.0000'], 
-    # ['HSI', 'OPT', '20170126', 'C', '23000', '50.0', '-4.0000', '3240.3350'], ['HSI', 'OPT', '20170126', 'P', '22600', '50.0', '-1.0000', '1330.9600'], ['HSI', 'OPT', '20170227', 'C', '23400', '50.0', '-2.0000', '9880.9600'], ['HSI', 'OPT', '20170227', 'C', '23600', '50.0', '-1.0000', '9530.9600'], ['HSI', 'OPT', '20170227', 'P', '20200', '50.0', '-3.0000', '980.9600'], ['HSI', 'OPT', '20170227', 'P', '20400', '50.0', '-1.0000', '7664.2933'], ['HSI', 'OPT', '20170227', 'P', '21800', '50.0', '-3.0000', '5197.6267'], ['MHI', 'FUT', '20170126', 'None', '0', '10.0', '5.0000', '230459.6680']]
-        
-        
-        # generate a key map with month-right-strike
-        # example: ('20160330-C-20000', 0.2),...
-        
-        #klist = map(lambda x: ('%s-%s-%s' % (x[2], x[3] if x[3] <> 'None' else 'F', x[4]), float(x[5])/50.0*float(x[6])), plist)
-        
-        # 2017 - handle futures price 
-        
-        def getX(x):
-            val = x[4] if x[3] <> 'None' else str(int(round(float(x[7])/ float(x[5]),-1)))
-    #        print val
-            return val
-        
-        plist = filter(lambda x: int(float(x[6])) <> 0, plist)
-        klist = map(lambda x: ('%s-%s-%s' % (x[2], x[3] if x[3] <> 'None' else 'F', getX(x)), float(x[5])/50.0*float(x[6])), plist)
-        # for e in sorted(klist):
-        #     print e
-    
-        # get the unique keys in klist
-        unique_keys= Set(map(lambda x:x[0], klist))
-        
-        
-        #strikes =[e for e in Set(map(lambda x:x[4], plist))]
-        # 2017 
-        strikes = [e for e in Set(map(lambda x:getX(x), plist))]
-        
-         
-        # sort the months in ascending order
-        months = sorted([e for e in Set(map(lambda x:x[2], plist))])
-        print klist
-        print strikes
-        # print months
-        # print len(klist), len(s)
-        
-        # group and sum position by month, strike, right
-        grouped_pos = []
-        for elem in unique_keys:
-            grp1 = filter(lambda x: x[0] == elem, klist)
-            print grp1
-            # sum items with same key
-            # example: [('20160330-P-19600', -1.0), ('20160330-P-19600', 0.2)]
-            grouped_pos.append( grp1[0] if len(grp1) == 1 else reduce(lambda x,y: (x[0], x[1]+y[1]), grp1) )
-            print '---'
-        
-        print grouped_pos    
-            
-        garr = {}
-        def init_garray(x):
-            garr[x] = {}
-        map(init_garray, sorted(strikes))
-        print garr
-        
-        def set_garray(x):
-            vals = x[0].split(('-'))
-            
-            if vals[0] == months[0]:
-                
-                if vals[1] == 'C':
-                    garr[vals[2]]['NEAR_C'] = x[1]
-                elif vals[1] =='P':
-                    garr[vals[2]]['NEAR_P'] = x[1]
-                else:
-                    garr[vals[2]]['NEAR_F'] = x[1]
-            elif vals[0] == months[1]:
-        
-                if vals[1] == 'C':
-                    garr[vals[2]]['FAR_C'] = x[1]
-                elif vals[1] =='P':
-                    garr[vals[2]]['FAR_P'] = x[1]
-                else:
-                    garr[vals[2]]['FAR_F'] = x[1]
-        # find all C of near month
-        map(set_garray, grouped_pos)
-        print garr
-        s=''
-        for k, v in garr.iteritems():
-            s+= '[%s, %s,%s,%s,%s,%s,%s],' % (k, v['NEAR_P'] if 'NEAR_P' in v else '0',
-                                         v['NEAR_C'] if 'NEAR_C' in v else '0',  
-                                         v['FAR_P'] if 'FAR_P' in v else '0', 
-                                         v['FAR_C'] if 'FAR_C' in v else '0', 
-                                         v['NEAR_F'] if 'NEAR_F' in v else '0', 
-                                         v['FAR_F'] if 'FAR_F' in v else '0', )
-                                         
-        return s        
-    
-    @cherrypy.expose
-    def ws_position_chart_ex(self):
-        p = portfolio.PortfolioManager(config)
-        p.retrieve_position()
-        opt_pos_chart_tmpl = '%s%s/opt-pos-chart-stacked-tmpl.html' % (cherrypy.request.app.config['/']['tools.staticdir.root'], cherrypy.request.app.config['/static']['tools.staticdir.tmpl'])
-        f = open(opt_pos_chart_tmpl)
-        html_tmpl = f.read()
-
-        #html_tmpl = html_tmpl.replace('{{{dataPCpos}}}', self.generate_garray(p.get_tbl_pos_list()))
-        # 2017 - handles futures
-
-        html_tmpl = html_tmpl.replace('{{{dataPCpos}}}', self.generate_garray_ex(p.get_tbl_pos_list()))
-        
-        html_tmpl = html_tmpl.replace('{{{dataTablePos}}}', p.get_tbl_pos_csv())
-        
-        html_tmpl = html_tmpl.replace('{{{option_months}}}', ''.join(('%s, ' % m) for m in p.get_traded_months()))
-        v = p.group_pos_by_right()
-        html_tmpl = html_tmpl.replace('{{{PRvsCR}}}}', '%0.2f : %0.2f' % (v[0][1], v[1][1]))
-        
-        #print p.get_portfolio_summary()
-        #html_tmpl = html_tmpl.replace('{{{pos_summary}}}', ''.join('<li>%s:   %s</li>' % (x[0],x[1]) for x in p.get_portfolio_summary() ))
-        #print '\n'.join('%s:\t\t%s' % (k,v) for k,v in sorted(json.loads(DataMap.rs.get(port_key)).iteritems()))
-        
-        
-        return html_tmpl
-
-
  
     @cherrypy.expose
     def ws_position_summary(self):
@@ -642,10 +440,7 @@ class QServer(object):
         s_portitems = self.ws_port_items() 
         
         litems = json.loads(s_portitems)
-	
-	#2018 fix - get rid of 'FUT' contracts 
-	litems = filter(lambda x: 'FUT' not in x['contract'], litems)        
-
+        
         # only interested in unrealized items, pos != 0 
         ldict = filter(lambda x: x['6002'] <> 0, litems)
         
@@ -687,73 +482,9 @@ class QServer(object):
         a = AlertHelper(self.config)
         a.post_msg(msg)  
         
-
-    @cherrypy.expose
-    def ws(self):
-        logging.info('at ws')
-        # you can access the class instance through
-        handler = cherrypy.request.ws_handler
-    
-        while handler.opened == False:
-            logging.info( 'not opened')
         
-        logging.info( 'opened')
-        
-        
-    @cherrypy.expose
-    def ws_entry(self):
-        html = '%s%s/wstest.html' % (cherrypy.request.app.config['/']['tools.staticdir.root'], cherrypy.request.app.config['/static']['tools.staticdir.tmpl'])
-        f = open(html)
-        return f.read()
-    
-class OptWebSocket(WebSocket):
-    
-#     def __init__(self):
-#         logging.debug('instantiated.')
-
-
-        
-    def received_message(self, message):
-        self.send(message.data, message.is_binary)
-        logging.info('received %s' % message.data)   
-        
-        
-#     def opened(self):
-#         logging.info('web socket opened')
-        #self.send('hello')
-#         while 1:
-#             self.send('%f' % time.time(), False)
-#             time.sleep(2)
-
             
-
-    def opened(self):
-
-        logging.info('web socket opened')
-        def data_provider():   
-            
-            while 1:         
-#                print ('%f' % time.time())
-#                time.sleep(2)
-            
-                def cb():
-                    #for i in range(1, 200, 25):
-                    #    yield "#" * i
-                    yield '%f' % time.time()
-                
-                   
-                self.send(cb())
-        
-                logging.info('--- here')
-                time.sleep(2)  
-            
-        thread.start_new_thread(data_provider())
-        
-              
-    def closed(self, code, reason=None):
-        print "Closed down", code, reason
-        
-                 
+         
 if __name__ == '__main__':
             
 #     logging.basicConfig(filename = "log/opt.log", filemode = 'a', 
@@ -785,11 +516,7 @@ if __name__ == '__main__':
     port = config.get("redis", "redis.port")
     db = config.get("redis", "redis.db")    
     r_conn = redis.Redis(host,port,db)
-
-
     
-    WebSocketPlugin(cherrypy.engine).subscribe()
-    cherrypy.tools.websocket = WebSocketTool()    
     cherrypy.quickstart(QServer(r_conn, config), '/', cfg_path[0])
     
    
