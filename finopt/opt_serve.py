@@ -50,7 +50,7 @@ class QServer(object):
         #rs = redis.Redis(r_host, r_port, r_db)
         rs = QServer.r_conn
         s_line = rs.info()
-	
+    
         html =''
         for k, v in cherrypy.request.app.config.iteritems():
             html = html + '<dt>%s</dt><dd>%s</dd>' % (k, v)
@@ -60,8 +60,8 @@ class QServer(object):
         stackpos_link = "<a href=./ws_position_chart_ex><img src='public/scale.png' width='42' height='42' />Positions (Stacked View)</a>"
         bubble_link = "<a href=./port_bubble_chart><img src='public/Market-Risk-Icon.png' width='42' height='42' />Risk Distributions</a>"
 
-	html = ''
-	s_line = ''
+    html = ''
+    s_line = ''
 
         return """<html><body><li>%s</li><li>%s</li><li>%s</li><li>%s</li><br><dl>%s</dl></br>%s</body></html>""" % (bubble_link, impl_link, pos_link, stackpos_link, html, s_line)
  
@@ -610,6 +610,7 @@ class QServer(object):
         
         
         s_acctitems, last_updated, account_no = self.ws_acct_data()
+
         print s_acctitems, last_updated, account_no
         html_tmpl = html_tmpl.replace('{{{barAcct}}}', s_acctitems)
         html_tmpl = html_tmpl.replace('{{{account_no}}}', account_no)
@@ -642,7 +643,10 @@ class QServer(object):
         s_portitems = self.ws_port_items() 
         
         litems = json.loads(s_portitems)
-        
+    
+        #2018 fix - get rid of 'FUT' contracts 
+        litems = filter(lambda x: 'FUT' not in x['contract'], litems)        
+
         # only interested in unrealized items, pos != 0 
         ldict = filter(lambda x: x['6002'] <> 0, litems)
         
@@ -670,7 +674,21 @@ class QServer(object):
         rs = QServer.r_conn
         key = cherrypy.request.app.config['redis']['redis.datastore.key.acct_summary']
         s_acctitems = rs.get(key)
-        dict = json.loads(s_acctitems)
+        acct_items = json.loads(s_acctitems)
+
+        # full set of acctitems 
+        #["EquityWithLoanValue", 1910295.05, "#3366CC"],["FullMaintMarginReq", 467308.14, "#DC3912"],["TotalCashValue", 1910246.58, "#3366CC"],["AvailableFunds", 1326159.87, "#3366CC"],["LookAheadMaintMarginReq", 467308.14, "#DC3912"],["BuyingPower", 8841065.82, "#3366CC"],["Cushion", 0.755374, "#DC3912"],["ExcessLiquidity", 1442986.91, "#3366CC"],["LookAheadInitMarginReq", 584135.17, "#3366CC"],["GrossPositionValue", 67834.78, "#DC3912"],["LookAheadAvailableFunds", 1326159.87, "#3366CC"],["FullAvailableFunds", 1326159.87, "#3366CC"],["MaintMarginReq", 467308.14, "#DC3912"],["FullInitMarginReq", 584135.17, "#3366CC"],["AccruedCash", 48.47, "#DC3912"],["NetLiquidation", 1910295.05, "#3366CC"],["FullExcessLiquidity", 1442986.91, "#3366CC"],["LookAheadExcessLiquidity", 1442986.91, "#3366CC"],["InitMarginReq", 584135.17, "#3366CC"],]
+
+
+        interested_keys = ['LookAheadInitMarginReq', 'NetLiquidation', 'AvailableFunds', 'AccruedCash', 'TotalCashValue' , 'last_updated', 'AccountType']
+        dict = {}
+        for k in interested_keys:
+            dict[k] = acct_items[k]
+        
+        
+    #if 'LookAheadNextChange' in dict.keys():
+    #    del(dict['LookAheadNextChange'])
+
         colnames = "[['Category', 'Value', { role: 'style' } ],"
         unwanted_cols = ['DayTradesRemaining','last_updated', 'AccountType']
         s_data = colnames + ''.join('["%s", %s, "%s"],' % (k, '%s'%(v[0]), '#3366CC' if float(v[0]) > 500000 else '#DC3912') if k not in unwanted_cols else '' for k, v in dict.iteritems()   )+ ']'

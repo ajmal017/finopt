@@ -266,9 +266,14 @@ if __name__ == '__main__':
     #spot 24119.0, X 25000, right: P, evaldate: 20150812, expiry: 20150828, rate: 0.0005, div: 0.0005, vol: 0.2000, premium: 334.0000
     #spot 24149.0, X 25200, right: P, evaldate: 20150812, expiry: 20150828, rate: 0.0005, div: 0.0005, vol: 0.2000, premium: 437.5000
     
-    results = cal_option(22363.0, 22000, 'C', '20151201', '20151230', 0.00012, 0.0328, 0.198)
+    results = cal_option(30695.0, 29800, 'P', '20180104', '20180227', 0.00012, 0.0328, 0.138)
     print ''.join ('%s=%0.4f, '%(k,v) for k, v in results.iteritems())
 #     results = cal_option(23067.0, 22000, 'P', '20151018', '20151029', 0.0009, 0.0328, 0.2918)
+
+    results = cal_implvol(30695.0, 29800, 'P', '20180104', '20180227', 0.00012, 0.0328, 0.138, 296)
+    print ''.join ('%s=%0.4f, '%(k,v) for k, v in results.iteritems())
+
+
 #     npv1 = results['npv']
 #     v1 = 0.2918
 # 
@@ -310,26 +315,26 @@ if __name__ == '__main__':
 #     print chk.advance(Date(17, October, 2015), 1, 2)
     #print get_HSI_expiry(2016)
     
-    holidays = get_hk_holidays(2017)
-
-    
-    
-    month_names = [January,
-                February,
-                March,
-                April,
-                May,
-                June,
-                July,
-                August,
-                September,
-                October,
-                November,
-                December,
-                ] 
-    for i in month_names:
-        dd = get_HSI_last_trading_day(holidays, i, 2017)
-        print dd
-        
-    print holidays	
-    print get_HSI_last_trading_day(['20170128'], 1, 2017)
+#     holidays = get_hk_holidays(2017)
+# 
+#     
+#     
+#     month_names = [January,
+#                 February,
+#                 March,
+#                 April,
+#                 May,
+#                 June,
+#                 July,
+#                 August,
+#                 September,
+#                 October,
+#                 November,
+#                 December,
+#                 ] 
+#     for i in month_names:
+#         dd = get_HSI_last_trading_day(holidays, i, 2017)
+#         print dd
+#         
+#     print holidays	
+#     print get_HSI_last_trading_day(['20170128'], 1, 2017)
