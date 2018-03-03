@@ -20,10 +20,24 @@ def load_historical(code):
 
 
 def get_daily_percent_change(ts):
-    #return ', '.join('[new Date("%s"), %s]' % (elem[0], float(elem[4]))  for elem in ts)
-    ts = filter(lambda x: float(x[4]) <> 0.0, ts)
-    print ts
-    return ', '.join('[new Date("%s"), %0.6f]' % (elem[0], (float(elem[4]) - float(elem[1])) / float(elem[4]))  for elem in ts)
+    
+    ts = map(lambda x: (x[0], float(x[4])), filter(lambda x: float(x[4]) <> 0.0, ts))
+    
+    ts0 = ts[:len(ts)-1]
+    ts1 = ts[1:]
+    print ts0
+    print ts1
+    
+    def compute_day_change(i):
+        # return a duple of (t+1 date, % change)
+        # the series is sorted with the most recent items appearing first
+        return (ts0[i][0], (ts0[i][1] - ts1[i][1]) / ts1[i][1])
+    
+    day_changes = map(compute_day_change, range(len(ts0)))
+    
+    return ', '.join('[new Date("%s"), %0.6f]' % (elem[0], elem[1]*100) for elem in day_changes)
+    #return ', '.join('[new Date("%s"), %0.6f]' % (elem[0], (float(elem[4]) - float(elem[1])) / float(elem[4]))  for elem in ts)
+    
     
 def get_daily_close(ts):
     
@@ -38,8 +52,13 @@ if __name__ == '__main__':
 #     print get_daily_percent_change(ts)
 
     #download_historical_px('^HSI')
-    ts = load_historical('^HSI')
-    ts = filter(lambda x:int(x[0][0:4]) >= 2017, ts[1:])
+    #code = '^HSI'
+    code = '000001.SS'
+    download_historical_px(code)
+    ts = load_historical(code)
+    # only values greater than 2017, and skip the first header row
+    
+    ts = filter(lambda x:int(x[0][0:4]) >= 2015, ts[1:])
     print get_daily_close(ts)
     print get_daily_percent_change(ts)
     

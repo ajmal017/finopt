@@ -199,6 +199,11 @@ def get_historical_prices(symbol, start_date, end_date):
     data = [day[:-2].split(',') for day in days]
     return data
 
+
+def get_alpha_close(symbol):
+    av = Alphavantage()
+    return av.get_close(symbol)
+
 class Alphavantage():
     
     api_key = 'RH87SY4LF3D62WNA'
@@ -222,15 +227,23 @@ class Alphavantage():
         else:
             return json.loads(urllib2.urlopen(url))
         
+        
+    def get_close(self, symbol):   
+        d = self.time_series_daily_adjusted(symbol, 'csv', 'compact' )
+        return d[1][4]
+        
    
 if __name__ == '__main__':
     av = Alphavantage()
     #d = av.time_series_daily_adjusted('AUDUSD=X', 'csv', 'full')
-    d = av.time_series_daily_adjusted('000001.SS', 'csv', 'full')
+    d = av.time_series_daily_adjusted('^HSI', 'csv', 'compact')
     #d = [['timestamp', 'open', 'high', 'low', 'close', 'adjusted_close', 'volume', 'dividend_amount', 'split_coefficient'], ['2018-01-09', '3406.1116', '3417.2278', '3403.5869', '3413.8997', '3413.8997', '1968985916', '0.0000', '1.0000'], ['2018-01-08', '3391.5530', '3412.7310', '3384.5591', '3409.4800', '3409.4800', '236200', '0.0000', '1.0000']]
     #print ', '.join('[new Date("%s"), %0.4f]' % (elem[0], (float(elem[4]) - float(elem[1])) / float(elem[4]))  for elem in d[1:])
     print ', '.join('[new Date("%s"), %s]' % (elem[0], float(elem[4]))  for elem in d[1:])
     print len(d)
+    
+    print get_alpha_close('^HSI')
+    
 #ss = [["0001.HK",2.5],["0002.HK",1.86],["0003.HK",1.62],["0004.HK",1.27],["0005.HK",15.02],["0006.HK",1.44],["0011.HK",1.42],["0012.HK",0.82],["0013.HK",2.53],["0016.HK",2.53],["0017.HK",0.7],["0019.HK",1.01],["0023.HK",0.67],["0066.HK",0.67],["0083.HK",0.66],["0101.HK",0.94],["0144.HK",0.46],["0151.HK",1.14],["0267.HK",0.18],["0291.HK",0.46],["0293.HK",0.24],["0322.HK",0.71],["0330.HK",0.25],["0386.HK",1.88],["0388.HK",1.86],["0494.HK",1.06],["0688.HK",1.25],["0700.HK",4.52],["0762.HK",0.94],["0836.HK",0.49],["0857.HK",3.29],["0883.HK",4.38],["0939.HK",7.08],["0941.HK",8.08],["1044.HK",0.91],["1088.HK",1.59],["1109.HK",0.53],["1199.HK",0.27],["1299.HK",4.69],["1398.HK",5.25],["1880.HK",1.01],["1898.HK",0.43],["1928.HK",1.06],["2318.HK",1.85],["2388.HK",1.42],["2600.HK",0.19],["2628.HK",2.56],["3328.HK",0.71],["3988.HK",3.63]]
 #for s in ss:
 #    chg_percent = float(get_change(s[0]))/ float(get_price(s[0])) 
