@@ -27,7 +27,15 @@ class EPCPub():
         host = config.get("epc", "kafka.host").strip('"').strip("'")
         port = config.get("epc", "kafka.port")
 
-        client = KafkaClient('%s:%s' % (host, port))
+        
+        
+        #client = KafkaClient('%s:%s' % (host, port))
+        
+        # this version of kafka client has already deprecated 
+        # the program no longer works with the latest version of kafka
+        # the next line is just to make the program starts up
+        client = None
+        
         self.producer = SimpleProducer(client, async=False)
         
                 

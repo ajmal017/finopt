@@ -60,8 +60,8 @@ class QServer(object):
         stackpos_link = "<a href=./ws_position_chart_ex><img src='public/scale.png' width='42' height='42' />Positions (Stacked View)</a>"
         bubble_link = "<a href=./port_bubble_chart><img src='public/Market-Risk-Icon.png' width='42' height='42' />Risk Distributions</a>"
 
-    html = ''
-    s_line = ''
+        html = ''
+        s_line = ''
 
         return """<html><body><li>%s</li><li>%s</li><li>%s</li><li>%s</li><br><dl>%s</dl></br>%s</body></html>""" % (bubble_link, impl_link, pos_link, stackpos_link, html, s_line)
  
