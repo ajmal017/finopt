@@ -829,17 +829,20 @@ class PortfolioManager():
         
 #         print toks
 #         print '---> %s' % s
-        
-	# 2018.1.2 fix to discard duplicate position message entries
-	if s not in self.port:
-        	self.port.append(s)
-                
-        ckey = options_data.ContractHelper.makeRedisKey(pos_msg.contract)
-        multiplier = 50.0 if toks[0][1:] == 'HSI' else 10.0
+        #print "@@@---> %s %0.2f" % (s, pos_msg.avgCost)
+        # 2018.3.13 fix a bug to discard zero futures price  
+        if pos_msg.avgCost == 0.0:
+            return  
+            
+        # 2018.1.2 fix to discard duplicate position message entries
+        if s not in self.port:
+            self.port.append(s)
+            ckey = options_data.ContractHelper.makeRedisKey(pos_msg.contract)
+            multiplier = 50.0 if toks[0][1:] == 'HSI' else 10.0
 
         
         
-        self.r_set(ckey, json.dumps({"contract": ckey, "6002": pos_msg.pos, "6001": pos_msg.avgCost, "6007": multiplier}))
+            self.r_set(ckey, json.dumps({"contract": ckey, "6002": pos_msg.pos, "6001": pos_msg.avgCost, "6007": multiplier}))
         #self.recal_port(ckey)
  
     #the wrapper functions add a prefix session id to every key
