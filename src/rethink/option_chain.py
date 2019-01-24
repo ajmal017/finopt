@@ -30,6 +30,9 @@ class OptionsChain(Publisher):
     trade_vol = None
     #iv = optcal.cal_implvol(spot, contract.m_strike, contract.m_right, today, contract.m_expiry, rate, div, vol, premium)
     
+    
+    put_call_parity = {}
+    
     CHAIN_IDENTIFIER = 'chain_identifier'
     
     
@@ -87,7 +90,16 @@ class OptionsChain(Publisher):
                       )
 
         
+    def get_rate(self):
+        return self.rate
+    
+    
+    def set_put_call_parity(self, parity_error):
+        self.put_call_parity = parity_error
         
+    def get_put_call_parity(self):
+        return self.put_call_parity
+    
     def set_spread_table(self, spd_size, multiplier):
         self.spd_size = spd_size
         self.multiplier = multiplier
@@ -211,6 +223,49 @@ class OptionsChain(Publisher):
                       )
     
     
+    
+    def cal_put_call_parity(self, uspot):
+        '''
+            put call parity forumula:
+                
+                C + x / (1 + r)^t = Spot + P
+                
+            pc_error =     C + x / (1 + r)^t - (Spot + P)
+                
+        '''
+        logging.info('************* cal_put_call_parity uspot= %0.2f' % uspot)
+        all_results = {}
+        t = 1.0
+        puts = filter(lambda x: x.get_contract().m_right == 'P', self.options)
+        calls = filter(lambda x: x.get_contract().m_right == 'C', self.options)
+        pc_error = float('nan')        
+        for o in calls:
+            try:
+                key = ContractHelper.makeRedisKeyEx(o.get_contract())
+                C = (o.get_tick_value(Symbol.ASK) + o.get_tick_value(Symbol.BID)) / 2
+                
+                logging.info('Call %s mid price= %0.2f' % (key, C))
+                Ckv = ContractHelper.contract2kv(o.get_contract())
+                Ckv['m_right'] = 'P'
+                logging.info('Put key %s ' % (json.dumps(Ckv)))
+                Plist = filter(lambda x: ContractHelper.is_equal(x.get_contract(), ContractHelper.kv2contract(Ckv)), puts)
+                if len(Plist) > 0:
+                    P = (Plist[0].get_tick_value(Symbol.ASK) + Plist[0].get_tick_value(Symbol.BID)) / 2
+                    
+                    logging.info('Put mid price= %0.2f' % (P))
+                 
+                    pc_error = C + float(o.get_strike()) / (1 + self.get_rate())** t - (uspot + P)
+                    logging.info('pc_error %0.2f' % (pc_error))
+
+            except:
+                logging.error(traceback.format_exc())
+
+                
+            
+            all_results[o.get_strike()] = pc_error
+        
+          
+        return all_results   
     
     def cal_greeks_in_chain(self, valuation_date, uspot):
         

@@ -16,7 +16,8 @@ class TWS_Protocol:
               'receiveFA', 'connectionClosed', 'position', 'updateMktDepthL2', 'fundamentalData', 'tickEFP')
     
     
-    
+    # 2019-01 dummy placeholder. I have forgotten how the variable was used but it is mentioned in other parts of the code
+    gatewayEvents = ()
 
     
     aeMethods = ('ae_req_greeks')

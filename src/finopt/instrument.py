@@ -5,9 +5,22 @@ from misc2.helpers import ContractHelper, dict2str
 class Symbol():
     key = None
     
+    
+    
+    '''
+        Available tick types
+        https://interactivebrokers.github.io/tws-api/tick_types.html
+    
+    '''
     LAST = 4
     BID  = 1
     ASK  = 2
+    BIDSIZE = 0
+    ASKSIZE = 3
+    LASTSIZE = 5
+    CLOSE = 9
+    VOLUME = 8
+    
     
     
     
@@ -99,6 +112,9 @@ class Option(Symbol):
     
         return self.analytics
     
+    
+    def get_strike(self):
+        return self.get_contract().m_strike
     
     def object2kvstring(self):
         

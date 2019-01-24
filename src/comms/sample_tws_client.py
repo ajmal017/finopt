@@ -397,7 +397,7 @@ def test3():
 #     m_secType = ""
 #     m_exchange = ""
 #     m_side = ""    
-    filter = ExecutionFilterHelper.kv2object({'m_time': '20151104  09:35:00'}, ExecutionFilter) 
+    filter = ExecutionFilterHelper.kv2object({'m_time': '20190122  09:35:00'}, ExecutionFilter) 
     c.get_command_handler().reqExecutions(filter)
     sleep(7)    
     
@@ -582,21 +582,21 @@ if __name__ == '__main__':
     choice= sys.argv[1]
            
     logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)-8s %(message)s',
-                        filename= '/home/larry-13.04/workspace/finopt/log/unitest.log')
+                        filename= '/tmp/unitest.log')
     
     
     # bootstrap server settings
-    host = 'localhost'
+    host = 'vorsprung'
     port = 9092
 
     print 'choice: %s' % choice
-    test4()
+    
     #test8()
-#     if choice == '2': 
-#         
-#         test2()
-#     else:
-#         
-#         test3()
+    if choice == '2': 
+         
+        test2()
+    else:
+         
+        test3()
     
     

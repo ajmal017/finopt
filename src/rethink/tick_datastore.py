@@ -5,7 +5,8 @@ from misc2.observer import Publisher
 from misc2.observer import NotImplementedException
 from misc2.helpers import ContractHelper
 from comms.ibc.base_client_messaging import AbstractGatewayListener
-import symbol, traceback
+import traceback
+from finopt.instrument import Symbol
 
 class TickDataStore(Publisher):
     """
@@ -65,7 +66,7 @@ class TickDataStore(Publisher):
             
             return fmt % (val) 
         
-        # last, bidq, bid, ask, askq, imvol, delta, theta
+        
         fmt_spec = '%8.2f'
         fmt_spec2 = '%8.4f'
         fmt_specq = '%8d'
@@ -78,15 +79,19 @@ class TickDataStore(Publisher):
                 return ''
 
         
-        fmt_sym = map(lambda x: (x[0], '%s,%s,%s,%s,%s,%s' % (
-                                            format_tick_val(get_field(x[1]['syms'],4), fmt_spec),
-                                            format_tick_val(get_field(x[1]['syms'],0), fmt_specq),                                                                                                                  
-                                            format_tick_val(get_field(x[1]['syms'],1), fmt_spec),
-                                            format_tick_val(get_field(x[1]['syms'],2), fmt_spec), 
-                                            format_tick_val(get_field(x[1]['syms'],3), fmt_specq),
-                                            format_tick_val(get_field(x[1]['syms'],9), fmt_spec),
+        
+        fmt_sym = map(lambda x: (x[0], '%s,%s,%s,%s,%s,%s,%s' % (
+                                            format_tick_val(get_field(x[1]['syms'],Symbol.LAST), fmt_spec),
+                                            format_tick_val(get_field(x[1]['syms'],Symbol.BIDSIZE), fmt_specq),                                                                                                                  
+                                            format_tick_val(get_field(x[1]['syms'],Symbol.BID), fmt_spec),
+                                            format_tick_val(get_field(x[1]['syms'],Symbol.ASK), fmt_spec), 
+                                            format_tick_val(get_field(x[1]['syms'],Symbol.ASKSIZE), fmt_specq),
+                                            format_tick_val(get_field(x[1]['syms'],Symbol.CLOSE), fmt_spec),
+                                            format_tick_val(get_field(x[1]['syms'],Symbol.VOLUME), fmt_specq),
                                             )), [(k,v) for k, v in self.symbols.iteritems()])        
         
+        print('%40s,%8s,%8s,%8s,%8s,%8s,%8s,%8s\n' % ('SYM', 'LAST', 'BIDSIZE','BID','ASK','ASKSIZE','CLOSE','VOLUME'
+                                             ))
 
         for e in fmt_sym:
             print('[%s]%s' % (e[0].ljust(40), e[1]))

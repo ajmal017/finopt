@@ -116,15 +116,17 @@ class GatewayMessageListener(AbstractGatewayListener):
     def tickPrice(self, event, contract_key, field, price, canAutoExecute):  # tickerId, field, price, canAutoExecute):    
         logging.info('GatewayMessageListener:%s. val->[%s]' % (event, vars()))
 
-    def tickSize(self, event, message_value):  # tickerId, field, price, canAutoExecute):
-        logging.info('GatewayMessageListener:%s. val->[%s]' % (event, message_value))
+    #tickSize(self, event, contract_key, tickerId, field, size):
+    #def tickSize(self, event, message_value):  # tickerId, field, price, canAutoExecute):
+    def tickSize(self, event, contract_key, field, size):
+        logging.info('GatewayMessageListener:%s. val->[%s]' % (event, vars()))
         
     def error(self, event, message_value):
         logging.info('GatewayMessageListener:%s. val->[%s]' % (event, message_value))  
 
 def test_client(kwargs):
-    contractTuples = [('HSI', 'FUT', 'HKFE', 'HKD', '20170330', 0, '')]#,
-                      #('USD', 'CASH', 'IDEALPRO', 'JPY', '', 0, ''),]
+    contractTuples = [('HSI', 'FUT', 'HKFE', 'HKD', '20190130', 0, '')]#,
+    #contractTuples = [('USD', 'CASH', 'IDEALPRO', 'JPY', '', 0, ''),]
                       
         
     print kwargs 
@@ -134,6 +136,7 @@ def test_client(kwargs):
     cm.add_listener_topics(cl, kwargs['topics'])
     cm.start_manager()
     map(lambda c: cm.reqMktData(ContractHelper.makeContract(c)), contractTuples)
+    cm.reqPositions()
     try:
         logging.info('TWS_gateway:main_loop ***** accepting console input...')
         while True: 

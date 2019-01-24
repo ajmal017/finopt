@@ -195,7 +195,7 @@ class BaseConsumer(threading.Thread, Publisher):
     
         
     def extract_message_content(self, message):
-        #logging.info('BaseConsumer: extract_message_content. %s %s' % (type(message), message))
+        logging.info('BaseConsumer: extract_message_content. %s %s' % (type(message), message))
         try:
             return json.loads(message.value)
         except ValueError:

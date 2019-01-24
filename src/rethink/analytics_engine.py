@@ -10,6 +10,7 @@ from finopt.instrument import Symbol, Option
 from rethink.option_chain import OptionsChain
 from rethink.tick_datastore import TickDataStore
 from comms.ibc.tws_client_lib import TWS_client_manager, AbstractGatewayListener
+import sys, traceback
 
 
 
@@ -34,7 +35,7 @@ class AnalyticsEngine(AbstractGatewayListener):
         
     
     def test_oc(self, oc2):
-        expiry = '20170830'
+        expiry = '20190328'
         contractTuple = ('HSI', 'FUT', 'HKFE', 'HKD', expiry, 0, '')
         contract = ContractHelper.makeContract(contractTuple)  
         
@@ -59,13 +60,13 @@ class AnalyticsEngine(AbstractGatewayListener):
         
     
     def test_oc3(self, oc3):
-        expiry = '20170928'
+        expiry = '20190227'
         contractTuple = ('HSI', 'FUT', 'HKFE', 'HKD', expiry, 0, '')
         contract = ContractHelper.makeContract(contractTuple)  
          
         oc3.set_option_structure(contract, 200, 50, 0.0012, 0.0328, expiry)        
          
-        oc3.build_chain(27000, 0.04, 0.22)
+        oc3.build_chain(27000, 0.06, 0.22)
 
 #         expiry = '20170331'
 #         contractTuple = ('QQQ', 'STK', 'SMART', 'USD', '', 0, '')
@@ -126,6 +127,7 @@ class AnalyticsEngine(AbstractGatewayListener):
             menu['2']="Display tick data store "
             menu['3']="Display option chain oc3"
             menu['4']="Generate oc3 gtable json"
+            menu['5']="Display oc3 put call parity"
             menu['9']="Exit"
             while True: 
                 choices=menu.keys()
@@ -142,6 +144,15 @@ class AnalyticsEngine(AbstractGatewayListener):
                     oc3.pretty_print()
                 elif selection == '4':
                     print oc3.g_datatable_json()
+                elif selection == '5':
+                    try:
+                        last_px = oc3.get_underlying().get_tick_value(4)
+                        results = oc3.cal_put_call_parity(last_px)
+                        print results
+                        print '\n'.join('%0.0f:%0.2f' % (k, v) for k, v in sorted(results.items()))
+                    except:
+                        logging.error(traceback.format_exc())
+                    
                 elif selection == '9': 
                     self.twsc.gw_message_handler.set_stop()
                     break
@@ -191,11 +202,23 @@ class AnalyticsEngine(AbstractGatewayListener):
             
             if OptionsChain.CHAIN_IDENTIFIER in s.get_extra_attributes():
                 results = {}
+                pc_errors = None
                 chain_id = s.get_extra_attributes()[OptionsChain.CHAIN_IDENTIFIER]
                 logging.info('AnalyticsEngine:tds_event_tick_updated chain_id %s' % chain_id)
                 if chain_id  in self.option_chains.keys():
                     if 'FUT' in contract_key or 'STK' in contract_key:
+                        
+
+                        # compute put call parity whnever the underlying changes
+#                         try:
+#                             pc_errors = self.option_chains[chain_id].cal_put_call_parity(price)
+#                         except:
+#                             pass
+                        #self.option_chains[chain_id].set_put_call_parity(pc_errors)
+                        #print pc_errors
+                        
                         results = self.option_chains[chain_id].cal_greeks_in_chain(self.kwargs['evaluation_date'], price)
+                        
                         
                     else:
                         results[ContractHelper.makeRedisKeyEx(s.get_contract())] = self.option_chains[chain_id].cal_option_greeks\
@@ -212,7 +235,9 @@ class AnalyticsEngine(AbstractGatewayListener):
                     self.tds.set_symbol_analytics(key_greeks[0], Option.THETA, key_greeks[1][Option.THETA])
                     self.tds.set_symbol_analytics(key_greeks[0], Option.VEGA, key_greeks[1][Option.VEGA])
                     
-                map(update_tds_analytics, list(results.iteritems()))                
+                map(update_tds_analytics, list(results.iteritems()))
+                
+                                
 
             else:
                 
@@ -259,12 +284,12 @@ if __name__ == '__main__':
     
     kwargs = {
       'name': 'analytics_engine',
-      'bootstrap_host': 'localhost',
+      'bootstrap_host': 'vorsprung',
       'bootstrap_port': 9092,
       'redis_host': 'localhost',
       'redis_port': 6379,
       'redis_db': 0,
-      'tws_host': 'localhost',
+      'tws_host': 'vsu-bison',
       'tws_api_port': 8496,
       'tws_app_id': 38868,
       'group_id': 'AE',

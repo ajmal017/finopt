@@ -8,6 +8,7 @@ import ConfigParser
 from ib.ext.Contract import Contract
 from ib.ext.Order import Order
 from ib.ext.ExecutionFilter import ExecutionFilter
+import copy
 
 
 class BaseHelper():
@@ -137,6 +138,9 @@ class ContractHelper(BaseHelper):
         return json.dumps(contract.__dict__)
 
 
+    @staticmethod
+    def contract2kv(contract):
+        return copy.deepcopy(contract.__dict__)
 
     @staticmethod
     def kvstring2contract(sm_contract):
