@@ -108,9 +108,14 @@ class Option(Symbol):
         
         
     def get_analytics(self):
-        raise Exception
+        
     
-        return self.analytics
+        return self.get_tick_value(Option.IMPL_VOL),\
+                self.get_tick_value(Option.DELTA), \
+                self.get_tick_value(Option.GAMMA),\
+                self.get_tick_value(Option.THETA),\
+                self.get_tick_value(Option.VEGA),\
+                self.get_tick_value(Option.PREMIUM)   
     
     
     def get_strike(self):
@@ -123,8 +128,7 @@ class Option(Symbol):
     
         try:           
             kv = self.object2kv()
-            return '{"%s":%s, "%s":%s, "%s":%s, "%s":%s}' % ('analytics', dict2str(kv['analytics']), 
-                                                    'contract', ContractHelper.contract2kvstring(self.get_contract()), 
+            return '{"%s":%s, "%s":%s, "%s":%s}' % ('contract', ContractHelper.contract2kvstring(self.get_contract()), 
                                                     'tick_values', dict2str(kv['tick_values']),
                                                     'extra', dict2str(kv['extra']))
         except:
@@ -134,14 +138,14 @@ class Option(Symbol):
     
     
     def object2kv(self):
-        raise Exception
+        
         
         try:
-            analytics = self.get_analytics()
+            
             contract =  self.get_contract()
             tick_values = self.get_tick_values()
             extra = self.get_extra_attributes()
-            return {'analytics': analytics, 'contract': contract, 'tick_values': tick_values, 'extra': extra}            
+            return {'contract': contract, 'tick_values': tick_values, 'extra': extra}            
         except:
             logging.error( 'Exception Option.object2kv')
                

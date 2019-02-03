@@ -4,6 +4,7 @@ import time, datetime
 import copy
 from optparse import OptionParser
 from time import sleep
+from datetime import datetime
 from misc2.observer import Subscriber
 from misc2.helpers import ContractHelper
 from finopt.instrument import Symbol, Option
@@ -11,8 +12,49 @@ from rethink.option_chain import OptionsChain
 from rethink.tick_datastore import TickDataStore
 from comms.ibc.tws_client_lib import TWS_client_manager, AbstractGatewayListener
 import sys, traceback
+import redis
+import uuid
 
 
+class DataCapture():
+    # requires redis as persistence
+    def __init__(self, rs):
+        self.rs = rs
+        self.requesters = {}
+        self.tickcount = 0
+
+    def register(self, request_id, max_ticks = 30, interval = 5):
+        self.requesters[request_id] = {'max_ticks': max_ticks, 'interval': interval, 'last_checktime':datetime.now(),
+                                       'last_tickcount': 0}
+        
+    
+    def update_tickcount(self):
+        self.tickcount += 1    
+        
+    def record_parity(self, option_chains, request_id):
+        
+        if self.is_allow_record(request_id):
+            for oc in option_chains:
+                last_px = oc.get_underlying().get_tick_value(4)
+                pc_errors = oc.cal_put_call_parity(last_px)
+                self.rs.rpush('parity', (pc_errors , oc.get_expiry(), last_px, time.strftime("%Y%m%d%H%M%S")))
+    
+    def test_dummy(self, request_id):
+        if self.is_allow_record(request_id):
+            print 'valid %s ' % time.strftime("%Y%m%d%H%M%S")
+        else:
+            print 'invalid'
+            
+        
+    def is_allow_record(self, request_id):
+        rq_config = self.requesters[request_id]
+        now = datetime.now()
+        delta =  now - rq_config['last_checktime']
+        if delta.total_seconds() > rq_config['interval'] or rq_config['max_ticks'] < (self.tickcount - rq_config['last_tickcount']):
+            rq_config['last_checktime'] = now 
+            rq_config['last_tickcount'] = self.tickcount
+            return True
+        return False
 
 
 
@@ -32,6 +74,13 @@ class AnalyticsEngine(AbstractGatewayListener):
         
         
         self.option_chains = {}
+        self.dc = DataCapture(redis.Redis(kwargs['redis_host'],
+                                                kwargs['redis_port'],
+                                                kwargs['redis_db']))
+        
+        self.parity_id = 'parity'
+        self.dc.register(self.parity_id)
+
         
     
     def test_oc(self, oc2):
@@ -197,6 +246,10 @@ class AnalyticsEngine(AbstractGatewayListener):
     def tds_event_tick_updated(self, event, contract_key, field, price, syms):
         if field not in [Symbol.ASK, Symbol.BID, Symbol.LAST]:
             return
+
+        # increment the tick counter by 1
+        # for use in record_parity checking threshold value
+        self.dc.update_tickcount()
                 
         for s in syms:
             
@@ -209,13 +262,10 @@ class AnalyticsEngine(AbstractGatewayListener):
                     if 'FUT' in contract_key or 'STK' in contract_key:
                         
 
-                        # compute put call parity whnever the underlying changes
-#                         try:
-#                             pc_errors = self.option_chains[chain_id].cal_put_call_parity(price)
-#                         except:
-#                             pass
-                        #self.option_chains[chain_id].set_put_call_parity(pc_errors)
-                        #print pc_errors
+                        try:
+                            self.dc.record_parity([self.option_chains[chain_id]], self.parity_id)
+                        except:
+                            pass
                         
                         results = self.option_chains[chain_id].cal_greeks_in_chain(self.kwargs['evaluation_date'], price)
                         

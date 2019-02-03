@@ -112,6 +112,9 @@ class OptionsChain(Publisher):
         
     def set_expiry(self, expiry):
         self.expiry = expiry
+        
+    def get_expiry(self):
+        return self.expiry
     
     def set_trade_vol(self, tvol):
         self.trade_vol = tvol
@@ -262,7 +265,7 @@ class OptionsChain(Publisher):
 
                 
             
-            all_results[o.get_strike()] = pc_error
+            all_results[o.get_strike()] = (pc_error, o.get_tick_value(Option.IMPL_VOL))
         
           
         return all_results   

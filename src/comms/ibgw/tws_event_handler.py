@@ -24,7 +24,7 @@ class TWS_event_handler(EWrapper):
 
         try:
             dict = self.pre_process_message(message, mapping)     
-            logging.info('broadcast_event %s:%s' % (message, dict))
+            logging.debug('broadcast_event %s:%s' % (message, dict))
             self.producer.send_message(message, self.producer.message_dumps(dict))    
         except:
             logging.error('broadcast_event: exception while encoding IB event to client:  [%s]' % message)
