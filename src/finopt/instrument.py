@@ -2,6 +2,59 @@ import logging
 from ib.ext.Contract import Contract
 from misc2.helpers import ContractHelper, dict2str
 
+class InstrumentIdMap():
+    
+    idmap = {0: 'BSIZE',
+                    1: 'BID',
+                    2: 'ASK',
+                    3: 'ASIZE',
+                    4: 'LAST',
+                    5: 'LSIZE',
+                    6: 'HIGH',
+                    7: 'LOW',
+                    8: 'VOLUM',
+                    9: 'CLOSE',
+                    14: 'OPEN',
+                    5001: 'IVOL',
+                    5002: 'DELTA',
+                    5003: 'GAMA',
+                    5004: 'THETA',
+                    5005: 'VEGA',
+                    5006: 'PREMIUM',
+                    7001: 'POS',
+                    7002: 'AVGCST',
+                    7003: 'PDLTA',
+                    7004: 'PTHTA',
+                    7009: 'GAMA%',
+                    7005: 'P/L',
+                    7006: '%GAIN',
+                    7007: 'AVGPX',
+                    7008: 'MKTVAL',
+                    7041: 'PTGAIN',
+                    9000: 'TDLTA',
+                    9001: 'TDL_F',
+                    9002: 'TDL_C',
+                    9003: 'TDL_P',
+                    9010: 'TTHEA',
+                    9012: 'TTHEAC',
+                    9013: 'TTHEAP',
+                    9020: 'TGAM%',
+                    9031: 'NUMC',
+                    9032: 'NUMP',
+                    9040: 'T_UNRPL',
+                    9041: 'TPTGAIN'
+    
+                    
+                    }
+    
+    @staticmethod
+    def id2str(id):
+        try:
+            
+            return InstrumentIdMap.idmap[id]
+        except:
+            return str(id)
+
 class Symbol():
     key = None
     
@@ -20,8 +73,9 @@ class Symbol():
     LASTSIZE = 5
     CLOSE = 9
     VOLUME = 8
-    
-    
+    HIGH = 6
+    LOW = 7
+    OPEN_TICK =14
     
     
     def __init__(self, contract):

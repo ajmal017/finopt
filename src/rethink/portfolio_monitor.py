@@ -20,6 +20,8 @@ from comms.ibc.tws_client_lib import TWS_client_manager, AbstractGatewayListener
 
 class PortfolioMonitor(AbstractGatewayListener, AbstractPortfolioTableModelListener):
 
+    EVENT_PORT_VALUES_UPDATED = 'event_port_values_updated'
+    
 
     def __init__(self, kwargs):
         self.kwargs = copy.copy(kwargs)
@@ -93,8 +95,10 @@ class PortfolioMonitor(AbstractGatewayListener, AbstractPortfolioTableModelListe
                         self.twsc.reqPositions()
                     elif selection == '2': 
                         for port in self.portfolios.values():
-                            print port.dump_portfolio()
-                            print ''.join('%d:[%6.2f]\n' % (k, v) for k, v in port.calculate_port_pl().iteritems())
+                            
+                            port.calculate_port_pl()
+                            port.dump_portfolio()
+                            #print ''.join('%d:[%6.2f]\n' % (k, v) for k, v in port.calculate_port_pl().iteritems())
                     elif selection == '3': 
                         
                         print self.tds.dump()
@@ -202,24 +206,37 @@ class PortfolioMonitor(AbstractGatewayListener, AbstractPortfolioTableModelListe
         return oc
     
 
+    def is_interested_contract_type(self, contract_key):
+        # given an instrument key, determine whether the contract is relevant
+        # to the portfolio monitor
+        v = filter(lambda x:x in contract_key, PortfolioRules.rule_map['interested_position_types']['instrument_type'])
+        return True if len(v) > 0 else False
     
     def process_position(self, account, contract_key, position, average_cost, extra_info=None):
         
         # obtain a reference to the portfolio, if not exist create a new one 
         port = self.get_portfolio(account)
         port_item =  port.is_contract_in_portfolio(contract_key)
+        
+            
         if port_item:
+            
+            
+            
             # update the values and recalculate p/l
             port_item.update_position(position, average_cost, extra_info)
             port_item.calculate_pl(contract_key)
+            
+            #print "process_position %s extra[%s]" % (account, extra_info)
             
             # if the function call is triggered by event accountUpdates from TWS
             # compute the overall portfolio greeks and p/l
             # (that is extra_info is not null)
             if extra_info:
-                logging.info('PortfolioMonitor:process_position Recal overall port figures...')
+                logging.info('PortfolioMonitor:process_position Recal overall port figures: account[%s]...' % (account))
                 port.calculate_port_pl()
                 
+                self.notify_port_values_updated(account, port)
             
             # dispatch the update to internal listeners
             # and also send out the kafka message to external parties
@@ -253,7 +270,7 @@ class PortfolioMonitor(AbstractGatewayListener, AbstractPortfolioTableModelListe
             
             self.notify_table_model_changes(account, port, contract_key, mode='I')
             logging.info('PortfolioMonitor:process_position. New position: %s:[%d]' % (contract_key, port.ckey_to_row(contract_key)))
-            port.dump_portfolio()
+            #port.dump_portfolio()
             
             
               
@@ -275,15 +292,25 @@ class PortfolioMonitor(AbstractGatewayListener, AbstractPortfolioTableModelListe
     
     def tds_event_symbol_added(self, event, update_mode, name, instrument):
         pass
+    
         #logging.info('tds_event_new_symbol_added. %s' % ContractHelper.object2kvstring(symbol.get_contract()))
         
     
     def tds_event_tick_updated(self, event, contract_key, field, price, syms):
+
         
         if field not in [Symbol.ASK, Symbol.BID, Symbol.LAST]:
             return
         
+        
+        
         for s in syms:
+            
+            # skip position types that are not options or futures 
+            # such as currency contracts
+            if not self.is_interested_contract_type(contract_key):
+                continue
+
             
             if OptionsChain.CHAIN_IDENTIFIER in s.get_extra_attributes():
                 results = {}
@@ -343,6 +370,10 @@ class PortfolioMonitor(AbstractGatewayListener, AbstractPortfolioTableModelListe
 
 
     def tickPrice(self, event, contract_key, field, price, canAutoExecute):
+        if not self.is_interested_contract_type(contract_key):
+            return
+
+        
         self.tds.set_symbol_tick_price(contract_key, field, price, canAutoExecute)
 
 
@@ -350,20 +381,28 @@ class PortfolioMonitor(AbstractGatewayListener, AbstractPortfolioTableModelListe
         #self.tds.set_symbol_tick_size(contract_key, field, size)
         #logging.info('MessageListener:%s. %s: %d %8.2f' % (event, contract_key, field, size))
         pass
+        if not self.is_interested_contract_type(contract_key):
+            return
+
+    
  
     def position(self, event, account, contract_key, position, average_cost, end_batch):
-        
+
+
+        logging.info('PortfolioMonitor:position account[%s] contract[%s]', account, contract_key)
+
         if not end_batch:
             #logging.info('PortfolioMonitor:position. received position message contract=%s' % contract_key)
-            self.process_position(account, contract_key, position, average_cost)
+            if self.is_interested_contract_type(contract_key):
+                self.process_position(account, contract_key, position, average_cost)
    
         else:
             # to be run once per a/c during start up
             # subscribe to automatic account updates
             if self.starting_engine:
                 for acct in self.portfolios.keys():
-                    self.twsc.reqAccountUpdates(True, account)
-                    logging.info('PortfolioMonitor:position. subscribing to auto updates for ac: [%s]' % account)  
+                    self.twsc.reqAccountUpdates(True, acct)
+                    logging.info('PortfolioMonitor:position. subscribing to auto updates for ac: [%s]' % acct)  
                     self.starting_engine = False
                     
     '''
@@ -379,7 +418,9 @@ class PortfolioMonitor(AbstractGatewayListener, AbstractPortfolioTableModelListe
  
     def updatePortfolio(self, event, contract_key, position, market_price, market_value, average_cost, unrealized_PNL, realized_PNL, account):
         self.raw_dump(event, vars())
-        self.process_position(account, contract_key, position, average_cost, 
+        if self.is_interested_contract_type(contract_key):
+            
+            self.process_position(account, contract_key, position, average_cost, 
                               {'market_price':market_price, 'market_value':market_value, 'unrealized_PNL': unrealized_PNL, 'realized_PNL': realized_PNL})
         
             
@@ -454,6 +495,17 @@ class PortfolioMonitor(AbstractGatewayListener, AbstractPortfolioTableModelListe
             
     def event_tm_table_structure_changed(self, event, source, origin_request_id, account, data_table_json):
         logging.info("[PortfolioColumnChartTM:] received %s  content:[%s]" % (event, data_table_json)    )        
+    
+    
+    
+    def notify_port_values_updated(self, account, port):
+        try:
+            self.get_kproducer().send_message(PortfolioMonitor.EVENT_PORT_VALUES_UPDATED,
+                                               json.dumps({'account': account,
+                                                     'port_values': self.portfolios[account].get_potfolio_values()}))
+        except:
+            logging.error('**** Error PortfolioMonitor:notify_port_values_updated. %s' % traceback.format_exc() )
+        
         
 if __name__ == '__main__':
     
@@ -461,12 +513,12 @@ if __name__ == '__main__':
     
     kwargs = {
       'name': 'portfolio_monitor',
-      'bootstrap_host': 'localhost',
+      'bootstrap_host': 'vorsprung',
       'bootstrap_port': 9092,
       'redis_host': 'localhost',
       'redis_port': 6379,
       'redis_db': 0,
-      'tws_host': 'localhost',
+      'tws_host': 'vsu-bison',
       'tws_api_port': 8496,
       'tws_app_id': 38868,
       'group_id': 'PM',

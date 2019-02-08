@@ -8,11 +8,12 @@ import copy
 from optparse import OptionParser
 from time import sleep
 from misc2.helpers import ContractHelper
-from finopt.instrument import Symbol, Option
+from finopt.instrument import Symbol, Option, InstrumentIdMap
 from rethink.option_chain import OptionsChain
 from rethink.tick_datastore import TickDataStore
 from numpy import average
 from rethink.table_model import AbstractTableModel
+import pandas as pd
 
 
 
@@ -43,6 +44,7 @@ class PortfolioItem():
     PERCENT_GAIN_LOSS = 7006
     AVERAGE_PRICE = 7007
     MARKET_VALUE = 7008
+    POTENTIAL_GAIN = 7041
     
         
     def __init__(self, account, contract_key, position, average_cost):
@@ -56,7 +58,8 @@ class PortfolioItem():
                             PortfolioItem.UNREAL_PL: float('nan'),
                             PortfolioItem.PERCENT_GAIN_LOSS: float('nan'),
                             PortfolioItem.AVERAGE_PRICE: float('nan'),
-                            PortfolioItem.MARKET_VALUE: float('nan')
+                            PortfolioItem.MARKET_VALUE: float('nan'),
+                            PortfolioItem.POTENTIAL_GAIN: float('nan')
                             
                             }
         
@@ -135,42 +138,67 @@ class PortfolioItem():
         try:
             assert contract_key == self.contract_key
             spot_px = self.instrument.get_tick_value(4)
+            qty = self.get_quantity()
+            if qty == 0:
+                self.set_port_field(PortfolioItem.POSITION_DELTA, 0.0)
+                self.set_port_field(PortfolioItem.POSITION_THETA, 0.0)
+                self.set_port_field(PortfolioItem.GAMMA_PERCENT, 0.0)
+                self.set_port_field(PortfolioItem.UNREAL_PL, 0.0)
+                self.set_port_field(PortfolioItem.AVERAGE_PRICE, 0.0)
+                self.set_port_field(PortfolioItem.PERCENT_GAIN_LOSS, 0.0)
+                self.set_port_field(PortfolioItem.POTENTIAL_GAIN, 0.0)
+                return
+                
+            
+            
+            potential_gain = float('nan')
             if self.get_instrument_type() == 'OPT':
                 #spot_px = self.instrument.get_tick_value(4)
                 multiplier =  PortfolioRules.rule_map['option_structure'][self.get_symbol_id()]['multiplier']
                 
-                pos_delta = self.get_quantity() * self.instrument.get_tick_value(Option.DELTA) * multiplier                                
-                pos_theta = self.get_quantity() * self.instrument.get_tick_value(Option.THETA) * multiplier
+                pos_delta = qty * self.instrument.get_tick_value(Option.DELTA) * multiplier                                
+                pos_theta = qty * self.instrument.get_tick_value(Option.THETA) * multiplier
                 gamma_percent = pos_delta * (1 + self.instrument.get_tick_value(Option.GAMMA))                               
 
                 #(spot premium * multiplier - avgcost) * pos)
                 try:
-                    unreal_pl = (spot_px * multiplier - self.get_average_cost()) * self.get_quantity()
+                    
+                    unreal_pl = (spot_px * multiplier - self.get_average_cost()) * qty
                     #print "%f %f %d" % (spot_px, self.get_average_cost(), multiplier)
                     percent_gain_loss = (1 - spot_px / (self.get_average_cost() / multiplier)) * 100 \
-                                            if self.get_quantity() < 0 else \
+                                            if qty < 0 else \
                                             (spot_px - self.get_average_cost() / multiplier) / (self.get_average_cost() / multiplier) * 100 
                                         
-                    average_px = self.get_average_cost() / multiplier                    
+                    average_px = self.get_average_cost() / multiplier
+                    
+                    # added logic to cal potential gain
+                    if qty < 0:
+                        market_value= spot_px * qty * multiplier
+                        potential_gain = market_value - unreal_pl * (1.0 if unreal_pl < 0 else 0)
+                        
                 except ZeroDivisionError, TypeError:
                     # caught error for cases where get_average_cost and quantity may be None
                     unreal_pl = float('nan')
                     percent_gain_loss = float('nan')
                     average_px = float('nan')
                             
-            else:
+            elif self.get_instrument_type() == 'FUT':
                 multiplier =  PortfolioRules.rule_map['option_structure'][self.get_symbol_id()]['multiplier']
-                pos_delta = self.get_quantity() * 1.0 * multiplier
+                pos_delta = qty * 1.0 * multiplier
                                 
                 pos_theta = 0
                 gamma_percent = 0
 
                 # (S - X) * pos * multiplier
-                unreal_pl = (spot_px * multiplier - self.get_average_cost() ) * self.get_quantity() 
+                unreal_pl = (spot_px * multiplier - self.get_average_cost() ) * qty 
                                
                 #sign = abs(self.get_quantity()) / self.get_quantity()                                
                 percent_gain_loss = unreal_pl / self.get_average_cost() * 100
                 average_px = self.get_average_cost() / multiplier
+            
+            # not option nor futures, just skip and do nothing
+            else: 
+                return
                         
             self.set_port_field(PortfolioItem.POSITION_DELTA, pos_delta)
             self.set_port_field(PortfolioItem.POSITION_THETA, pos_theta)
@@ -178,6 +206,7 @@ class PortfolioItem():
             self.set_port_field(PortfolioItem.UNREAL_PL, unreal_pl)
             self.set_port_field(PortfolioItem.AVERAGE_PRICE, average_px)
             self.set_port_field(PortfolioItem.PERCENT_GAIN_LOSS, percent_gain_loss)
+            self.set_port_field(PortfolioItem.POTENTIAL_GAIN, potential_gain)
             
         except Exception, err:
             
@@ -226,6 +255,7 @@ class Portfolio(AbstractTableModel):
     NUM_CALLS       = 9031
     NUM_PUTS       = 9032
     TOTAL_GAIN_LOSS = 9040
+    TOTAL_POTENTIAL_GAIN = 9041
     
      
     
@@ -248,6 +278,9 @@ class Portfolio(AbstractTableModel):
         
     def get_portfolio_port_items(self):
             return self.port['port_items']
+        
+    def get_potfolio_values(self):
+            return self.port['port_v']
         
     def create_empty_portfolio(self):
         self.port = {}
@@ -305,7 +338,8 @@ class Portfolio(AbstractTableModel):
               Portfolio.TOTAL_GAMMA_PERCENT : 0.0,
               Portfolio.NUM_CALLS       : 0,
               Portfolio.NUM_PUTS       : 0,
-              Portfolio.TOTAL_GAIN_LOSS : 0.0
+              Portfolio.TOTAL_GAIN_LOSS : 0.0,
+              Portfolio.TOTAL_POTENTIAL_GAIN: 0.0,
               
             } 
         def cal_port(x_tuple):
@@ -331,6 +365,7 @@ class Portfolio(AbstractTableModel):
             port_v[Portfolio.TOTAL_DELTA] += x.get_port_field(PortfolioItem.POSITION_DELTA)
             port_v[Portfolio.TOTAL_THETA] += x.get_port_field(PortfolioItem.POSITION_THETA)
             port_v[Portfolio.TOTAL_GAIN_LOSS] += x.get_port_field(PortfolioItem.UNREAL_PL)
+            port_v[Portfolio.TOTAL_POTENTIAL_GAIN] += x.get_port_field(PortfolioItem.POTENTIAL_GAIN)
             try:
                 port_v[Portfolio.TOTAL_GAMMA_PERCENT] += x.get_port_field(PortfolioItem.GAMMA_PERCENT)
             except:
@@ -340,6 +375,8 @@ class Portfolio(AbstractTableModel):
         map(cal_port, p2_items)            
         self.port['port_v'] = port_v 
         return self.port['port_v']
+    
+    
 
     def dump_portfolio(self):
         #<account_id>: {'port_items': {<contract_key>, instrument}, 'opt_chains': {<oc_id>: option_chain}}
@@ -347,11 +384,43 @@ class Portfolio(AbstractTableModel):
         def print_port_items(x):
             return '[%s]: %s %s' % (x[0],  ', '.join('%s: %s' % (k,str(v)) for k, v in x[1].get_port_fields().iteritems()),
                                            ', '.join('%s: %s' % (k,str(v)) for k, v in x[1].get_instrument().get_tick_values().iteritems()))
+#        p_items = map(print_port_items, [x for x in self.port['port_items'].iteritems()])
+#         logging.info('PortfolioMonitor:dump_portfolio %s' % ('\n'.join(p_items)))
+#         return '\n'.join(p_items)
+
         
-        p_items = map(print_port_items, [x for x in self.port['port_items'].iteritems()])
-        logging.info('PortfolioMonitor:dump_portfolio %s' % ('\n'.join(p_items)))
-        return '\n'.join(p_items)
-    
+
+        def format_port_header(x):
+                #imap = InstrumentIdMap()
+                return ['contract'] +  map(lambda d:InstrumentIdMap.id2str(d), x.get_port_fields().keys()) \
+                    + map(lambda d:InstrumentIdMap.id2str(d), x.get_instrument().get_tick_values().keys())
+            
+        def format_port_data(x):
+                return [x[0]] + map(lambda d:d, x[1].get_port_fields().values()) + map(lambda d:d, x[1].get_instrument().get_tick_values().values())
+        
+
+        #df = pd.DataFrame(data = map(format_port_data, [x for x in self.port['port_items'].iteritems()]),
+        #                  columns = format_port_header(self.port['port_items'].iteritems()[0].keys()))
+        data = map(format_port_data, [x for x in self.port['port_items'].iteritems()])
+        y = list(self.port['port_items'])[0]
+        z = self.port['port_items'][y]
+        columns = format_port_header(z)
+        pd.set_option('display.max_columns', 50)
+        df1 = pd.DataFrame(data = data, columns = columns)
+        
+        # print portfolio items
+        try:
+            print '\n\n--------- Portfolio %s --------\n' % self.get_object_name()['account']
+            print df1
+            
+            # print summary
+            df2 = pd.DataFrame(data = [self.port['port_v'].values()], 
+                               columns = map(lambda k: InstrumentIdMap.id2str(k), self.port['port_v'].keys()))
+            print '\n\n--------- Summary -------------'
+            print df2
+            print     '-------------------------------'
+        except:
+            logging.error('Portfolio. Exception while dumping portfolio contents...%s' % traceback.format_exc())
     
     
     
@@ -361,8 +430,8 @@ class Portfolio(AbstractTableModel):
         implement AbstractTableModel methods and other routines
     '''
     def init_table(self):
-        self.port['g_table']['header'] = [('symbol', 'Symbol', 'string'), ('right', 'Right', 'string'), ('avgcost', 'Avg Cost', 'number'), ('market_value', 'Market Value', 'number'), 
-                  ('avgpx', 'Avg Price', 'number'), ('spotpx', 'Spot Price', 'number'), ('pos', 'Quantity', 'number'), 
+        self.port['g_table']['header'] = [('symbol', 'Symbol', 'string'), ('right', 'Right', 'string'), ('avgcost', 'Avg Cost', 'number'), ('market_value', 'Mkt Val', 'number'), 
+                  ('avgpx', 'Avg Px', 'number'), ('spotpx', 'Spot Px', 'number'), ('pos', 'Qty', 'number'), 
                   ('delta', 'Delta', 'number'), ('theta', 'Theta', 'number'), ('gamma', 'Gamma', 'number'), 
                   ('pos_delta', 'P. Delta', 'number'), ('pos_theta', 'P. Theta', 'number'), ('gamma_percent', 'P. Gamma', 'number'), 
                   ('unreal_pl', 'Unreal P/L', 'number'), ('percent_gain_loss', '% gain/loss', 'number'),

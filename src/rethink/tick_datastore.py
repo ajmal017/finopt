@@ -12,7 +12,27 @@ class TickDataStore(Publisher):
     """
     
     Data structure:
-
+        2019 add explainatory notes
+        
+        the tds stores object references of each symbol with the same contract key 
+        in a list. 
+        When there is a new subscription, create a new key in the symbols map and a new list
+        to store the symbol object
+            self.symbols[key] ={}
+            self.symbols[key] = {'syms':[ <s1> ]}
+            
+        Later on if a new symbol object that has the same key is created it is appended to the list
+        
+            self.symbols[key] = {'syms':[ <s1>, <s2>... ]}
+        
+        This way the TDS store keeps track of all the symbol objects, and know which object and
+        its field is to be updated
+        
+        Whenever there is a tick changed for a particular key, the TDS updates the tick fields for 
+        all the symbol objects with the same key  
+        
+            def set_symbol_tick_price(self, contract_key, field, price, canAutoExecute):
+                map(lambda e: e.set_tick_value(field, price), self.symbols[contract_key]['syms'])
     
     
     """
@@ -107,6 +127,7 @@ class TickDataStore(Publisher):
     
     
     def add_symbol(self, symbol):
+        
         try:
             dispatch = True
             self.lock.acquire()

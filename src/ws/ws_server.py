@@ -7,6 +7,7 @@ from threading import Thread
 import copy, sys
 from misc2.observer import NotImplementedException, Subscriber, Publisher
 from rethink.table_model import AbstractTableModel
+from rethink.portfolio_monitor import PortfolioMonitor
 from comms.ibgw.base_messaging import BaseMessageListener, Prosumer
 # https://github.com/Pithikos/python-websocket-server
 
@@ -156,6 +157,7 @@ class PortfolioTableModelListener(BaseMessageListener):
         BaseMessageListener.__init__(self, name)
         self.mwss = server_wrapper
         self.simple_caching = {}
+        
 
     def event_tm_table_cell_updated(self, event, source, row, row_values):
         logging.info("[%s] received %s content:[%d]" % (self.name, event, row))
@@ -198,14 +200,25 @@ class PortfolioTableModelListener(BaseMessageListener):
     def event_tm_table_structure_changed(self, event, source, origin_request_id, account, data_table_json):
         try:
             logging.info("[%s] received %s from %s. content:[%d]" % (self.name, event, source, origin_request_id))
-            self.mwss.get_server().send_message(self.mwss.clients[origin_request_id], 
-                                                json.dumps({'source': source, 'event': event, 'value': data_table_json})) 
+            
+        # 2019 include account field as a parameter in the message
+            if source['account'] == account:
+                self.mwss.get_server().send_message(self.mwss.clients[origin_request_id], 
+                                                json.dumps({'source': source, 'event': event, 'value': data_table_json, 'account': account})) 
         #except IndexError, KeyError:
         except:
             logging.error('[%s]. index error %d' % (event, origin_request_id))
             
 
+    
+    def event_port_values_updated(self, event, account, port_values):
         
+        logging.info("[%s] received %s from %s. content:[%s]" % (self.name, event, account, json.dumps(port_values)))
+        
+        # broadcast to all subscribed clients
+
+        self.mwss.get_server().send_message_to_all( 
+                                        json.dumps({'event': event, 'value': port_values, 'account': account})) 
 
 
 class MainWebSocketServer(BaseWebSocketServerWrapper):
@@ -232,7 +245,7 @@ class MainWebSocketServer(BaseWebSocketServerWrapper):
         '''
 #         topics = ['event_tm_table_cell_updated', 'event_tm_table_row_inserted', 
 #                   'event_tm_table_row_updated', 'event_tm_table_structure_changed']
-        topics = AbstractTableModel.TM_EVENTS
+
                 
         self.message_handler = Prosumer(name='tblMessageHandler', kwargs=kwargs)
         tbl_listener = PortfolioTableModelListener('portTableModelListener', self)
@@ -329,6 +342,7 @@ class MainWebSocketServer(BaseWebSocketServerWrapper):
     # Called for every client disconnecting
     def client_left(self, client, server):
         try:
+            BaseWebSocketServerWrapper.client_left(self, client, server)
             del self.clients[client['id']]
         except:
             pass
@@ -350,17 +364,17 @@ def main():
     
     kwargs = {
       'name': 'WebSocketServer',
-      'bootstrap_host': 'localhost',
+      'bootstrap_host': 'vorsprung',
       'bootstrap_port': 9092,
       'redis_host': 'localhost',
       'redis_port': 6379,
       'redis_db': 0,
-      'tws_host': 'localhost',
+      'tws_host': 'vsu-bison',
       'group_id': 'WS',
       'session_timeout_ms': 10000,
       'clear_offsets':  False,
       'logconfig': {'level': logging.INFO, 'filemode': 'w', 'filename': '/tmp/ws.log'},
-      'topics': AbstractTableModel.TM_EVENTS,
+      'topics': AbstractTableModel.TM_EVENTS + [PortfolioMonitor.EVENT_PORT_VALUES_UPDATED],
       'seek_to_end': ['*'],
       'ws_flush_timeout': 2000,
       'ws_dirty_count': 15,

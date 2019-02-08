@@ -8,6 +8,9 @@
 </head>
 
 <body>
+  <input type="radio" name='acct' id="acct" value="U9050568" checked="checked"> U9050568<br>
+  <input type="radio" name='acct' id="acct" value="U8080985"> U8080985<br>
+   <button id="reload_port">Reload Portfolio</button>
    <div id="table_div" style="height:600"></div>
    <div id="chart_div"></div> 
    <button id="change-btn">change columns</button>
@@ -21,6 +24,13 @@
   <script>
 	$('#test-btn').click(function(){
 		alert('hereee');
+	});  
+	$('#reload_port').click(function(){
+		alert('Reloading portfolio...');
+		if (ws != null){
+			ws.close();
+			location.reload();
+		}
 	});  
 
     var chartOptions = {
@@ -38,7 +48,7 @@
 	var columnChart = {'view': null, 'data': null, 'chart': null, 'options': chartOptions};
 
     var tableOptions = {allowHtml: true, sortColumn:1, 
-    		showRowNumber: true, width: '100%', height: '100%'};
+    		showRowNumber: true, width: '90%', height: '80%'};
 	var tableChart = {'view': null, 'data': null, 'chart': null, 'options': tableOptions};
 	
 
@@ -92,16 +102,21 @@
 	   
 
     var ws;
-    var account = 'U8379890';
+    var account = $('input[id=acct]:checked').val();
+    //var account = 'U8080985';
 	
     function init() {
 
       // Connect to Web Socket
-      ws = new WebSocket("ws://vorsprung:9001/");
+      ws = new WebSocket("ws://localhost:9001/");
    
       // Set event handlers.
       ws.onopen = function() {
-        output("onopen");
+    	var account = $('input[id=acct]:checked').val();
+    	  
+    	  
+        output("onopen account = " + account );
+        
         ws.send(JSON.stringify({event: 'event_tm_request_table_structure', target_resource:{'class': 'Portfolio'}, 'account': account}));
         ws.send(JSON.stringify({event: 'event_tm_request_table_structure', target_resource:{'class': 'PortfolioColumnChartTM'}, 'account': account}));
         
@@ -113,9 +128,19 @@
         //output("onmessage: " + e.data);
         d1=  JSON.parse(e.data);
 		console.log(d1);
-        
+
+		
+    	// 2019.1 if the messageis not intended 
+	if (d1.event == 'event_tm_table_structure_changed' && d1.account != account) 
+		return;
+	else if (d1.event == 'event_tm_table_row_updated' && d1['value']['source']['account'] != account) 
+		return;
+		
+		
         if (d1.event == "event_tm_table_structure_changed"){
 
+        	
+        	
 			if (d1.source.class == 'Portfolio'){
 				tableChart.data = new google.visualization.DataTable(d1.value);
 				tableChart.view = new google.visualization.DataView(tableChart.data);
@@ -137,6 +162,7 @@
 				
 			} else if (d1.source.class == 'PortfolioColumnChartTM'){
 				columnChart.data = new google.visualization.DataTable(d1.value);
+				console.log(d1.account);
 				columnChart.view = new google.visualization.DataView(columnChart.data);
 				columnChart.chart = new google.visualization.ColumnChart(
 				        document.getElementById('chart_div'));
@@ -164,6 +190,9 @@
         	data.addRow(newRow);
         	options.sortColumn = table.getSortInfo().column;
         	table.draw(view, options);
+        } else if (d1.event == 'event_port_values_updated'){
+        	
+        	console.log(d1.value.port_values);
         }
         
       };
@@ -191,6 +220,7 @@
     }
     
     function onCloseClick() {
+     
       ws.close();
     }
     
