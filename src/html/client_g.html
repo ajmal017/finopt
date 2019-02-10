@@ -22,11 +22,38 @@
   </form>
   <div id="log"></div>
   <script>
+	
+  
+  	var account;
+  	
+
+    $(document).ready(function () {
+    	
+  		// retrieve the last saved preference 
+	    var account = localStorage.getItem('account');
+	    console.log('retrieving the account code from storage => ' + (account == null ? '<not found>' : account));
+	    if (account == null){
+	    	account = $('input[id=acct]:checked').val();
+	    	
+	    	
+	    }
+	    qs = "input[id=acct][value='" + account + "']"
+	    document.querySelectorAll(qs)[0].checked=true;
+
+	});
+  
+  
 	$('#test-btn').click(function(){
 		alert('hereee');
 	});  
 	$('#reload_port').click(function(){
 		alert('Reloading portfolio...');
+		
+		// save the account number that was selected
+		// so that it could be retrieved when the page
+		// is reloaded later
+	    localStorage.setItem('account', $('input[id=acct]:checked').val());
+
 		if (ws != null){
 			ws.close();
 			location.reload();
@@ -102,8 +129,6 @@
 	   
 
     var ws;
-    var account = $('input[id=acct]:checked').val();
-    //var account = 'U8080985';
 	
     function init() {
 
