@@ -1,11 +1,11 @@
 # -*- coding: utf-8 -*-
-import sys, traceback
+import traceback
 import logging
 from misc2.helpers import ConfigMap
 from optparse import OptionParser
 import time, datetime
 import os, wget
-import json, ntpath
+import ntpath
 
 
 class HkexStatDownloader():
@@ -63,8 +63,11 @@ class HkexStatDownloader():
             
             
             # special check for 'k' type dayily short sell
+            # if the date supplied is not today's date, the download is not available 
             if day_str <> datetime.datetime.now().strftime('%y%m%d') and ch == 'k':
                 continue
+            # there is no need to concat day str for daily download html page
+            # for other downloads, insert the day str into the url
             link = link % day_str if ch <> 'k' else link
             try:
                 path = '%s/%s' % (dir, ntpath.basename(link))
