@@ -449,12 +449,13 @@ class SubscriptionListener(BaseMessageListener):
         logging.info("[%s] received on_kb_reached_last_offset content: [%s]" % (self.name, items))
         print "on_kb_reached_last_offset [%s] %s" % (self.name, items)
         
+
             
 def test_prosumer2(mode):
     
     if mode == 'A':
                 
-        topicsA = ['gw_subscription_changed', 'tickPrice']
+        topicsA = ['gw_subscription_changed', 'tickPrice', 'execDetails', 'execDetailsEnd']
         
         pA = Prosumer(name='A', kwargs={'bootstrap_host':'localhost', 'bootstrap_port':9092,
                                         'redis_host':'localhost', 'redis_port':6379, 'redis_db':0,
@@ -485,7 +486,7 @@ def test_prosumer2(mode):
 
         
     else:    
-        topicsB = ['gw_req_subscriptions', 'reqMktData']
+        topicsB = ['gw_req_subscriptions', 'reqMktData', 'reqExecutions']
         
         pB = Prosumer(name='B', kwargs={'bootstrap_host':'localhost', 'bootstrap_port':9092,
                                         'redis_host':'localhost', 'redis_port':6379, 'redis_db':0,

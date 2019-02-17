@@ -6,8 +6,12 @@ import copy
 from optparse import OptionParser
 from time import sleep
 import time
-from misc2.helpers import ContractHelper
-from finopt.instrument import Symbol, Option
+from datetime import datetime
+from dateutil.relativedelta import relativedelta
+from ib.ext.Execution import Execution
+from ib.ext.ExecutionFilter import ExecutionFilter
+from misc2.helpers import ContractHelper, LoggerNoBaseMessagingFilter, ExecutionFilterHelper
+from finopt.instrument import Symbol, Option, InstrumentIdMap
 from rethink.option_chain import OptionsChain
 from rethink.tick_datastore import TickDataStore
 from rethink.portfolio_item import PortfolioItem, PortfolioRules, Portfolio
@@ -55,6 +59,7 @@ class PortfolioMonitor(AbstractGatewayListener, AbstractPortfolioTableModelListe
     def start_engine(self):
         self.twsc.start_manager()
         self.twsc.reqPositions()
+ 
      
         try:
             def print_menu():
@@ -66,6 +71,8 @@ class PortfolioMonitor(AbstractGatewayListener, AbstractPortfolioTableModelListe
                 menu['5']="Table chart JSON"
                 menu['6']="Table index mapping"
                 menu['7']="Position Distribution JSON"
+                menu['8']="Update TDS table entries by inputting '8 <key> <field> <value>'"
+                menu['a']="request exeutions"
                 menu['9']="Exit"
         
                 choices=menu.keys()
@@ -78,7 +85,7 @@ class PortfolioMonitor(AbstractGatewayListener, AbstractPortfolioTableModelListe
                     print_menu()
                     while 1:
                         resp = sys.stdin.readline()
-                        response[0]= resp.strip('\n')
+                        response[0] = resp.strip('\n')
                         #print response[0]
                                 
             
@@ -98,6 +105,7 @@ class PortfolioMonitor(AbstractGatewayListener, AbstractPortfolioTableModelListe
                             
                             port.calculate_port_pl()
                             port.dump_portfolio()
+                            self.notify_port_values_updated(port.get_account(), port)
                             #print ''.join('%d:[%6.2f]\n' % (k, v) for k, v in port.calculate_port_pl().iteritems())
                     elif selection == '3': 
                         
@@ -116,7 +124,26 @@ class PortfolioMonitor(AbstractGatewayListener, AbstractPortfolioTableModelListe
                             pc = PortfolioColumnChart(self.portfolios[acct])
                             print pc.get_JSON()
                             print pc.get_xy_array()
+                    elif selection == '8':
+                        try:
                             
+                            contract_key = response[1]
+                            field = int(response[2])
+                            if field not in (InstrumentIdMap.idmap.keys()):
+                                raise Exception('invalid field')
+                            price = float(response[3])
+                            logging.info('PortfolioMonitor: manual adjustment to tds table')
+                            logging.info('PortfolioMonitor: [%s] field[%s]:%s')
+                            self.tds.set_symbol_tick_price(self, contract_key, field, price)
+                        except:
+                            print "error in input values"
+                            continue
+                    elif selection == 'a':
+                        today = datetime.now()
+                        month = int(today.strftime('%m'))
+                        past =  today + relativedelta(months=-1)
+                        exec_filter = ExecutionFilterHelper.kv2object({'m_time': past.strftime('%Y%m%d %H:%M:%S')}, ExecutionFilter)
+                        self.twsc.reqExecutions(exec_filter)
                     elif selection == '9': 
                         self.twsc.gw_message_handler.set_stop()
                         break
@@ -299,7 +326,7 @@ class PortfolioMonitor(AbstractGatewayListener, AbstractPortfolioTableModelListe
     def tds_event_tick_updated(self, event, contract_key, field, price, syms):
 
         
-        if field not in [Symbol.ASK, Symbol.BID, Symbol.LAST]:
+        if field not in [Symbol.ASK, Symbol.BID, Symbol.LAST, Symbol.CLOSE]:
             return
         
         
@@ -341,10 +368,12 @@ class PortfolioMonitor(AbstractGatewayListener, AbstractPortfolioTableModelListe
                         self.tds.set_symbol_analytics(key_greeks[0], Option.GAMMA, key_greeks[1][Option.GAMMA])
                         self.tds.set_symbol_analytics(key_greeks[0], Option.THETA, key_greeks[1][Option.THETA])
                         self.tds.set_symbol_analytics(key_greeks[0], Option.VEGA, key_greeks[1][Option.VEGA])
+                        self.tds.set_symbol_analytics(key_greeks[0], Option.PREMIUM, key_greeks[1][Option.PREMIUM])
                         
-                        self.portfolios[acct].calculate_item_pl(key_greeks[0])
-                        self.notify_table_model_changes(acct, self.portfolios[acct], key_greeks[0], mode='U')
-                        logging.info('PortfolioMonitor:tds_event_tick_updated. Position updated: %s:[%d]' % (key_greeks[0], self.portfolios[acct].ckey_to_row(key_greeks[0])))
+                        if self.portfolios[acct].is_contract_in_portfolio(contract_key):
+                            self.portfolios[acct].calculate_item_pl(key_greeks[0])
+                            self.notify_table_model_changes(acct, self.portfolios[acct], key_greeks[0], mode='U')
+                            logging.info('PortfolioMonitor:tds_event_tick_updated. Position updated: %s:[%d]' % (key_greeks[0], self.portfolios[acct].ckey_to_row(key_greeks[0])))
                     
                     if results:
                         #logging.info('PortfolioMonitor:tds_event_tick_updated ....before map')
@@ -384,7 +413,13 @@ class PortfolioMonitor(AbstractGatewayListener, AbstractPortfolioTableModelListe
         if not self.is_interested_contract_type(contract_key):
             return
 
-    
+            
+    def execDetails(self, event, req_id, contract_key, execution, end_batch):
+        logging.info("PortfolioMonitor:execDetails: [%s] received %s content:[%s]" % (event, contract_key, execution))
+        
+    def execDetailsEnd(self, event, req_id, end_batch):  # reqId):
+        logging.info("PortfolioMonitor:execDetailsEnd: [%s] received %d end:[%d]" % (event, req_id, end_batch))
+        
  
     def position(self, event, account, contract_key, position, average_cost, end_batch):
 
@@ -426,6 +461,11 @@ class PortfolioMonitor(AbstractGatewayListener, AbstractPortfolioTableModelListe
             
     def updateAccountTime(self, event, timestamp):
         self.raw_dump(event, vars())
+        logging.info('PortfolioMonitor:updateAccountTime %s' % timestamp)
+        for port in self.portfolios.values():
+            port.calculate_port_pl()
+            self.notify_port_values_updated(port.get_account(), port)
+        
         
     def accountDownloadEnd(self, event, account):  # accountName):
         self.raw_dump(event, vars())
@@ -502,7 +542,8 @@ class PortfolioMonitor(AbstractGatewayListener, AbstractPortfolioTableModelListe
         try:
             self.get_kproducer().send_message(PortfolioMonitor.EVENT_PORT_VALUES_UPDATED,
                                                json.dumps({'account': account,
-                                                     'port_values': self.portfolios[account].get_potfolio_values()}))
+                                                     'port_values': self.portfolios[account].get_potfolio_values()}),
+                                               )
         except:
             logging.error('**** Error PortfolioMonitor:notify_port_values_updated. %s' % traceback.format_exc() )
         
@@ -525,7 +566,7 @@ if __name__ == '__main__':
       'session_timeout_ms': 10000,
       'clear_offsets':  False,
       'logconfig': {'level': logging.INFO, 'filemode': 'w', 'filename': '/tmp/pm.log'},
-      'topics': ['position', 'positionEnd', 'tickPrice', 'update_portfolio_account', 'event_tm_request_table_structure', AbstractTableModel.EVENT_TM_TABLE_STRUCTURE_CHANGED],
+      'topics': ['position', 'positionEnd', 'tickPrice', 'execDetails', 'execDetailsEnd', 'update_portfolio_account', 'event_tm_request_table_structure', AbstractTableModel.EVENT_TM_TABLE_STRUCTURE_CHANGED],
       'seek_to_end': ['*'],
       
       
@@ -557,7 +598,7 @@ if __name__ == '__main__':
     logconfig = kwargs['logconfig']
     logconfig['format'] = '%(asctime)s %(levelname)-8s %(message)s'    
     logging.basicConfig(**logconfig)        
-    
+    logging.getLogger().addFilter(LoggerNoBaseMessagingFilter())
     
     server = PortfolioMonitor(kwargs)
     server.start_engine()

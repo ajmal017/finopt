@@ -141,9 +141,31 @@ def get_hk_holidays(year):
     except:
         traceback.print_exc()
     
-
-
-
+# this version has no need for users to import quantlib constants
+def get_HSI_last_trading_day_ex(month_number, year):
+    month_names = [January,
+                February,
+                March,
+                April,
+                May,
+                June,
+                July,
+                August,
+                September,
+                October,
+                November,
+                December,
+                ]      
+    hk_holidays =  {'2019': ['20190101','20190205','20190206','20190207','20190405',
+                             '20190419','20190420','20190422','20190501','20190513',
+                             '20190607','20190701','20190914','20191001','20191007','20191225','20191226']}
+    return get_HSI_last_trading_day(hk_holidays['2019'], month_names[month_number-1], year)
+    
+'''
+    holidays: holiday list in yyyymmdd format
+    month: month names from [January..December] -> Quantlib type
+    year: yyyy integer
+'''
 def get_HSI_last_trading_day(holidays, month, year):
 
     cal = HongKong()
@@ -387,7 +409,7 @@ if __name__ == '__main__':
 #     print chk.advance(Date(17, October, 2015), 1, 2)
     #print get_HSI_expiry(2016)
     
-     holidays = get_hk_holidays(2018)
+#      holidays = get_hk_holidays(2018)
 # 
 #     
 #     
@@ -410,3 +432,6 @@ if __name__ == '__main__':
 #         
 #     print holidays	
 #     print get_HSI_last_trading_day(['20170128'], 1, 2017)
+    for i in range(11):
+      print get_HSI_last_trading_day_ex(i+1, 2019)
+      

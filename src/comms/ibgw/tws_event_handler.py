@@ -1,9 +1,10 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-from misc2.helpers import ContractHelper
+from misc2.helpers import ContractHelper, ExecutionHelper
 import logging
 import traceback
 from ib.ext.EWrapper import EWrapper
+import json
 
 
         
@@ -160,10 +161,13 @@ class TWS_event_handler(EWrapper):
         self.broadcast_event('bondContractDetails', vars())
 
     def execDetails(self, reqId, contract, execution):
-        self.broadcast_event('execDetails', {'req_id': reqId, 'contract': contract, 'execution': execution, 'end_batch': False})
-
+        contract_key= ContractHelper.makeRedisKeyEx(contract)
+        self.broadcast_event('execDetails', {'req_id': reqId, 'contract_key': contract_key, 
+                                             'execution': json.dumps(execution), 'end_batch': False})
+        logging.info('TWS_event_handler:execDetails. [%s] execution id [%d]:= exec px %f' % (execution.account, execution.ExecId , execution.Price))
+                                     
     def execDetailsEnd(self, reqId):
-        self.broadcast_event('execDetails', {'req_id': reqId, 'contract': None, 'execution': None, 'end_batch': True})
+        self.broadcast_event('execDetailsEnd', {'req_id': reqId, 'end_batch': True})
 
     def connectionClosed(self):
         logging.warn('TWS_event_handler: connectionClosed ******')

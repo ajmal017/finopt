@@ -287,25 +287,54 @@ class OptionsChain(Publisher):
             if ospot is a non-number, attempt to get option's last px in the Option 
         '''
         
-        uspot = uspot if not math.isnan(uspot) else self.get_underlying().get_tick_value(4)
-        logging.info('************* cal_option_greeks option= %s' % ContractHelper.makeRedisKeyEx(option.get_contract()))
-        premium = premium if not math.isnan(premium) else option.get_tick_value(4)
         
-        logging.info('*************after>>>>>>> uspot=%8.2f option last=%8.2f pass premium=%8.2f' % (uspot, option.get_tick_value(4), premium))
-        if uspot is None:
+        def quick_check_number(n, varname):
+        
+            if n == None:
+                logging.warn('WARNING: %s is None' % varname)
+                return False
+            elif math.isnan(n):
+                logging.warn('WARNING: %s is nan' % varname)
+                return False
+            return True
+            
+                
+#         if not quick_check_number(uspot, 'spot'):
+#             logging.warn('>>> irregular value in spot for %s ' % ContractHelper.makeRedisKeyEx(option.get_contract()))
+#                           
+#         if not quick_check_number(premium, 'premium'):
+#             logging.warn('>>> irregular value in premium for %s ' % ContractHelper.makeRedisKeyEx(option.get_contract()))
+        
+        
+        # if uspot is not a number, try to get its last px
+        uspot = uspot if not math.isnan(uspot) else self.get_underlying().get_tick_value(4)
+        # if px is still invalid, try close px
+        uspot = uspot if not uspot is None else self.get_underlying().get_tick_value(6)
+        
+        #logging.info('************* cal_option_greeks option= %s' % ContractHelper.makeRedisKeyEx(option.get_contract()))
+        premium = premium if not math.isnan(premium) else option.get_tick_value(4)
+        premium = premium if not premium is None else option.get_tick_value(6)
+        
+        
+        
+        # at this stage both uspot and premium should have valid values, 
+        # if not, just abort the computation
+        if uspot is None or premium is None:
+            logging.info('************ [%s] either uspot or premium or both are found to be None **** not calculating anything'% ContractHelper.makeRedisKeyEx(option.get_contract()))
             return OptionsChain.EMPTY_GREEKS
+        
         o = option.get_contract()
         
 
             
             
         try:
-            logging.info('OptionChain:cal_option_greeks. uspot->%8.4f, premium last->%8.4f ' % (uspot, option.get_tick_value(4)))
-            logging.info('OptionChain:cal_option_greeks. o.m_strike %8.4f, o.m_right %s, valuation_date %s, o.m_expiry %s, self.rate %8.4f , self.div  %8.4f, self.trade_vol %8.4f ' % 
-                        (o.m_strike, o.m_right, valuation_date,  o.m_expiry, self.rate, self.div, self.trade_vol))
+            #logging.info('OptionChain:cal_option_greeks. uspot->%8.4f, premium last->%8.4f ' % (uspot, option.get_tick_value(4)))
+            #logging.info('OptionChain:cal_option_greeks. o.m_strike %8.4f, o.m_right %s, valuation_date %s, o.m_expiry %s, self.rate %8.4f , self.div  %8.4f, self.trade_vol %8.4f ' % 
+            #            (o.m_strike, o.m_right, valuation_date,  o.m_expiry, self.rate, self.div, self.trade_vol))
             iv = cal_implvol(uspot, o.m_strike, o.m_right, valuation_date, 
                                   o.m_expiry, self.rate, self.div, self.trade_vol, premium)
-            logging.info('OptionChain:cal_option_greeks. cal results:iv=> %s' % str(iv))
+            #logging.info('OptionChain:cal_option_greeks. cal results:iv=> %s' % str(iv))
         except RuntimeError:
             logging.warn('OptionChain:cal_option_greeks. Quantlib threw an error while calculating implied vol: use intrinsic: uspot->%8.2f premium->%8.2f strike->%8.2f right->%s sym->%s' % 
                          (uspot, premium, o.m_strike, o.m_right, o.m_symbol))

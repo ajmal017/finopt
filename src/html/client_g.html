@@ -6,13 +6,118 @@
   <script type="text/javascript" src="https://www.google.com/jsapi"></script>  
 
 </head>
+<style>
+ul#menu li {
+  display:inline;
+}
 
+table.minimalistBlack {
+  border: 1px solid #000000;
+  width: 100%;
+  text-align: left;
+  border-collapse: collapse;
+}
+table.minimalistBlack td, table.minimalistBlack th {
+  border: 1px solid #000000;
+  padding: 5px 4px;
+}
+table.minimalistBlack tbody td {
+  font-size: 12px;
+}
+table.minimalistBlack thead {
+  background: #CFCFCF;
+  background: -moz-linear-gradient(top, #dbdbdb 0%, #d3d3d3 66%, #CFCFCF 100%);
+  background: -webkit-linear-gradient(top, #dbdbdb 0%, #d3d3d3 66%, #CFCFCF 100%);
+  background: linear-gradient(to bottom, #dbdbdb 0%, #d3d3d3 66%, #CFCFCF 100%);
+  border-bottom: 3px solid #000000;
+}
+table.minimalistBlack thead th {
+  font-size: 12px;
+  font-weight: bold;
+  color: #000000;
+  text-align: left;
+}
+table.minimalistBlack tfoot {
+  font-size: 13px;
+  font-weight: bold;
+  color: #000000;
+  border-top: 3px solid #000000;
+}
+table.minimalistBlack tfoot td {
+  font-size: 13px;
+}
+.container{
+  max-width: 20px;
+  margin: o auto;
+  padding: 5px;
+}
+.bg-led{ 
+	padding: 5px 8px;
+    max-width: 20px;
+  	margin: o auto;
+  	
+    background-color:green;
+}
+.chartWithMarkerOverlay {
+    position: relative;
+    width: 700px;
+}
+.overlay-text {
+    width: 200px;
+    height: 200px;
+    position: absolute;
+    top: 30px;   /* chartArea top */
+    left: 200px; /* chartArea left */
+}
+.overlay-marker {
+    width: 50px;
+    height: 50px;
+    position: absolute;
+    top: 375px;   /* chartArea top */
+    left: 350px; /* chartArea left */
+    color: #000066;
+    font: 15px arial;
+ 
+}
+</style>
 <body>
-  <input type="radio" name='acct' id="acct" value="U9050568" checked="checked"> U9050568<br>
-  <input type="radio" name='acct' id="acct" value="U8080985"> U8080985<br>
-   <button id="reload_port">Reload Portfolio</button>
-   <div id="table_div" style="height:600"></div>
-   <div id="chart_div"></div> 
+	<ul id="menu">
+		<li><input type="radio" name='acct' id="acct" value="U9050568" checked="checked"> U9050568</li>
+		<li><input type="radio" name='acct' id="acct" value="U8080985"> U8080985</li>
+		<li><button id="reload_port">Reload Portfolio</button></li>
+		<li class="bg-led indicator"></li>
+	</ul>  
+		
+   
+	<table id='port_sum' class="minimalistBlack">
+		<thead>
+			<tr>
+				<th>Total Delta/Theta</th>
+				<th>Futures Delta/Theta</th>
+				<th>Call Delta/Theta</th>
+				<th>Put Delta/Theta</th>
+				<th>Calls/Puts</th>
+				<th>PL / Potential Gain<div class="container"></th>
+				<th>HSIF Curr / Next Mth</th>
+				<th>change %</th>
+			</tr>
+		</thead>
+		
+		<tbody>
+			<tr>
+				<td>(nan)</td><td>(nan)</td><td>(nan)</td><td>(nan)</td><td>(nan)</td><td>(nan)</td><td>(nan)</td><td>(nan)</td></tr>
+			<tr>
+				<td>(nan)</td><td>(nan)</td><td>(nan)</td><td>(nan)</td><td>(nan)</td><td>(nan)</td><td>(nan)</td><td>(nan)</td></tr>
+			<tr>
+		</tbody>
+		</tr>
+	</table>
+   
+	<div id="chart_div"></div> 
+	<div id="table_div" style="height:400"></div>
+	<div class="overlay-marker">
+	<img src="public/green_marker.png" height="50"><div id='spot'></div>
+	</div>   
    <button id="change-btn">change columns</button>
    <button id="test-btn">test</button>
   <form onsubmit="onSubmit(); return false;">
@@ -40,11 +145,16 @@
 	    qs = "input[id=acct][value='" + account + "']"
 	    document.querySelectorAll(qs)[0].checked=true;
 
+	    
+	    // test: setCellValue('port_sum', 1, 2, 'x6yz');
+	    
 	});
   
   
 	$('#test-btn').click(function(){
-		alert('hereee');
+		$('#port_sum').find("tr:eq(1)").find("td:eq(1)").html('new stuff');
+		
+		alert($('#port_sum').find("tr:eq(1)").find("td:eq(1)").html());
 	});  
 	$('#reload_port').click(function(){
 		alert('Reloading portfolio...');
@@ -62,10 +172,12 @@
 
     var chartOptions = {
             width: 800,
-            height: 500,
+            height: 400,
             legend: { position: 'right', maxLines: 3 },
-            bar: { groupWidth: '75%' },
+            bar: { groupWidth: '85%' },
             isStacked: true,allowHtml: true,
+
+
          /*series: {
     			0:{color:'lightgreen'},
     			1:{color:'black'},
@@ -87,8 +199,19 @@
 	google.setOnLoadCallback(init);
 	
 
+	function setCellValue(table, rowNum, colNum, newValue)
+	{
+		//$('#port_sum').find("tr:eq(1)").find("td:eq(1)").html('new stuff');
+	    $('#'+table).find('tr:eq('+rowNum+')').find('td:eq(' + colNum + ')').html(newValue);
+	    
+	};	
 	
-	
+	function getCellValue(table, rowNum, colNum)
+	{
+		//$('#port_sum').find("tr:eq(1)").find("td:eq(1)").html('new stuff');
+	    return $('#'+table).find('tr:eq('+rowNum+')').find('td:eq(' + colNum + ')').html();
+	    
+	};	
 
 	
 	function getRandomInt(min, max) {
@@ -116,6 +239,7 @@
 	    	 	    
 		    numF.format(tableChart.data, 2);  //avg cost
 		    numF.format(tableChart.data, 3);  //market value
+		    numF.format(tableChart.data, 4);  //avg px
 		    colorF.format(tableChart.data, 6); // position
 		    percentF.format(tableChart.data, 7); //delta		
 		    
@@ -124,116 +248,174 @@
 		    numF.format(tableChart.data, 12); // position gamma
 		    colorGF.format(tableChart.data, 13); //unreal p/l
 		    barF.format(tableChart.data, 14) //% gain loss
+		    percentF.format(tableChart.data, 15); //delta
 		
 	}	   
 	   
 
     var ws;
+    var ws_url = "ws://localhost:9001/";
+    var tableChart;
 	
-    function init() {
-
-      // Connect to Web Socket
-      ws = new WebSocket("ws://localhost:9001/");
-   
-      // Set event handlers.
-      ws.onopen = function() {
-    	var account = $('input[id=acct]:checked').val();
-    	  
-    	  
-        output("onopen account = " + account );
-        
-        ws.send(JSON.stringify({event: 'event_tm_request_table_structure', target_resource:{'class': 'Portfolio'}, 'account': account}));
-        ws.send(JSON.stringify({event: 'event_tm_request_table_structure', target_resource:{'class': 'PortfolioColumnChartTM'}, 'account': account}));
-        
-      };
-      
-      ws.onmessage = function(e) {
-        // e.data contains received string.
-        
-        //output("onmessage: " + e.data);
-        d1=  JSON.parse(e.data);
-		console.log(d1);
-
-		
-    	// 2019.1 if the messageis not intended 
-	if (d1.event == 'event_tm_table_structure_changed' && d1.account != account) 
-		return;
-	else if (d1.event == 'event_tm_table_row_updated' && d1['value']['source']['account'] != account) 
-		return;
-		
-		
-        if (d1.event == "event_tm_table_structure_changed"){
-
-        	
-        	
-			if (d1.source.class == 'Portfolio'){
-				tableChart.data = new google.visualization.DataTable(d1.value);
-				tableChart.view = new google.visualization.DataView(tableChart.data);
-				tableChart.view.setRows(tableChart.view.getFilteredRows([{column: 15, test: function(value, row, column, table) {
-			        return (value == 'HSI' || value == 'MHI')
-			    }},
-			    {column: 6, test: function(value, row, column, table) {
-			        return (value != 0)
-			    }},
-			     
-			    ]));
-
-
-
-	    		setupFormatter(tableChart.data);
-	    		tableChart.chart = new google.visualization.Table(document.getElementById('table_div'));
-	    		tableChart.chart.draw(tableChart.view, tableChart.options);
-				output('number of rows: ' + tableChart.data.getNumberOfRows());
-				
-			} else if (d1.source.class == 'PortfolioColumnChartTM'){
-				columnChart.data = new google.visualization.DataTable(d1.value);
-				console.log(d1.account);
-				columnChart.view = new google.visualization.DataView(columnChart.data);
-				columnChart.chart = new google.visualization.ColumnChart(
-				        document.getElementById('chart_div'));
-				columnChart.chart.draw(columnChart.view, columnChart.options);
-			}
-           
-        } else if (d1.event == 'event_tm_table_row_updated'){
-
-			console.log(d1.value.row.toString()+ ':' + d1.value.row_values[0]['v']);
-			for (var c=2; c < d1.value.row_values.length; c++){
-				tableChart.data.setCell(d1.value.row, c, d1.value.row_values[c]["v"]);
-
-			}
-			//data.setCell(d1.value.row, 1, d1.value.row_values[0]['v']);
+	  function init() {
+	
+	    var account = $('input[id=acct]:checked').val();
+	    
+	    // Connect to Web Socket
+	    ws = new WebSocket(ws_url);
+	 
+	    // Set event handlers.
+	    ws.onopen = function() {
+	  	var account = $('input[id=acct]:checked').val();
+	  	  
+	  	  
+	      output("onopen account = " + account );
+	      
+	      ws.send(JSON.stringify({event: 'event_tm_request_table_structure', target_resource:{'class': 'Portfolio'}, 'account': account}));
+	      ws.send(JSON.stringify({event: 'event_tm_request_table_structure', target_resource:{'class': 'PortfolioColumnChartTM'}, 'account': account}));
+	      
+	    };
+	    
+	    ws.onmessage = function(e) {
+			// e.data contains received string.
+			// signal incoming by flashing a green box
+			$('.indicator').fadeIn(50).fadeOut(50); 
 			
-			tableChart.options.sortColumn = tableChart.chart.getSortInfo().column;
-			tableChart.chart.draw(tableChart.view, tableChart.options);
-           
+			try {
+				d1=  JSON.parse(e.data);
+				
+			}
+			catch(err) {
+				output("onmessage:json parse exception: value= " + e.data);
+				console.log('error parsing e.data' + e.data);
+			}
 
-        } else if (d1.event == 'event_tm_table_row_inserted'){
-        	var newRow = d1.value.row_values.map(function(x){
-        		return x['v'];
-        	});
-        	output('adding new row: ' + newRow.toString());
-        	data.addRow(newRow);
-        	options.sortColumn = table.getSortInfo().column;
-        	table.draw(view, options);
-        } else if (d1.event == 'event_port_values_updated'){
-        	
-        	console.log(d1.value.port_values);
-        }
-        
-      };
+			
+				
+			 
+    	
+		  	// 2019.1 if the messageis not intended
+			if (d1.event == 'event_tm_table_structure_changed' && d1.account != account) 
+				return;
+			else if (d1.event == 'event_tm_table_row_updated' && d1['value']['source']['account'] != account) 
+				return;
+		
+		
+			if (d1.event == "event_tm_table_structure_changed"){
+				
+				if (d1.source.class == 'Portfolio'){
+					tableChart.data = new google.visualization.DataTable(d1.value);
+					tableChart.view = new google.visualization.DataView(tableChart.data);
+					tableChart.view.setRows(tableChart.view.getFilteredRows([{column: 16, test: function(value, row, column, table) {
+				        return (value == 'HSI' || value == 'MHI')
+				    }},
+				    {column: 6, test: function(value, row, column, table) {
+				        return (value != 0)
+				    }},
+				     
+				    ]));
+			  		setupFormatter(tableChart.data);
+			  		tableChart.chart = new google.visualization.Table(document.getElementById('table_div'));
+			  		tableChart.chart.draw(tableChart.view, tableChart.options);
+					output('number of rows: ' + tableChart.data.getNumberOfRows());
+					
+				} else if (d1.source.class == 'PortfolioColumnChartTM'){
+					columnChart.data = new google.visualization.DataTable(d1.value);
+					console.log(d1.account);
+					columnChart.view = new google.visualization.DataView(columnChart.data);
+					columnChart.chart = new google.visualization.ColumnChart(
+					        document.getElementById('chart_div'));
+					columnChart.chart.draw(columnChart.view, columnChart.options);
+					google.visualization.events.addListener(columnChart.chart, 'ready', placeIndexMarker);
+				}
+				        
+			} else if (d1.event == 'event_tm_table_row_updated'){
+				
+				console.log(d1.value.row.toString()+ ':' + d1.value.row_values[0]['v']);
+				for (var c=2; c < d1.value.row_values.length; c++){
+					tableChart.data.setCell(d1.value.row, c, d1.value.row_values[c]["v"]);
+				
+				}
+				//data.setCell(d1.value.row, 1, d1.value.row_values[0]['v']);
+				
+				tableChart.options.sortColumn = tableChart.chart.getSortInfo().column;
+				tableChart.chart.draw(tableChart.view, tableChart.options);
+				        
+				
+			} else if (d1.event == 'event_tm_table_row_inserted'){
+				var newRow = d1.value.row_values.map(function(x){
+					return x['v'];
+				});
+				output('adding new row: ' + newRow.toString());
+				data.addRow(newRow);
+				options.sortColumn = table.getSortInfo().column;
+				table.draw(view, options);
+				
+			} else if (d1.event == 'event_port_values_updated' && d1.account == account){
+			 	setPortSummaryTableVal(d1.value);
+			} else if (d1.event == 'tickPrice'){
+					
+				if (d1.current_or_next == 'current'){
+					setCellValue('port_sum', 1, 6, d1.price);
+					setCellValue('port_sum', 1, 7, d1.change.toFixed(2));
+				}
+				else{ // next month
+					setCellValue('port_sum', 2, 6, d1.price);
+					setCellValue('port_sum', 2, 7, d1.change.toFixed(2));
+				}
+				if (columnChart){
+					placeIndexMarker();
+				}				
+			     
+			}
+		};
       
-      ws.onclose = function() {
-        output("onclose");
-      };
+		ws.onclose = function() {
+		  output("onclose");
+		};
+		
+		ws.onerror = function(e) {
+		  output("onerror");
+		  console.log(e)
+		};
 
-      ws.onerror = function(e) {
-        output("onerror");
-        console.log(e)
-      };
-
-    }
+	}
     
 
+	function placeIndexMarker(){
+		// get the current month futures spot px
+		var spot = getCellValue('port_sum', 1, 6);
+		var cli = columnChart.chart.getChartLayoutInterface();
+		//top = cli.getChartAreaBoundingBox().top;
+		//height = cli.getChartAreaBoundingBox().height;
+		top = cli.getBoundingBox('chartarea').top;
+		height = cli.getBoundingBox('chartarea').height;
+		
+		document.querySelector('.overlay-marker').style.top = Math.floor(top - height) + "px";
+		document.querySelector('.overlay-marker').style.left = Math.floor(cli.getXLocation(spot) - 25) + "px";
+	}
+	  
+    function setPortSummaryTableVal(port_values){
+    	var val2cellDict = {
+    			9000: [1,0], 
+    			9001: [1,1],
+    			9002: [1,2],
+    			9003: [1,3],
+    			9031: [1,4],
+    			9040: [1,5],
+    			9010: [2,0],
+    			9012: [2,2],
+    			9013: [2,3],
+    			9032: [2,4],
+    			9041: [2,5]
+    					}
+    	
+    	for(var port_id in val2cellDict) {
+		 	//console.log('in setPortSummaryTableVal ' + String(port_id) + ", ");
+    		setCellValue('port_sum', val2cellDict[port_id][0], val2cellDict[port_id][1], port_values[port_id]);
+    	}
+    }
+    
     
     function onSubmit() {
       var input = document.getElementById("input");

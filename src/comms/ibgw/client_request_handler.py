@@ -42,11 +42,12 @@ class ClientRequestHandler(BaseMessageListener):
         
     def reqExecutions(self, event, exec_filter=None):
         
+        logging.info('ClientRequestHandler - reqExecutions exec_filter string=%s' % exec_filter)
         if exec_filter == 'null':
-            exec_filter = ExecutionFilter()
+            ef = ExecutionFilter()
         else:
-            ExecutionFilterHelper.kv2object(exec_filter, ExecutionFilter)
-        self.tws_connect.reqExecutions(0, exec_filter)
+            ef = ExecutionFilterHelper.kvstring2object(exec_filter, ExecutionFilter)
+        self.tws_connect.reqExecutions(0, ef)
     
     
     def reqIds(self, event, value=None):

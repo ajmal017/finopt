@@ -7,6 +7,7 @@ import threading
 import ConfigParser
 from ib.ext.Contract import Contract
 from ib.ext.Order import Order
+from ib.ext.Execution import Execution
 from ib.ext.ExecutionFilter import ExecutionFilter
 import copy
 
@@ -22,7 +23,8 @@ class BaseHelper():
 
 
     @staticmethod
-    def kv2object(kv, Object):   
+    def kv2object(kv, Object):
+           
         o = Object()
         map(lambda x: o.__setattr__(x, kv[x].encode('ascii') if type(kv[x]) == unicode else kv[x]), kv.keys())
         return o
@@ -97,6 +99,18 @@ class ExecutionFilterHelper(BaseHelper):
         new_filter.m_symbol = executionFilterTuple[5]
         new_filter.m_time = executionFilterTuple[6]
         return new_filter
+
+class ExecutionHelper(BaseHelper):
+    
+
+    @staticmethod
+    def execution2kvstring(execution):
+        return json.dumps(execution.__dict__)
+
+
+    @staticmethod
+    def execution2kv(execution):
+        return copy.deepcopy(execution.__dict__)
 
 
 class ContractHelper(BaseHelper):
@@ -323,4 +337,12 @@ class ConfigMap():
         #logging.debug('ConfigMap: %s' % kwargs)
         return kwargs
     
+
+
+class LoggerNoBaseMessagingFilter(logging.Filter):
+    def filter(self, record):
+        return not (record.getMessage().startswith('BaseConsumer') or 
+                    record.getMessage().startswith('BaseProducer') or
+                    record.getMessage().startswith('PortfolioMonitor:tds_event_tick_updated'))
+
 

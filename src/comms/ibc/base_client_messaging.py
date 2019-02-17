@@ -174,7 +174,7 @@ class AbstractGatewayListener(BaseMessageListener):
         """ generated source for method execDetails """
         raise NotImplementedException
    
-    def execDetailsEnd(self, event, message_value):  # reqId):
+    def execDetailsEnd(self, event, req_id, end_batch):  # reqId):
         """ generated source for method execDetailsEnd """
         raise NotImplementedException
    

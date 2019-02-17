@@ -18,4 +18,4 @@ fi
 
 export PYTHONPATH=$FINOPT_HOME:$PYTHONPATH
 #python $FINOPT_HOME/ws/ws_server.py  -c -g AE1  
-python $FINOPT_HOME/ws/ws_server.py   -g AE1  
+python $FINOPT_HOME/ws/ws_server.py   -g AE1 -f ../config/ws.cfg 

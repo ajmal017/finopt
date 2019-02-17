@@ -82,9 +82,14 @@ class HkexStatDownloader():
 
 
 
+'''
 
-    
-    
+    Download daily stat files from HKEX website
+    The script requires a config file to run 
+    check finopt/config/daily_download.cfg for
+    details
+
+'''
     
 
 if __name__ == '__main__':

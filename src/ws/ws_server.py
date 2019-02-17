@@ -5,10 +5,18 @@ from optparse import OptionParser
 from time import sleep
 from threading import Thread
 import copy, sys
-from misc2.observer import NotImplementedException, Subscriber, Publisher
+from misc2.observer import NotImplementedException, Subscriber
+from misc2.helpers import ContractHelper, LoggerNoBaseMessagingFilter, HelperFunctions, ConfigMap
 from rethink.table_model import AbstractTableModel
 from rethink.portfolio_monitor import PortfolioMonitor
 from comms.ibgw.base_messaging import BaseMessageListener, Prosumer
+from comms.ibc.tws_client_lib import TWS_client_manager, AbstractGatewayListener
+from finopt import optcal
+import datetime as dt
+from dateutil.relativedelta import relativedelta
+from ws_webserver import PortalServer, HTTPServe
+from finopt.instrument import Symbol
+
 # https://github.com/Pithikos/python-websocket-server
 
 
@@ -34,6 +42,7 @@ class BaseWebSocketServerWrapper(Subscriber):
         
         self.set_stop = False
         
+
         
     def set_server(self, server):
         self.server = server
@@ -221,7 +230,7 @@ class PortfolioTableModelListener(BaseMessageListener):
                                         json.dumps({'event': event, 'value': port_values, 'account': account})) 
 
 
-class MainWebSocketServer(BaseWebSocketServerWrapper):
+class MainWebSocketServer(BaseWebSocketServerWrapper, AbstractGatewayListener):
     '''
     
         MainWebSocketServer
@@ -253,6 +262,7 @@ class MainWebSocketServer(BaseWebSocketServerWrapper):
         self.message_handler.add_listeners([tbl_listener])
         self.message_handler.start_prosumer()        
         self.clients = {}
+        self.fut_months = {}
         
         # stores server side object id to request ws clients
         # this allows the server to determine
@@ -261,17 +271,64 @@ class MainWebSocketServer(BaseWebSocketServerWrapper):
         # 
         # server_handler_map: {<source_id>: client}
         self.server_handler_map ={}
+        #
+        # bug or limitation: the kwargs topics key/val assumes a program only uses one type of listener
+        # in this case there are 2 listeners (PortfolioTableModelListener and AbstractGatewayListener
+        # this problem has to be cleaned up at a later stage
+        # for now just do a hack to pop the value in the topics key and
+        # replace with tickPrice
+        kwargs['topics'].pop()
+        kwargs['topics'] = ['tickPrice']
+        self.twsc = TWS_client_manager(kwargs)
+        self.twsc.add_listener_topics(self, ['tickPrice'] )
+        self.subscribe_hsif_ticks()
+        self.www = HTTPServe(kwargs)
+        th = threading.Thread(target=self.www.start_server)
+        th.daemon = True 
+        th.start()
 
         
+    def subscribe_hsif_ticks(self):
+         
+
+        def req_tick(month, year):
+            expiry = optcal.get_HSI_last_trading_day_ex(month, year)
+            contractTuple = ('HSI', 'FUT', 'HKFE', 'HKD', expiry, 0, '')
+            contract = ContractHelper.makeContract(contractTuple)
+            logging.info('subscribe_hsi_futures_ticks: %s' % str(contractTuple))
+            self.twsc.reqMktData(contract, True)
+            return contract
+        
+        results = {}
+        today = dt.datetime.now()
+        month = int(today.strftime('%m'))
+        year = int(today.strftime('%Y'))
+        c1 = req_tick(month, year)
+        self.fut_months[ContractHelper.makeRedisKeyEx(c1)] = {'month_type' : 'current', 'sym': Symbol(c1)}
+        
+        
+        one_month_later = today + relativedelta(months=+1)
+        next_month = int(one_month_later.strftime('%m'))        
+        year = int(one_month_later.strftime('%Y'))
+        c2 = req_tick(next_month, year)
+        self.fut_months[ContractHelper.makeRedisKeyEx(c2)] = {'month_type' : 'next', 'sym': Symbol(c2)}
+        
+        
+        
+        
+        
+
         
     def loop_forever(self):
 
+
+        self.twsc.start_manager()
         try:
             def print_menu():
                 menu = {}
                 menu['1']="set dirty count1 limit" 
                 menu['2']="set flush timeout"
-                menu['3']=""
+                menu['3']="shows start up config"
                 menu['4']=""
                 menu['5']=""
                 menu['6']=""
@@ -305,7 +362,7 @@ class MainWebSocketServer(BaseWebSocketServerWrapper):
                     elif selection == '2':
                         pass 
                     elif selection == '3':
-                        pass                         
+                        print '\n'.join('[%s]:%s' % (k,v) for k,v in self.kwargs.iteritems())                    
                     elif selection == '4':
                         pass                         
                     elif selection == '5':
@@ -317,6 +374,9 @@ class MainWebSocketServer(BaseWebSocketServerWrapper):
                         sleep(1)
                         self.stop_server()
                         sleep(1)
+                        self.twsc.gw_message_handler.set_stop()
+                        sleep(1)
+                        self.www.stop_server()
                         break
                     else: 
                         pass                        
@@ -327,8 +387,14 @@ class MainWebSocketServer(BaseWebSocketServerWrapper):
         except (KeyboardInterrupt, SystemExit):
             logging.error('MainWebSocketServer: caught user interrupt. Shutting down...')
             self.message_handler.set_stop() 
+            self.twsc.gw_message_handler.set_stop()            
             logging.info('MainWebSocketServer: Service shut down complete...')   
 
+        except:
+            logging.error('MainWebSocketServer. caught user interrupt. Shutting down...%s' % traceback.format_exc())
+            self.message_handler.set_stop()
+            self.twsc.gw_message_handler.set_stop() 
+            logging.info('MainWebSocketServer: Service shut down complete...')               
 
 
             
@@ -350,26 +416,46 @@ class MainWebSocketServer(BaseWebSocketServerWrapper):
     
     # Called when a client sends a message1
     def message_received(self, client, server, message):
-        print 'message received %s' % message
+        #print 'message received %s' % message
         message = json.loads(message)
         if message['event'] == AbstractTableModel.EVENT_TM_REQUEST_TABLE_STRUCTURE:
             self.message_handler.send_message(AbstractTableModel.EVENT_TM_REQUEST_TABLE_STRUCTURE, 
                                           json.dumps({'request_id' : client['id'], 'target_resource': message['target_resource'], 'account': message['account']}))
 
 
-
+    def tickPrice(self, event, contract_key, field, price, canAutoExecute):
+        logging.info('received tickprice key[%s] [%s]=%f' % (contract_key, field, price))
+        # send only last price
+        if contract_key in self.fut_months.keys():
+            
+            self.fut_months[contract_key]['sym'].set_tick_value(field, price)
+            
+            
+            if field == Symbol.LAST:
+                change = None
+                current_or_next = 'current' if self.fut_months[contract_key]['month_type'] == 'current' else 'next'
+                try:
+                    close = self.fut_months[contract_key]['sym'].get_tick_value(Symbol.CLOSE)
+                    change = (price - close) / close * 100
+                    logging.info('ws_server:tickPrice close %0.2f change %0.2f' % (close, change))
+                except:
+                    pass
+                self.get_server().send_message_to_all( 
+                                        json.dumps({'event': event, 'current_or_next': current_or_next, 'price': price, 'change': change})) 
+    
     
 
+        
 def main():
     
     kwargs = {
       'name': 'WebSocketServer',
-      'bootstrap_host': 'vorsprung',
+      'bootstrap_host': 'localhost',
       'bootstrap_port': 9092,
       'redis_host': 'localhost',
       'redis_port': 6379,
       'redis_db': 0,
-      'tws_host': 'vsu-bison',
+      'tws_host': 'localhost',
       'group_id': 'WS',
       'session_timeout_ms': 10000,
       'clear_offsets':  False,
@@ -390,29 +476,45 @@ def main():
     parser.add_option("-g", "--group_id",
                       action="store", dest="group_id", 
                       help="assign group_id to this running instance")
-    parser.add_option("-e", "--evaluation_date",
-                     action="store", dest="evaluation_date", 
-                     help="specify evaluation date for option calculations")   
+    parser.add_option("-f", "--config_file",
+                      action="store", dest="config_file", 
+                      help="path to the config file")    
     
     (options, args) = parser.parse_args()
-    if options.evaluation_date == None:
-        options.evaluation_date = time.strftime('%Y%m%d') 
+    fargs = ConfigMap().kwargs_from_file(options.config_file)
     
+    # copy all command line options into fargs
     for option, value in options.__dict__.iteritems():
         if value <> None:
-            kwargs[option] = value
+            fargs[option] = value
+            
+    # compare default config with fargs
+    # replace the default values with values found in fargs
+    # update the final config into kwargs
+    temp_kwargs = copy.copy(fargs)            
+    for key in kwargs:
+        if key in temp_kwargs:
+            kwargs[key] = temp_kwargs.pop(key)        
+    kwargs.update(temp_kwargs)                
     
       
     logconfig = kwargs['logconfig']
     logconfig['format'] = '%(asctime)s %(levelname)-8s %(message)s'    
     logging.basicConfig(**logconfig)        
-        
+    logging.getLogger().addFilter(LoggerNoBaseMessagingFilter())  
     
     esw = MainWebSocketServer('ChartTableWS', kwargs)    
     esw.start_server()
-
     
+    
+
+
+
+
+
+
     
 if __name__ == "__main__":
     main()
+    sys.exit(0)
     

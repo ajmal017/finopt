@@ -138,6 +138,7 @@ class PortfolioItem():
         try:
             assert contract_key == self.contract_key
             spot_px = self.instrument.get_tick_value(4)
+            spot_px = spot_px if not spot_px is None else self.instrument.get_tick_value(6)
             qty = self.get_quantity()
             if qty == 0:
                 self.set_port_field(PortfolioItem.POSITION_DELTA, 0.0)
@@ -175,6 +176,8 @@ class PortfolioItem():
                     if qty < 0:
                         market_value= spot_px * qty * multiplier
                         potential_gain = market_value - unreal_pl * (1.0 if unreal_pl < 0 else 0)
+                    elif qty > 0:
+                        potential_gain = 0
                         
                 except ZeroDivisionError, TypeError:
                     # caught error for cases where get_average_cost and quantity may be None
@@ -267,6 +270,9 @@ class Portfolio(AbstractTableModel):
     def get_object_name(self):
         return {'account': self.account, 'id': id(self), 'class': self.__class__.__name__}
     
+    def get_account(self):
+        return self.account
+    
     def is_contract_in_portfolio(self, contract_key):
         return self.get_portfolio_port_item(contract_key)
             
@@ -319,13 +325,18 @@ class Portfolio(AbstractTableModel):
         return self.port['opt_chains']
 
     def calculate_item_pl(self, contract_key):
-        self.port['port_items'][contract_key].calculate_pl(contract_key)
+        try:
+            self.port['port_items'][contract_key].calculate_pl(contract_key)
+        except:
+            logging.error('PortfolioItem:calculate_item_pl *** ERROR: port a/c [%s], contract_key [%s]' % (self.get_account(), contract_key))
         
     def calculate_port_pl(self):
 
 
-        p1_items = filter(lambda x: x[1].get_symbol_id() in PortfolioRules.rule_map['interested_position_types']['symbol'], self.port['port_items'].items())
-        p2_items = filter(lambda x: x[1].get_instrument_type() in  PortfolioRules.rule_map['interested_position_types']['instrument_type'], p1_items)
+        p0_items = filter(lambda x: x[1].get_symbol_id() in PortfolioRules.rule_map['interested_position_types']['symbol'], self.port['port_items'].items())
+        p1_items = filter(lambda x: x[1].get_instrument_type() in  PortfolioRules.rule_map['interested_position_types']['instrument_type'], p0_items)
+        p2_items = filter(lambda x: x[1].get_quantity() <> 0, p1_items)
+
         
         port_v = {
               Portfolio.TOTAL_DELTA     : 0.0,
@@ -344,32 +355,43 @@ class Portfolio(AbstractTableModel):
             } 
         def cal_port(x_tuple):
     
-            x = x_tuple[1]
-            if x.get_right() == 'C':
-                port_v[Portfolio.TOTAL_DELTA_C] += x.get_port_field(PortfolioItem.POSITION_DELTA)
-                port_v[Portfolio.TOTAL_THETA_C] += x.get_port_field(PortfolioItem.POSITION_THETA)
-                ##
-                # hard coded logic
-                #
-                port_v[Portfolio.NUM_CALLS] += (
-                    x.get_quantity() * PortfolioRules.rule_map['option_structure'][x.get_symbol_id()]['multiplier'] / 50)
-
-            elif x.get_right() == 'P':
-                port_v[Portfolio.TOTAL_DELTA_P] += x.get_port_field(PortfolioItem.POSITION_DELTA)
-                port_v[Portfolio.TOTAL_THETA_P] += x.get_port_field(PortfolioItem.POSITION_THETA)
-                port_v[Portfolio.NUM_PUTS] += (
-                    x.get_quantity() * PortfolioRules.rule_map['option_structure'][x.get_symbol_id()]['multiplier'] / 50)
-            elif x.get_instrument_type() == 'FUT':
-                port_v[Portfolio.TOTAL_DELTA_F] += x.get_port_field(PortfolioItem.POSITION_DELTA)
-                
-            port_v[Portfolio.TOTAL_DELTA] += x.get_port_field(PortfolioItem.POSITION_DELTA)
-            port_v[Portfolio.TOTAL_THETA] += x.get_port_field(PortfolioItem.POSITION_THETA)
-            port_v[Portfolio.TOTAL_GAIN_LOSS] += x.get_port_field(PortfolioItem.UNREAL_PL)
-            port_v[Portfolio.TOTAL_POTENTIAL_GAIN] += x.get_port_field(PortfolioItem.POTENTIAL_GAIN)
             try:
-                port_v[Portfolio.TOTAL_GAMMA_PERCENT] += x.get_port_field(PortfolioItem.GAMMA_PERCENT)
+    
+                x = x_tuple[1]
+                if x.get_right() == 'C':
+                    port_v[Portfolio.TOTAL_DELTA_C] += x.get_port_field(PortfolioItem.POSITION_DELTA)
+                    port_v[Portfolio.TOTAL_THETA_C] += x.get_port_field(PortfolioItem.POSITION_THETA)
+                    ##
+                    # hard coded logic
+                    #
+                    port_v[Portfolio.NUM_CALLS] += (
+                        x.get_quantity() * PortfolioRules.rule_map['option_structure'][x.get_symbol_id()]['multiplier'] / 50)
+    
+                elif x.get_right() == 'P':
+                    port_v[Portfolio.TOTAL_DELTA_P] += x.get_port_field(PortfolioItem.POSITION_DELTA)
+                    port_v[Portfolio.TOTAL_THETA_P] += x.get_port_field(PortfolioItem.POSITION_THETA)
+                    port_v[Portfolio.NUM_PUTS] += (
+                        x.get_quantity() * PortfolioRules.rule_map['option_structure'][x.get_symbol_id()]['multiplier'] / 50)
+                elif x.get_instrument_type() == 'FUT':
+                    port_v[Portfolio.TOTAL_DELTA_F] += x.get_port_field(PortfolioItem.POSITION_DELTA)
+                    
+                port_v[Portfolio.TOTAL_DELTA] += x.get_port_field(PortfolioItem.POSITION_DELTA)
+                port_v[Portfolio.TOTAL_THETA] += x.get_port_field(PortfolioItem.POSITION_THETA)
+    
+                port_v[Portfolio.TOTAL_GAIN_LOSS] += x.get_port_field(PortfolioItem.UNREAL_PL)
+                port_v[Portfolio.TOTAL_POTENTIAL_GAIN] += x.get_port_field(PortfolioItem.POTENTIAL_GAIN)
+                
+                # not used for the time being
+                #port_v[Portfolio.TOTAL_GAMMA_PERCENT] += x.get_port_field(PortfolioItem.GAMMA_PERCENT)
+    
+                for k,v in port_v.iteritems():
+                    #logging.info('>>>>>>>>>CHECK>>>>> %s %0.2f %d' % (k, v, math.isnan(v)))
+                    port_v[k] = 0.0 if math.isnan(v) else port_v[k]
+                
+            
             except:
-                logging.error('Portfolio:calculate_port_pl. Error calcuting gamma percent %s' % traceback.format_exc())
+                logging.error('Portfolio:calculate_port_pl. **** ERROR %s' % traceback.format_exc())
+                
                 
             
         map(cal_port, p2_items)            
@@ -401,15 +423,17 @@ class Portfolio(AbstractTableModel):
 
         #df = pd.DataFrame(data = map(format_port_data, [x for x in self.port['port_items'].iteritems()]),
         #                  columns = format_port_header(self.port['port_items'].iteritems()[0].keys()))
-        data = map(format_port_data, [x for x in self.port['port_items'].iteritems()])
-        y = list(self.port['port_items'])[0]
-        z = self.port['port_items'][y]
-        columns = format_port_header(z)
-        pd.set_option('display.max_columns', 50)
-        df1 = pd.DataFrame(data = data, columns = columns)
+        try:
+
+            data = map(format_port_data, [x for x in self.port['port_items'].iteritems()])
+            y = list(self.port['port_items'])[0]
+            z = self.port['port_items'][y]
+            columns = format_port_header(z)
+            print columns
+            pd.set_option('display.max_columns', 50)
+            df1 = pd.DataFrame(data = data, columns = columns)
         
         # print portfolio items
-        try:
             print '\n\n--------- Portfolio %s --------\n' % self.get_object_name()['account']
             print df1
             
@@ -435,6 +459,7 @@ class Portfolio(AbstractTableModel):
                   ('delta', 'Delta', 'number'), ('theta', 'Theta', 'number'), ('gamma', 'Gamma', 'number'), 
                   ('pos_delta', 'P. Delta', 'number'), ('pos_theta', 'P. Theta', 'number'), ('gamma_percent', 'P. Gamma', 'number'), 
                   ('unreal_pl', 'Unreal P/L', 'number'), ('percent_gain_loss', '% gain/loss', 'number'),
+                  ('ivol', 'ivol', 'number'),
                   ('symbolid', 'Sym Id', 'string')
                   ]  
     def update_ckey_row_xref(self, contract_key, port_item):
@@ -502,6 +527,7 @@ class Portfolio(AbstractTableModel):
              {'v': handle_NaN(x[1].get_port_field(PortfolioItem.GAMMA_PERCENT))},
              {'v': handle_NaN(x[1].get_port_field(PortfolioItem.UNREAL_PL))},
              {'v': handle_NaN(x[1].get_port_field(PortfolioItem.PERCENT_GAIN_LOSS))},
+             {'v': handle_NaN(x[1].get_instrument().get_tick_value(Option.IMPL_VOL))},
              {'v': x[1].get_symbol_id()}
              ]
         return rf     
