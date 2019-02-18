@@ -170,13 +170,14 @@ class AbstractGatewayListener(BaseMessageListener):
         """ generated source for method contractDetailsEnd """
         raise NotImplementedException
    
-    def execDetails(self, event, req_id, contract_key, execution, end_batch): 
+    def execDetails(self, event, req_id, contract_key, order_id, side, price, avg_price, cum_qty, exec_id, account, exchange, order_ref, exec_time, end_batch): 
         """ generated source for method execDetails """
         raise NotImplementedException
+    
    
-    def execDetailsEnd(self, event, req_id, end_batch):  # reqId):
-        """ generated source for method execDetailsEnd """
-        raise NotImplementedException
+#     def execDetailsEnd(self, event, req_id, end_batch):  # reqId):
+#         """ generated source for method execDetailsEnd """
+#         raise NotImplementedException
    
     def updateMktDepth(self, event, message_value):  # tickerId, position, operation, side, price, size):
         """ generated source for method updateMktDepth """

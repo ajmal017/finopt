@@ -204,4 +204,52 @@ class Option(Symbol):
             logging.error( 'Exception Option.object2kv')
                
         return None
+      
+      
+class ExecFill:
+    
+    SIDE_B = 'BOT'
+    SIDE_S = 'SLD'
+    
+    UNDLY_PX = 3001
+    EXEC_IV = 3002
+    
+    def __init__(self):
+        self.extra = {}
+
+              
+    def setValues(self, req_id, contract_key, order_id, side, price, avg_price, cum_qty, exec_id, account, exchange, exec_time, order_ref):
+        self.req_id = req_id
+        self.contract_key = contract_key
+        self.order_id = order_id
+        self.side = side
+        self.price = price
+        self.avg_price = avg_price
+        self.cum_qty = cum_qty
+        self.exec_id = exec_id
+        self.account = account
+        self.exchange = exchange
+        self.exec_time = exec_time
+        self.order_ref = order_ref
+
+    def set_extra_attributes(self, id, val):
+        self.extra[id] = val
+            
+    def get_extra_attributes(self):
+        return self.extra    
+    
+    def set_impl_vol(self, iv):
+        self.set_extra_attributes(ExecFill.EXEC_IV, iv)
+    
+    def set_undly_spot(self, px):
+        self.set_extra_attributes(ExecFill.UNDLY_PX, px)
         
+    def get_kv(self):
+        return self.__dict__
+    
+    def __str__(self):
+        return str(self.__dict__)
+
+    def __eq__(self, other): 
+        return self.__dict__ == other.__dict__
+    

@@ -162,12 +162,41 @@ class TWS_event_handler(EWrapper):
 
     def execDetails(self, reqId, contract, execution):
         contract_key= ContractHelper.makeRedisKeyEx(contract)
-        self.broadcast_event('execDetails', {'req_id': reqId, 'contract_key': contract_key, 
-                                             'execution': json.dumps(execution), 'end_batch': False})
-        logging.info('TWS_event_handler:execDetails. [%s] execution id [%d]:= exec px %f' % (execution.account, execution.ExecId , execution.Price))
+        self.broadcast_event('execDetails', {'req_id': reqId,
+                                             'contract_key': contract_key, 
+                                             'order_id': execution.m_orderId,
+                                             'side': execution.m_side,
+                                             'price': execution.m_price,
+                                             'avg_price': execution.m_avgPrice,
+                                             'cum_qty': execution.m_cumQty,
+                                             'exec_id': execution.m_execId,
+                                             'account': execution.m_acctNumber,
+                                             'exchange': execution.m_exchange,
+                                             'order_ref':execution.m_orderRef,
+                                             'exec_time': execution.m_time,
+                                             'end_batch': False})
+        
+        logging.info('TWS_event_handler:execDetails. [%s] execution id [%s]:= exec px %f' % (execution.m_acctNumber, execution.m_execId , execution.m_price))
+
                                      
     def execDetailsEnd(self, reqId):
-        self.broadcast_event('execDetailsEnd', {'req_id': reqId, 'end_batch': True})
+        
+        self.broadcast_event('execDetails', {'req_id': None, 
+                                             'contract_key': None, 
+                                             'order_id': None,
+                                             'side': None,
+                                             'price': None,
+                                             'avg_price': None,
+                                             'cum_qty': None,
+                                             'exec_id': None,
+                                             'account': None,
+                                             'exchange': None,
+                                             'order_ref':None,
+                                             'exec_time': None, 
+                                             'end_batch': True})
+        
+                  
+
 
     def connectionClosed(self):
         logging.warn('TWS_event_handler: connectionClosed ******')

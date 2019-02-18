@@ -191,6 +191,7 @@ class PortfolioItem():
                                 
                 pos_theta = 0
                 gamma_percent = 0
+		potential_gain = 0
 
                 # (S - X) * pos * multiplier
                 unreal_pl = (spot_px * multiplier - self.get_average_cost() ) * qty 
@@ -575,3 +576,50 @@ class Portfolio(AbstractTableModel):
         return '\n'.join('[%d]:%s' % (x[0], x[1]) for x in  self.port['g_table']['row_to_ckey_index'].items())       
     
     
+
+class PortfolioTrades:
+    
+    
+    def __init__(self, account):
+        self.trades = []
+        self.account = account
+        
+    
+    
+    def add_fills(self, trade):
+        if trade not in self.trades:
+            self.trades.append(trade)
+            
+    def get_trades(self):
+        return self.trades
+    
+    
+    def dump_trades(self):
+        
+
+        def format_port_header(x):
+                #imap = InstrumentIdMap()
+                return  map(lambda k:k, x.get_kv().keys())
+                    
+            
+        def format_port_data(x):
+                return map(lambda d:d, x.get_kv().values())
+        
+
+        try:
+
+            data = map(format_port_data, self.trades)
+            columns = format_port_header(self.trades[0])
+            pd.set_option('display.max_columns', 50)
+            df1 = pd.DataFrame(data = data, columns = columns)
+        
+            print '\n\n--------- Portfolio Trades %s --------\n'  % self.account 
+            print df1
+            
+        except:
+            logging.error('Portfolio. Exception while dumping trades...%s' % traceback.format_exc())        
+        
+        
+    
+    def average_exec_vols(self):
+        return 0

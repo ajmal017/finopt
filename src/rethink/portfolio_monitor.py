@@ -11,10 +11,10 @@ from dateutil.relativedelta import relativedelta
 from ib.ext.Execution import Execution
 from ib.ext.ExecutionFilter import ExecutionFilter
 from misc2.helpers import ContractHelper, LoggerNoBaseMessagingFilter, ExecutionFilterHelper
-from finopt.instrument import Symbol, Option, InstrumentIdMap
+from finopt.instrument import Symbol, Option, InstrumentIdMap, ExecFill
 from rethink.option_chain import OptionsChain
 from rethink.tick_datastore import TickDataStore
-from rethink.portfolio_item import PortfolioItem, PortfolioRules, Portfolio
+from rethink.portfolio_item import PortfolioItem, PortfolioRules, Portfolio, PortfolioTrades
 from rethink.portfolio_column_chart import PortfolioColumnChart,PortfolioColumnChartTM
 from rethink.table_model import AbstractTableModel, AbstractPortfolioTableModelListener
 from comms.ibc.tws_client_lib import TWS_client_manager, AbstractGatewayListener
@@ -53,7 +53,10 @@ class PortfolioMonitor(AbstractGatewayListener, AbstractPortfolioTableModelListe
         self.portfolio_charts = {}
     
 
-            
+        '''
+            store executions: {<account>: <PortfolioTrades>}
+        '''
+        self.trades = {}
         
     
     def start_engine(self):
@@ -414,12 +417,28 @@ class PortfolioMonitor(AbstractGatewayListener, AbstractPortfolioTableModelListe
             return
 
             
-    def execDetails(self, event, req_id, contract_key, execution, end_batch):
-        logging.info("PortfolioMonitor:execDetails: [%s] received %s content:[%s]" % (event, contract_key, execution))
+    def execDetails(self, event, req_id, contract_key, order_id, side, price, avg_price, cum_qty, exec_id, account, exchange, order_ref, exec_time, end_batch):
         
-    def execDetailsEnd(self, event, req_id, end_batch):  # reqId):
-        logging.info("PortfolioMonitor:execDetailsEnd: [%s] received %d end:[%d]" % (event, req_id, end_batch))
+        if not end_batch:
+            logging.info("PortfolioMonitor:execDetails: [%s] received %s order_id:[%s] price:[%2f]" % (event, contract_key, order_id, price))
+            e = ExecFill()
+            
+            e.setValues(req_id, contract_key, order_id, side, price, avg_price, cum_qty, exec_id, account, exchange, order_ref, exec_time)
+            if account not in self.trades:
+                self.trades[account]= PortfolioTrades(account)
+            self.trades[account].add_fills(e)
+            
+        else:
+            logging.info("PortfolioMonitor:execDetails: End of execDetails")
+            
+            for acct in self.portfolios:
+                # there may not be any trades returned after midnight
+                if acct in self.trades:
+                    logging.info("\n".join('execDetails: %s' % t for t in self.trades[acct].get_trades()))
+                    self.trades[acct].dump_trades()
+                
         
+
  
     def position(self, event, account, contract_key, position, average_cost, end_batch):
 
@@ -566,7 +585,7 @@ if __name__ == '__main__':
       'session_timeout_ms': 10000,
       'clear_offsets':  False,
       'logconfig': {'level': logging.INFO, 'filemode': 'w', 'filename': '/tmp/pm.log'},
-      'topics': ['position', 'positionEnd', 'tickPrice', 'execDetails', 'execDetailsEnd', 'update_portfolio_account', 'event_tm_request_table_structure', AbstractTableModel.EVENT_TM_TABLE_STRUCTURE_CHANGED],
+      'topics': ['position', 'positionEnd', 'tickPrice', 'execDetails', 'update_portfolio_account', 'event_tm_request_table_structure', AbstractTableModel.EVENT_TM_TABLE_STRUCTURE_CHANGED],
       'seek_to_end': ['*'],
       
       
