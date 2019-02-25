@@ -8,12 +8,12 @@ import thread
 
 class PortalServer(object):
     
-    config = None
     
-    
-    def __init__(self, config):
+    def __init__(self, config, ws_parent):
         super(PortalServer, self).__init__()
         PortalServer.config = config
+        self.ws_parent = ws_parent
+        
       
 
     
@@ -35,11 +35,12 @@ class PortalServer(object):
                  
 class HTTPServe():
     
-    def __init__(self, config):
+    def __init__(self, config, parent):
         self.config = config
+        self.ws_parent = parent
         
     def start_server(self):
-        cherrypy.quickstart(PortalServer(self.config), '/', self.config['ws_webserver_cfg_path'])
+        cherrypy.quickstart(PortalServer(self.config, self.ws_parent), '/', self.config['ws_webserver_cfg_path'])
     
     def stop_server(self):
         cherrypy.engine.exit()   

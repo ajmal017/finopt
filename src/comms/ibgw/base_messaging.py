@@ -131,7 +131,8 @@ class BaseConsumer(threading.Thread, Publisher):
         self.name = '%s-%s' % (name, uuid.uuid5(uuid.NAMESPACE_OID, name)) 
         logging.info('BaseConsumer __init__: name=%s' % self.name)
         self.args = args
-        self.kwargs = kwargs
+        #self.kwargs = kwargs
+        self.kwargs = copy.copy(kwargs)  
         self.rs = Redis(self.kwargs['redis_host'], self.kwargs['redis_port'], self.kwargs['redis_db'])
         try:
             self.kwargs['seek_to_end']
@@ -342,7 +343,8 @@ class BaseConsumer(threading.Thread, Publisher):
                       
                 """
                 if self.my_topics[message.topic][str(message.partition)] > message.offset:
-                    logging.info('BaseConsumer ********************** old message...discarding %s %d(%d)' % (message.topic, message.offset, 
+                    if (self.my_topics[message.topic][str(message.partition)] - message.offset) % 1000 == 0: 
+                        logging.info('BaseConsumer ********************** old message...discarding %s %d(%d)' % (message.topic, message.offset, 
                                                                                         self.my_topics[message.topic][str(message.partition)]))
                 else:
                     #if self.my_topics[message.topic][str(message.partition)] == message.offset:
@@ -539,9 +541,9 @@ class Prosumer2Listener(BaseMessageListener):
         
         
             
-def test_prosumer2(mode):
+def test_prosumer2(mode, boot_host):
     
-    bootstrap_host = 'vorsprung'
+    bootstrap_host = boot_host
     
     if mode == 'A':
                 
@@ -607,7 +609,7 @@ def test_prosumer2(mode):
 class TestProducer(BaseProducer):
     pass
 
-def test_base_proconsumer(mode):
+def test_base_proconsumer(mode, bootstrap_host):
     '''
         This example demonstrates
         
@@ -623,7 +625,7 @@ def test_base_proconsumer(mode):
         #Producer().start()
         
         tp = TestProducer(name = 'testproducer', kwargs={
-                                             'bootstrap_host':'vsu-bison', 'bootstrap_port':9092,
+                                             'bootstrap_host':bootstrap_host, 'bootstrap_port':9092,
                                              'topics': topics})
         tp.start()
         i = 0 
@@ -716,8 +718,8 @@ def main():
     #
     tp = [ test_base_proconsumer, test_prosumer2]
     
-    if len(sys.argv) != 3:
-        print("Usage: %s <role(producer or consumer): P|C> <test case #[0..1]>" % sys.argv[0])
+    if len(sys.argv) != 4:
+        print("Usage: %s <role(producer or consumer): P|C> <test case #[0..1]> <kafka_bootstrap_host name/ip>" % sys.argv[0])
         print "\n".join('case #%d: %s' % (i, tp[i].__name__) for i in range(len(tp)))
         print "example: python %s P 1" % sys.argv[0]
         print "example: python %s C 1" % sys.argv[0]
@@ -737,13 +739,13 @@ def main():
         
         test_prosumer2
         
-        Provide weather information: tp[1]('B')
-        Request weather information: tp[1]('A')
+        Provide weather information: tp[1]('B') ex. ./base_messaging.sh B 1 vorsprung
+        Request weather information: tp[1]('A') ex. ./base_messaging.sh A 1 vorsprung
     
         
         
     '''    
-    tp[int(sys.argv[2])](mode)
+    tp[int(sys.argv[2])](mode, sys.argv[3])
 
     #time.sleep(30)
 #     while 1:

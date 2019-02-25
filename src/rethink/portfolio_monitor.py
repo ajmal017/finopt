@@ -6,10 +6,12 @@ import copy
 from optparse import OptionParser
 from time import sleep
 import time
+import math
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
 from ib.ext.Execution import Execution
 from ib.ext.ExecutionFilter import ExecutionFilter
+from finopt import optcal
 from misc2.helpers import ContractHelper, LoggerNoBaseMessagingFilter, ExecutionFilterHelper
 from finopt.instrument import Symbol, Option, InstrumentIdMap, ExecFill
 from rethink.option_chain import OptionsChain
@@ -18,6 +20,7 @@ from rethink.portfolio_item import PortfolioItem, PortfolioRules, Portfolio, Por
 from rethink.portfolio_column_chart import PortfolioColumnChart,PortfolioColumnChartTM
 from rethink.table_model import AbstractTableModel, AbstractPortfolioTableModelListener
 from comms.ibc.tws_client_lib import TWS_client_manager, AbstractGatewayListener
+from pip._internal.req.constructors import deduce_helpful_msg
 
 
 
@@ -193,12 +196,26 @@ class PortfolioMonitor(AbstractGatewayListener, AbstractPortfolioTableModelListe
         '''
             given an Option object, return the underlying Symbol object
         '''
+        def deduce_nearest_quarter_month(m):
+            return int(math.ceil(m/3.0)*3)
+        
+        
         try:
             symbol_id = option.get_contract().m_symbol
             underlying_sectype = PortfolioRules.rule_map['symbol'][symbol_id]
             exchange = option.get_contract().m_exchange
             currency = option.get_contract().m_currency
-            expiry = option.get_contract().m_expiry if PortfolioRules.rule_map['expiry'][symbol_id] ==  'same_month' else ''
+            
+            opt_month = int(option.get_contract().m_expiry[4:6])
+            opt_year = int(option.get_contract().m_expiry[0:4])
+            opt_date = datetime.strptime(option.get_contract().m_expiry, '%Y%m%d')
+            today = datetime.now() 
+            month_delta = relativedelta(opt_date, today).months
+            if month_delta >=2:           
+                nearest_quarter_month = deduce_nearest_quarter_month(opt_month) 
+                expiry = optcal.get_HSI_last_trading_day_ex(nearest_quarter_month, opt_year)
+            else:
+                expiry = option.get_contract().m_expiry if PortfolioRules.rule_map['expiry'][symbol_id] ==  'same_month' else ''
             contractTuple = (symbol_id, underlying_sectype, exchange, currency, expiry, 0, '')
             logging.info('PortfolioMonitor:deduce_option_underlying. Deduced underlying==> %s' %
                           str(contractTuple))
@@ -207,7 +224,10 @@ class PortfolioMonitor(AbstractGatewayListener, AbstractPortfolioTableModelListe
             logging.error('PortfolioMonitor:deduce_option_underlying. Unable to deduce the underlying for the given option %s' %
                           ContractHelper.printContract(option.get_contract))
             return None
-        
+        except:
+            logging.error('PortfolioMonitor:deduce_option_underlying. %s' % traceback.format_exc() )
+            return None
+            
         
     def get_portfolio_option_chain(self, account, underlying):
         
@@ -524,9 +544,9 @@ class PortfolioMonitor(AbstractGatewayListener, AbstractPortfolioTableModelListe
             else:
                 pcc.update_tally_count()
                 logging.info('PortfolioMonitor:notify_table_model_changes. tally count %d' % pcc.get_last_tally())
-#            if mode == 'I':
-#                 pcc.fire_table_structure_changed(AbstractTableModel.EVENT_TM_TABLE_STRUCTURE_CHANGED, 
-#                                                  pcc.get_object_name(), None, account, pcc.get_JSON())
+#                 if mode == 'I':
+#                     pcc.fire_table_structure_changed(AbstractTableModel.EVENT_TM_TABLE_STRUCTURE_CHANGED, 
+#                                                      pcc.get_object_name(), None, account, pcc.get_JSON())
 #            else:
                 
 #                 row = pcc.ckey_to_row(contract_key)
@@ -556,6 +576,12 @@ class PortfolioMonitor(AbstractGatewayListener, AbstractPortfolioTableModelListe
         logging.info("[PortfolioColumnChartTM:] received %s  content:[%s]" % (event, data_table_json)    )        
     
     
+    def event_request_port_summary(self, event, request_id, account):
+        try:
+            port = self.portfolios[account]
+            self.notify_port_values_updated(account, port)
+        except:
+            logging.error('PortfolioMonitor:event_request_port_summary failed to request port summary for [%s]' % account)
     
     def notify_port_values_updated(self, account, port):
         try:
@@ -563,6 +589,8 @@ class PortfolioMonitor(AbstractGatewayListener, AbstractPortfolioTableModelListe
                                                json.dumps({'account': account,
                                                      'port_values': self.portfolios[account].get_potfolio_values()}),
                                                )
+            logging.info('**** PortfolioMonitor:notify_port_values_updated. %s' % json.dumps({'account': account,
+                                                     'port_values': self.portfolios[account].get_potfolio_values()}) )
         except:
             logging.error('**** Error PortfolioMonitor:notify_port_values_updated. %s' % traceback.format_exc() )
         
@@ -585,7 +613,8 @@ if __name__ == '__main__':
       'session_timeout_ms': 10000,
       'clear_offsets':  False,
       'logconfig': {'level': logging.INFO, 'filemode': 'w', 'filename': '/tmp/pm.log'},
-      'topics': ['position', 'positionEnd', 'tickPrice', 'execDetails', 'update_portfolio_account', 'event_tm_request_table_structure', AbstractTableModel.EVENT_TM_TABLE_STRUCTURE_CHANGED],
+      'topics': ['position', 'positionEnd', 'tickPrice', 'execDetails', 'update_portfolio_account', 'event_tm_request_table_structure', 'event_request_port_summary', 
+                 AbstractTableModel.EVENT_TM_TABLE_STRUCTURE_CHANGED],
       'seek_to_end': ['*'],
       
       

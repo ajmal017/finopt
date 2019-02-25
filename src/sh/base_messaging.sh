@@ -16,5 +16,5 @@ FINDATA=$ROOT/../data
 SRC=$ROOT
 export PYTHONPATH=$SRC:$PYTHONPATH
 
-python $FINOPT_HOME/comms/ibgw/base_messaging.py $1 $2
+python $FINOPT_HOME/comms/ibgw/base_messaging.py $1 $2 $3
 

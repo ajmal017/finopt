@@ -193,6 +193,7 @@ class PortfolioTableModelListener(BaseMessageListener):
                 curr_ts - self.simple_caching[row]['ts'] < PortfolioTableModelListener.TIME_MAX:
                 self.simple_caching[row]['count'] +=1
                 self.simple_caching[row]['ts'] = curr_ts
+                self.simple_caching[row]['row_values'] = row_values
             else:
                 logging.info('event_tm_table_row_updated: flush condition met, sending changes to clients. row:[%d] %d %0.2f' %
                                 (row, self.simple_caching[row]['count'], curr_ts - self.simple_caching[row]['ts']))
@@ -203,7 +204,7 @@ class PortfolioTableModelListener(BaseMessageListener):
             
             
         except KeyError:
-            self.simple_caching[row] = {'count': 1, 'ts': curr_ts}
+            self.simple_caching[row] = {'count': 1, 'ts': curr_ts, 'row_values': row_values}
             notify_client()    
     
     def event_tm_table_structure_changed(self, event, source, origin_request_id, account, data_table_json):
@@ -277,12 +278,15 @@ class MainWebSocketServer(BaseWebSocketServerWrapper, AbstractGatewayListener):
         # this problem has to be cleaned up at a later stage
         # for now just do a hack to pop the value in the topics key and
         # replace with tickPrice
-        kwargs['topics'].pop()
-        kwargs['topics'] = ['tickPrice']
-        self.twsc = TWS_client_manager(kwargs)
+        # 
+        
+        temp_kwargs = copy.copy(kwargs)  
+        temp_kwargs['topics'] = ['tickPrice']
+        temp_kwargs['parent'] = self
+        self.twsc = TWS_client_manager(temp_kwargs)
         self.twsc.add_listener_topics(self, ['tickPrice'] )
         self.subscribe_hsif_ticks()
-        self.www = HTTPServe(kwargs)
+        self.www = HTTPServe(temp_kwargs)
         th = threading.Thread(target=self.www.start_server)
         th.daemon = True 
         th.start()
@@ -403,12 +407,13 @@ class MainWebSocketServer(BaseWebSocketServerWrapper, AbstractGatewayListener):
             
     def new_client(self, client, server):
         self.clients[client['id']] = client 
-        print 'new client id:%d %s' % (client['id'], client)
+        logging.info('MainWebSocketServer:new client id:%d %s' % (client['id'], client))
     
     # Called for every client disconnecting
     def client_left(self, client, server):
         try:
             BaseWebSocketServerWrapper.client_left(self, client, server)
+            logging.info('MainWebSocketServer:client left:%d %s' % (client['id'], client))
             del self.clients[client['id']]
         except:
             pass
@@ -421,6 +426,10 @@ class MainWebSocketServer(BaseWebSocketServerWrapper, AbstractGatewayListener):
         if message['event'] == AbstractTableModel.EVENT_TM_REQUEST_TABLE_STRUCTURE:
             self.message_handler.send_message(AbstractTableModel.EVENT_TM_REQUEST_TABLE_STRUCTURE, 
                                           json.dumps({'request_id' : client['id'], 'target_resource': message['target_resource'], 'account': message['account']}))
+        elif message['event'] == 'event_request_port_summary':
+            self.message_handler.send_message('event_request_port_summary', 
+                                          json.dumps({'request_id' : client['id'], 'account': message['account']}))
+            
 
 
     def tickPrice(self, event, contract_key, field, price, canAutoExecute):
@@ -501,7 +510,7 @@ def main():
     logconfig = kwargs['logconfig']
     logconfig['format'] = '%(asctime)s %(levelname)-8s %(message)s'    
     logging.basicConfig(**logconfig)        
-    logging.getLogger().addFilter(LoggerNoBaseMessagingFilter())  
+    #logging.getLogger().addFilter(LoggerNoBaseMessagingFilter())  
     
     esw = MainWebSocketServer('ChartTableWS', kwargs)    
     esw.start_server()

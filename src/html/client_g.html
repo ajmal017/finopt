@@ -85,6 +85,7 @@ table.minimalistBlack tfoot td {
 		<li><input type="radio" name='acct' id="acct" value="U9050568" checked="checked"> U9050568</li>
 		<li><input type="radio" name='acct' id="acct" value="U8080985"> U8080985</li>
 		<li><button id="reload_port">Reload Portfolio</button></li>
+		<li><button id="port-btn">Update summary information</button></li>
 		<li class="bg-led indicator"></li>
 	</ul>  
 		
@@ -119,7 +120,7 @@ table.minimalistBlack tfoot td {
 	<img src="public/green_marker.png" height="50"><div id='spot'></div>
 	</div>   
    <button id="change-btn">change columns</button>
-   <button id="test-btn">test</button>
+   
   <form onsubmit="onSubmit(); return false;">
     <input type="text" id="input">
     <input type="submit" value="Send">
@@ -151,10 +152,9 @@ table.minimalistBlack tfoot td {
 	});
   
   
-	$('#test-btn').click(function(){
-		$('#port_sum').find("tr:eq(1)").find("td:eq(1)").html('new stuff');
-		
-		alert($('#port_sum').find("tr:eq(1)").find("td:eq(1)").html());
+	$('#port-btn').click(function(){
+		account = $('input[id=acct]:checked').val()
+		ws.send(JSON.stringify({event: 'event_request_port_summary', target_resource:{}, 'account': account}));
 	});  
 	$('#reload_port').click(function(){
 		alert('Reloading portfolio...');
@@ -187,7 +187,7 @@ table.minimalistBlack tfoot td {
 	var columnChart = {'view': null, 'data': null, 'chart': null, 'options': chartOptions};
 
     var tableOptions = {allowHtml: true, sortColumn:1, 
-    		showRowNumber: true, width: '90%', height: '80%'};
+    		showRowNumber: true, width: '95%', height: '100%'};
 	var tableChart = {'view': null, 'data': null, 'chart': null, 'options': tableOptions};
 	
 
@@ -227,6 +227,8 @@ table.minimalistBlack tfoot td {
 	    var arrowF = new google.visualization.ArrowFormat();
         var barF = new google.visualization.BarFormat({width: 80,
 			colorPositive: 'green', max:100 });       
+        var barIV = new google.visualization.BarFormat({width: 80,
+			colorPositive: 'red', min: 0, max:0.5 });       
     			    
     	var colorF = new google.visualization.ColorFormat();
     	colorF.addRange(-100, 0, 'white', 'red');
@@ -248,7 +250,7 @@ table.minimalistBlack tfoot td {
 		    numF.format(tableChart.data, 12); // position gamma
 		    colorGF.format(tableChart.data, 13); //unreal p/l
 		    barF.format(tableChart.data, 14) //% gain loss
-		    percentF.format(tableChart.data, 15); //delta
+		    barIV.format(tableChart.data, 15); //iv
 		
 	}	   
 	   
@@ -273,7 +275,7 @@ table.minimalistBlack tfoot td {
 	      
 	      ws.send(JSON.stringify({event: 'event_tm_request_table_structure', target_resource:{'class': 'Portfolio'}, 'account': account}));
 	      ws.send(JSON.stringify({event: 'event_tm_request_table_structure', target_resource:{'class': 'PortfolioColumnChartTM'}, 'account': account}));
-	      
+	      ws.send(JSON.stringify({event: 'event_request_port_summary', target_resource:{}, 'account': account}));
 	    };
 	    
 	    ws.onmessage = function(e) {
@@ -321,7 +323,7 @@ table.minimalistBlack tfoot td {
 					
 				} else if (d1.source.class == 'PortfolioColumnChartTM'){
 					columnChart.data = new google.visualization.DataTable(d1.value);
-					console.log(d1.account);
+					console.log('updating pcc for ' + d1.account);
 					columnChart.view = new google.visualization.DataView(columnChart.data);
 					columnChart.chart = new google.visualization.ColumnChart(
 					        document.getElementById('chart_div'));
@@ -331,7 +333,7 @@ table.minimalistBlack tfoot td {
 				        
 			} else if (d1.event == 'event_tm_table_row_updated'){
 				
-				console.log(d1.value.row.toString()+ ':' + d1.value.row_values[0]['v']);
+				//console.log(d1.value.row.toString()+ ':' + d1.value.row_values[0]['v']);
 				for (var c=2; c < d1.value.row_values.length; c++){
 					tableChart.data.setCell(d1.value.row, c, d1.value.row_values[c]["v"]);
 				
@@ -354,18 +356,20 @@ table.minimalistBlack tfoot td {
 			} else if (d1.event == 'event_port_values_updated' && d1.account == account){
 			 	setPortSummaryTableVal(d1.value);
 			} else if (d1.event == 'tickPrice'){
-					
 				if (d1.current_or_next == 'current'){
 					setCellValue('port_sum', 1, 6, d1.price);
-					setCellValue('port_sum', 1, 7, d1.change.toFixed(2));
+					if (d1.change)
+						setCellValue('port_sum', 1, 7, d1.change.toFixed(2));
 				}
 				else{ // next month
 					setCellValue('port_sum', 2, 6, d1.price);
-					setCellValue('port_sum', 2, 7, d1.change.toFixed(2));
+					if (d1.change)
+						setCellValue('port_sum', 2, 7, d1.change.toFixed(2));
 				}
 				if (columnChart){
 					placeIndexMarker();
-				}				
+				}		
+
 			     
 			}
 		};
