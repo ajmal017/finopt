@@ -186,7 +186,7 @@ class PortfolioColumnChart():
             return 1
         
         map(update_ijv, ijv_dist)
-        #print xy_arr
+        print xy_arr
         logging.info('PortfolioColumnChart: JSON array->\n%s' % xy_arr)
         
         def gen_datatable():

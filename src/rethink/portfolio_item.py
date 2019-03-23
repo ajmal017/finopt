@@ -137,8 +137,8 @@ class PortfolioItem():
     
         try:
             assert contract_key == self.contract_key
-            spot_px = self.instrument.get_tick_value(4)
-            spot_px = spot_px if not spot_px is None else self.instrument.get_tick_value(6)
+            spot_px = self.instrument.get_tick_value(Symbol.LAST)
+            spot_px = spot_px if not spot_px is None else self.instrument.get_tick_value(Symbol.CLOSE)
             qty = self.get_quantity()
             if qty == 0:
                 self.set_port_field(PortfolioItem.POSITION_DELTA, 0.0)
@@ -274,6 +274,13 @@ class Portfolio(AbstractTableModel):
     def get_account(self):
         return self.account
     
+    def get_strikes(self):
+        strikes = []
+        for x in self.port['port_items'].iteritems():
+            strikes.append(x)
+        
+        return strikes
+    
     def is_contract_in_portfolio(self, contract_key):
         return self.get_portfolio_port_item(contract_key)
             
@@ -330,6 +337,8 @@ class Portfolio(AbstractTableModel):
             self.port['port_items'][contract_key].calculate_pl(contract_key)
         except:
             logging.error('PortfolioItem:calculate_item_pl *** ERROR: port a/c [%s], contract_key [%s]' % (self.get_account(), contract_key))
+
+    
         
     def calculate_port_pl(self):
 

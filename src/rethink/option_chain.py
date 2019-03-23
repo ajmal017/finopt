@@ -307,13 +307,13 @@ class OptionsChain(Publisher):
         
         
         # if uspot is not a number, try to get its last px
-        uspot = uspot if not math.isnan(uspot) else self.get_underlying().get_tick_value(4)
+        uspot = uspot if not math.isnan(uspot) else self.get_underlying().get_tick_value(Symbol.LAST)
         # if px is still invalid, try close px
-        uspot = uspot if not uspot is None else self.get_underlying().get_tick_value(6)
+        uspot = uspot if not uspot is None else self.get_underlying().get_tick_value(Symbol.CLOSE)
         
         #logging.info('************* cal_option_greeks option= %s' % ContractHelper.makeRedisKeyEx(option.get_contract()))
-        premium = premium if not math.isnan(premium) else option.get_tick_value(4)
-        premium = premium if not premium is None else option.get_tick_value(6)
+        premium = premium if not math.isnan(premium) else option.get_tick_value(Symbol.LAST)
+        premium = premium if not premium is None else option.get_tick_value(Symbol.CLOSE)
         
         
         
@@ -358,6 +358,11 @@ class OptionsChain(Publisher):
         return greeks
      
     def pretty_print(self):
+        '''
+        
+            pretty print will fail if either the put or call of the same strike is not in the chain 
+        
+        '''
         sorted_opt = sorted(map(lambda i: (self.options[i].get_contract().m_strike, self.options[i]) , range(len(self.options))))
         
         def format_tick_val(val, fmt):

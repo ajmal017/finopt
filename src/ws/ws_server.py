@@ -286,7 +286,7 @@ class MainWebSocketServer(BaseWebSocketServerWrapper, AbstractGatewayListener):
         self.twsc = TWS_client_manager(temp_kwargs)
         self.twsc.add_listener_topics(self, ['tickPrice'] )
         self.subscribe_hsif_ticks()
-        self.www = HTTPServe(temp_kwargs)
+        self.www = HTTPServe(temp_kwargs, self)
         th = threading.Thread(target=self.www.start_server)
         th.daemon = True 
         th.start()
@@ -510,7 +510,7 @@ def main():
     logconfig = kwargs['logconfig']
     logconfig['format'] = '%(asctime)s %(levelname)-8s %(message)s'    
     logging.basicConfig(**logconfig)        
-    #logging.getLogger().addFilter(LoggerNoBaseMessagingFilter())  
+    logging.getLogger().addFilter(LoggerNoBaseMessagingFilter())  
     
     esw = MainWebSocketServer('ChartTableWS', kwargs)    
     esw.start_server()

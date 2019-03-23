@@ -13,5 +13,5 @@ else
 				
 fi
 export PYTHONPATH=$FINOPT_HOME:$PYTHONPATH
-#python $FINOPT_HOME/rethink/portfolio_monitor.py  -c -g PM1  
-python $FINOPT_HOME/rethink/portfolio_monitor.py -g PM1
+python $FINOPT_HOME/rethink/portfolio_monitor.py  -c -g PM1  
+#python $FINOPT_HOME/rethink/portfolio_monitor.py -g PM1

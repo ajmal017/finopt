@@ -20,7 +20,7 @@ from rethink.portfolio_item import PortfolioItem, PortfolioRules, Portfolio, Por
 from rethink.portfolio_column_chart import PortfolioColumnChart,PortfolioColumnChartTM
 from rethink.table_model import AbstractTableModel, AbstractPortfolioTableModelListener
 from comms.ibc.tws_client_lib import TWS_client_manager, AbstractGatewayListener
-from pip._internal.req.constructors import deduce_helpful_msg
+#from pip._internal.req.constructors import deduce_helpful_msg
 
 
 
@@ -104,6 +104,8 @@ class PortfolioMonitor(AbstractGatewayListener, AbstractPortfolioTableModelListe
                 
                 if response[0] is not None:
                     selection = response[0]
+		    if selection =='':
+			continue
                     if selection =='1':
                         self.twsc.reqPositions()
                     elif selection == '2': 
@@ -130,23 +132,22 @@ class PortfolioMonitor(AbstractGatewayListener, AbstractPortfolioTableModelListe
                             pc = PortfolioColumnChart(self.portfolios[acct])
                             print pc.get_JSON()
                             print pc.get_xy_array()
-                    elif selection == '8':
+                    elif selection[0] == '8':
                         try:
-                            
-                            contract_key = response[1]
-                            field = int(response[2])
+                            params = selection.split(' ')
+                            contract_key = params[1]
+                            field = int(params[2])
                             if field not in (InstrumentIdMap.idmap.keys()):
                                 raise Exception('invalid field')
-                            price = float(response[3])
+                            price = float(params[3])
                             logging.info('PortfolioMonitor: manual adjustment to tds table')
                             logging.info('PortfolioMonitor: [%s] field[%s]:%s')
-                            self.tds.set_symbol_tick_price(self, contract_key, field, price)
+                            self.tds.set_symbol_tick_price(contract_key, field, price, None)
                         except:
                             print "error in input values"
                             continue
                     elif selection == 'a':
                         today = datetime.now()
-                        month = int(today.strftime('%m'))
                         past =  today + relativedelta(months=-1)
                         exec_filter = ExecutionFilterHelper.kv2object({'m_time': past.strftime('%Y%m%d %H:%M:%S')}, ExecutionFilter)
                         self.twsc.reqExecutions(exec_filter)
@@ -313,6 +314,7 @@ class PortfolioMonitor(AbstractGatewayListener, AbstractPortfolioTableModelListe
                     oc = self.get_portfolio_option_chain(account, underlying)
                     instrument.set_extra_attributes(OptionsChain.CHAIN_IDENTIFIER, oc.get_name())
                     oc.add_option(instrument)
+                    logging.info('PortfolioMonitor:process_position. adding [%s] to oc [%s]' % (contract_key, oc.get_name()))
                 else:
                     logging.error('PortfolioMonitor:process_position. **** Error in adding the new position %s' % contract_key)
 
@@ -579,7 +581,10 @@ class PortfolioMonitor(AbstractGatewayListener, AbstractPortfolioTableModelListe
     def event_request_port_summary(self, event, request_id, account):
         try:
             port = self.portfolios[account]
-            self.notify_port_values_updated(account, port)
+                        
+            self.twsc.reqAccountUpdates(True, account)
+            self.notify_port_values_updated(account, port)            
+            
         except:
             logging.error('PortfolioMonitor:event_request_port_summary failed to request port summary for [%s]' % account)
     

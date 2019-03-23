@@ -518,7 +518,10 @@ class OptionsCalculationEngine(SimpleTWSClient):
                 o.set_tick_value(field, items.__dict__['price'])
 
                 try:
+			
                     spot = self.get_underlying_in_chain(tick2oc_slot[0]).get_tick_value(4)
+					   
+			
                     
                     # the underlying price may not be available when we receive tick price for options
                     if spot <> None:

@@ -320,6 +320,7 @@ table.minimalistBlack tfoot td {
 			  		tableChart.chart = new google.visualization.Table(document.getElementById('table_div'));
 			  		tableChart.chart.draw(tableChart.view, tableChart.options);
 					output('number of rows: ' + tableChart.data.getNumberOfRows());
+					console.log(d1.value);
 					
 				} else if (d1.source.class == 'PortfolioColumnChartTM'){
 					columnChart.data = new google.visualization.DataTable(d1.value);
