@@ -1,6 +1,6 @@
 #!/bin/bash
 
-
+WS_CFG=ws.cfg
 
 HOST=$(hostname)
 echo $HOST
@@ -11,11 +11,14 @@ elif [ $HOST == 'astron' ]; then
 elif [ $HOST == 'vorsprung' ]; then
 	FINOPT_HOME=~/workspace/finopt/src	
 		
-else
-	FINOPT_HOME=~/l1304/workspace/finopt-ironfly/finopt/src
+elif [ $HOST == 'vsu-longhorn' ]; then
+    FINOPT_HOME=~/pyenvs/ironfly/finopt/src
+    source /home/vuser-longhorn/pyenvs/finopt/bin/activate
+    WS_CFG=ws_prd.cfg
+							
 fi
 
 
 export PYTHONPATH=$FINOPT_HOME:$PYTHONPATH
-python $FINOPT_HOME/ws/ws_server.py  -c  -g AE1 -f ../config/ws.cfg 
-#python $FINOPT_HOME/ws/ws_server.py   -g AE1 -f ../config/ws.cfg 
+python $FINOPT_HOME/ws/ws_server.py  -c  -g AE1 -f ../config/$WS_CFG 
+ 

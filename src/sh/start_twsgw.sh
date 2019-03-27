@@ -1,6 +1,6 @@
 #!/bin/bash
 
-
+TWS_GATEWAY_CFG=tws_gateway.cfg 
 HOST=$(hostname)
 echo $HOST
 if [ $HOST == 'hkc-larryc-vm1' ]; then
@@ -9,14 +9,19 @@ elif [ $HOST == 'vorsprung' ]; then
 	FINOPT_HOME=~/workspace/finopt/src
 elif [ $HOST == 'astron' ]; then
 	FINOPT_HOME=~/workspace/finopt/src
-		
-else
-	FINOPT_HOME=~/l1304/workspace/finopt-ironfly/finopt/src
+elif [ $HOST == 'vsu-longhorn' ]; then
+        FINOPT_HOME=~/pyenvs/ironfly/finopt/src
+        source /home/vuser-longhorn/pyenvs/finopt/bin/activate
+        TWS_GATEWAY_CFG=tws_gateway_prd.cfg
 fi
+					
+						
 export PYTHONPATH=$FINOPT_HOME:$PYTHONPATH
 #  
 # clear all topic offsets and erased saved subscriptions
-python $FINOPT_HOME/comms/ibgw/tws_gateway.py -r -c -f $FINOPT_HOME/config/tws_gateway.cfg 
+
+
+python $FINOPT_HOME/comms/ibgw/tws_gateway.py -r -c -f $FINOPT_HOME/config/$TWS_GATEWAY_CFG
 
 
 #

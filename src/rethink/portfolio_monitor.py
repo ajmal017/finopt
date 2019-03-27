@@ -12,7 +12,7 @@ from dateutil.relativedelta import relativedelta
 from ib.ext.Execution import Execution
 from ib.ext.ExecutionFilter import ExecutionFilter
 from finopt import optcal
-from misc2.helpers import ContractHelper, LoggerNoBaseMessagingFilter, ExecutionFilterHelper
+from misc2.helpers import ContractHelper, LoggerNoBaseMessagingFilter, ExecutionFilterHelper, ConfigMap 
 from finopt.instrument import Symbol, Option, InstrumentIdMap, ExecFill
 from rethink.option_chain import OptionsChain
 from rethink.tick_datastore import TickDataStore
@@ -606,14 +606,14 @@ if __name__ == '__main__':
     
     kwargs = {
       'name': 'portfolio_monitor',
-      'bootstrap_host': 'vorsprung',
+      'bootstrap_host': 'localhost',
       'bootstrap_port': 9092,
       'redis_host': 'localhost',
       'redis_port': 6379,
       'redis_db': 0,
-      'tws_host': 'vsu-bison',
-      'tws_api_port': 8496,
-      'tws_app_id': 38868,
+#      'tws_host': 'vsu-bison',
+#      'tws_api_port': 8496,
+#      'tws_app_id': 38868,
       'group_id': 'PM',
       'session_timeout_ms': 10000,
       'clear_offsets':  False,
@@ -635,16 +635,35 @@ if __name__ == '__main__':
     parser.add_option("-e", "--evaluation_date",
                      action="store", dest="evaluation_date", 
                      help="specify evaluation date for option calculations")   
+    parser.add_option("-f", "--config_file",
+                      action="store", dest="config_file", 
+                      help="path to the config file")        
+    
+
+
     
     (options, args) = parser.parse_args()
+  
+    fargs = ConfigMap().kwargs_from_file(options.config_file)
     if options.evaluation_date == None:
         options.evaluation_date = time.strftime('%Y%m%d') 
     
+    # copy all command line options into fargs
     for option, value in options.__dict__.iteritems():
         if value <> None:
-            kwargs[option] = value
+            fargs[option] = value
+            
+    # compare default config with fargs
+    # replace the default values with values found in fargs
+    # update the final config into kwargs
+    temp_kwargs = copy.copy(fargs)            
+    for key in kwargs:
+        if key in temp_kwargs:
+            kwargs[key] = temp_kwargs.pop(key)        
+    kwargs.update(temp_kwargs)                
     
     
+        
             
   
       
