@@ -40,6 +40,7 @@ class IbHeartBeat():
 
     def shutdown(self):
         self.quit = True
+        logging.info('ib_hearbeat: attempting to shutdown....')
         
     def keep_trying(self):
         host = self.kwargs["ib_heartbeat.gateway"]
@@ -49,6 +50,21 @@ class IbHeartBeat():
         suppress_msg_interval = self.kwargs["ib_heartbeat.suppress_msg_interval"]
         logging.info('ib gateway->%s:%d, appid->%d, try_interval->%d, suppress msg interval->%d' % \
                      (host, port, appid, try_interval, suppress_msg_interval))
+        
+        
+        '''''
+            this function breaks up long sleep into smaller intervals
+            to allow a chance to process termination request
+        '''''
+        def smart_sleep(sleep_duration):
+            num_steps = 20
+            short_break = sleep_duration / num_steps
+            for i in range(num_steps):
+                if self.quit:
+                    break
+                else:
+                    sleep(short_break)
+        
         while not self.quit:
             con = ibConnection(host, port, appid)
             rc = con.connect()
@@ -73,10 +89,10 @@ class IbHeartBeat():
                     self.alert_listeners(msg)
                     self.last_broken_time = now 
                     
-                
-            sleep(try_interval)
+               
+            smart_sleep(try_interval)
             
-
+        logging.info('ib_hearbeat: shut down complete...')
 
 
         

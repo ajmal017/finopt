@@ -17,7 +17,8 @@ from comms.ibgw.tws_event_handler import TWS_event_handler
 from comms.ibgw.ib_heartbeat import IbHeartBeat
 from comms.ibgw.client_request_handler import ClientRequestHandler
 from comms.ibgw.subscription_manager import SubscriptionManager
-from comms.tws_protocol_helper import TWS_Protocol 
+from comms.tws_protocol_helper import TWS_Protocol
+from comms.ibgw.tws_gateway_restapi import WebConsole 
 import redis
 import threading
 from threading import Lock
@@ -69,6 +70,7 @@ class TWS_gateway():
             
             4. initialize listeners: ClientRequestHandler and SubscriptionManager
             5. start the prosumer 
+            6. run web console
         
         '''
 
@@ -120,6 +122,8 @@ class TWS_gateway():
         logging.info('start TWS_event_handler. Start prosumer processing loop...')
         self.gw_message_handler.start_prosumer()
 
+        logging.info('start web console...')
+        self.start_web_console()
 
         logging.info('**** Completed initialization sequence. ****')
         
@@ -146,6 +150,21 @@ class TWS_gateway():
                           (self.kwargs['redis_host'], self.kwargs['redis_port'], self.kwargs['redis_db']))
             logging.error('aborting...')
             sys.exit(-1)
+    
+    
+    def start_web_console(self):
+        
+        def start_flask():
+            w = WebConsole(self)
+            w.add_resource()
+            w.app.run(host=self.kwargs['webconsole.host'], port=self.kwargs['webconsole.port'],
+                      debug=self.kwargs['webconsole.debug'], use_reloader=self.kwargs['webconsole.auto_reload'])
+            
+        t_webApp = threading.Thread(name='Web App', target=start_flask)
+        t_webApp.setDaemon(True)
+        t_webApp.start()
+                
+
             
     def get_redis_conn(self):
         return self.rs
@@ -200,25 +219,74 @@ class TWS_gateway():
         if (self.pcounter >= 8):
             self.contract_subscription_mgr.persist_subscriptions()
            
+   
+    def shutdown_all(self):
+        sleep(1)
+        logging.info('shutdown_all sequence started....')
+        self.gw_message_handler.set_stop()
+        self.gw_message_handler.join()
+        self.ibh.shutdown()
+        self.menu_loop_done = True
+        sys.exit(0)
+        
+
+    def post_shutdown(self):
+        th = threading.Thread(target=self.shutdown_all)
+        th.daemon = True
+        th.start()               
+
         
 
     def main_loop(self):
+        def print_menu():
+            menu = {}
+            menu['1']="Dump subscription manager content to log" 
+            menu['2']=""
+            menu['3']="Start up configuration"
+            menu['4']=""
+            menu['9']="Exit"
+    
+            choices=menu.keys()
+            choices.sort()
+            for entry in choices: 
+                print entry, menu[entry]                             
+            
+        def get_user_input(selection):
+                logging.info('TWS_gateway:main_loop ***** accepting console input...')
+                print_menu()
+                while 1:
+                    resp = sys.stdin.readline()
+                    response[0] = resp.strip('\n')        
         try:
-            logging.info('TWS_gateway:main_loop ***** accepting console input...')
             
-            
+            response = [None]
+            user_input_th = threading.Thread(target=get_user_input, args=(response,))
+            user_input_th.daemon = True
+            user_input_th.start()               
             self.pcounter = 0
-            while True: 
+            self.menu_loop_done = False
+            while not self.menu_loop_done: 
                 
                 sleep(.5)
                 self.persist_subscription_table()
-                
+                if response[0] is not None:
+                    selection = response[0]
+                    if selection =='1':
+                        self.contract_subscription_mgr.dump()
+                    elif selection == '3':
+                        print '\n'.join('[%s]:%s' % (k,v) for k,v in self.kwargs.iteritems())
+                    elif selection == '9': 
+                        self.shutdown_all()
+                        sys.exit(0)
+                        break
+                    else: 
+                        pass                        
+                    response[0] = None
+                    print_menu()                
                 
         except (KeyboardInterrupt, SystemExit):
                 logging.error('TWS_gateway: caught user interrupt. Shutting down...')
-                self.gw_message_handler.set_stop()
-                self.gw_message_handler.join()
-                self.ibh.shutdown()
+                self.shutdown_all()
                 logging.info('TWS_gateway: Service shut down complete...')
                 sys.exit(0)        
 

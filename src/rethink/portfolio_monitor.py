@@ -12,7 +12,7 @@ from dateutil.relativedelta import relativedelta
 from ib.ext.Execution import Execution
 from ib.ext.ExecutionFilter import ExecutionFilter
 from finopt import optcal
-from misc2.helpers import ContractHelper, LoggerNoBaseMessagingFilter, ExecutionFilterHelper, ConfigMap 
+from misc2.helpers import ContractHelper, LoggerNoBaseMessagingFilter, ExecutionFilterHelper, ConfigMap, HelperFunctions
 from finopt.instrument import Symbol, Option, InstrumentIdMap, ExecFill
 from rethink.option_chain import OptionsChain
 from rethink.tick_datastore import TickDataStore
@@ -20,6 +20,8 @@ from rethink.portfolio_item import PortfolioItem, PortfolioRules, Portfolio, Por
 from rethink.portfolio_column_chart import PortfolioColumnChart,PortfolioColumnChartTM
 from rethink.table_model import AbstractTableModel, AbstractPortfolioTableModelListener
 from comms.ibc.tws_client_lib import TWS_client_manager, AbstractGatewayListener
+from rethink.portfolio_monitor_restapi import WebConsole
+
 #from pip._internal.req.constructors import deduce_helpful_msg
 
 
@@ -39,7 +41,7 @@ class PortfolioMonitor(AbstractGatewayListener, AbstractPortfolioTableModelListe
         self.tds = TickDataStore(kwargs['name'])
         self.tds.register_listener(self)
         self.twsc.add_listener_topics(self, kwargs['topics'])
-        
+        self.menu_loop_done = False 
         
         
         
@@ -62,10 +64,65 @@ class PortfolioMonitor(AbstractGatewayListener, AbstractPortfolioTableModelListe
         self.trades = {}
         
     
+    
+
+    def start_web_console(self):
+        
+        def start_flask():
+            w = WebConsole(self)
+            w.add_resource()
+            w.app.run(host=self.kwargs['webconsole.host'], port=self.kwargs['webconsole.port'],
+                      debug=self.kwargs['webconsole.debug'], use_reloader=self.kwargs['webconsole.auto_reload'])
+            
+        t_webApp = threading.Thread(name='Web App', target=start_flask)
+        t_webApp.setDaemon(True)
+        t_webApp.start()    
+
+    
+    def shutdown_all(self):
+        sleep(1)
+        logging.info('shutdown_all sequence started....')
+        self.twsc.gw_message_handler.set_stop()
+        self.menu_loop_done = True
+        sys.exit(0)
+        
+
+    def post_shutdown(self):
+        th = threading.Thread(target=self.shutdown_all)
+        th.daemon = True
+        th.start()           
+    
+    
+    def reqAllAcountUpdates(self):
+        for acct in self.portfolios.keys():
+            self.twsc.reqAccountUpdates(True, acct)
+
+    def re_request_market_data(self):
+        port_contracts = {}                
+        for acct in self.portfolios.keys():
+            def re_request_mkt(port_item):
+                key = ContractHelper.makeRedisKey(port_item.get_instrument().get_contract())
+                logging.info('PortfolioMontior re_request_mkt: [%s]' % key)
+                self.twsc.reqMktData(port_item.get_instrument().get_contract(), True)
+                return key
+            port_contracts[acct] = map(re_request_mkt, self.portfolios[acct].port['port_items'].values())
+        return port_contracts
+                
     def start_engine(self):
         self.twsc.start_manager()
-        self.twsc.reqPositions()
- 
+        
+        def delay_reqpos():
+            self.twsc.reqPositions()
+            sleep(2)
+            self.twsc.reqPositions()
+            sleep(2)
+            self.reqAllAcountUpdates() 
+            
+        th = threading.Thread(target=delay_reqpos)
+        th.daemon = True
+        th.start()             
+        
+        self.start_web_console()
      
         try:
             def print_menu():
@@ -79,6 +136,7 @@ class PortfolioMonitor(AbstractGatewayListener, AbstractPortfolioTableModelListe
                 menu['7']="Position Distribution JSON"
                 menu['8']="Update TDS table entries by inputting '8 <key> <field> <value>'"
                 menu['a']="request exeutions"
+                menu['b']="re-request market data"
                 menu['9']="Exit"
         
                 choices=menu.keys()
@@ -99,13 +157,13 @@ class PortfolioMonitor(AbstractGatewayListener, AbstractPortfolioTableModelListe
             user_input_th = threading.Thread(target=get_user_input, args=(response,))
             user_input_th.daemon = True
             user_input_th.start()               
-            while True:
+            while not self.menu_loop_done: 
                 sleep(0.4)
                 
                 if response[0] is not None:
                     selection = response[0]
-		    if selection =='':
-			continue
+                    if selection =='':
+                        continue
                     if selection =='1':
                         self.twsc.reqPositions()
                     elif selection == '2': 
@@ -118,9 +176,8 @@ class PortfolioMonitor(AbstractGatewayListener, AbstractPortfolioTableModelListe
                     elif selection == '3': 
                         
                         print self.tds.dump()
-                    elif selection == '4': 
-                        for acct in self.portfolios.keys():
-                            self.twsc.reqAccountUpdates(True, acct)
+                    elif selection == '4':
+                        self.reqAllAcountUpdates() 
                     elif selection == '5':
                         for port in self.portfolios.values():
                             print port.get_JSON() 
@@ -131,7 +188,7 @@ class PortfolioMonitor(AbstractGatewayListener, AbstractPortfolioTableModelListe
                         for acct in self.portfolios.keys():
                             pc = PortfolioColumnChart(self.portfolios[acct])
                             print pc.get_JSON()
-                            print pc.get_xy_array()
+                            #print pc.get_xy_array()
                     elif selection[0] == '8':
                         try:
                             params = selection.split(' ')
@@ -151,6 +208,8 @@ class PortfolioMonitor(AbstractGatewayListener, AbstractPortfolioTableModelListe
                         past =  today + relativedelta(months=-1)
                         exec_filter = ExecutionFilterHelper.kv2object({'m_time': past.strftime('%Y%m%d %H:%M:%S')}, ExecutionFilter)
                         self.twsc.reqExecutions(exec_filter)
+                    elif selection == 'b':
+                        self.re_request_market_data()
                     elif selection == '9': 
                         self.twsc.gw_message_handler.set_stop()
                         break
@@ -491,9 +550,13 @@ class PortfolioMonitor(AbstractGatewayListener, AbstractPortfolioTableModelListe
                 
     def updateAccountValue(self, event, key, value, currency, account):  # key, value, currency, accountName):
         self.raw_dump(event, vars())
+        if key in PortfolioRules.rule_map['interested_port_acct_keys']:
+            logging.info('PortfolioMonitor:updateAccountValue acct:[%s] %s=>%s' % (account, key, value))
+            self.get_portfolio(account).port['port_v'][PortfolioRules.rule_map['interested_port_acct_keys'][key]] = value
+            
  
     def updatePortfolio(self, event, contract_key, position, market_price, market_value, average_cost, unrealized_PNL, realized_PNL, account):
-        self.raw_dump(event, vars())
+        #self.raw_dump(event, vars())
         if self.is_interested_contract_type(contract_key):
             
             self.process_position(account, contract_key, position, average_cost, 
@@ -501,7 +564,7 @@ class PortfolioMonitor(AbstractGatewayListener, AbstractPortfolioTableModelListe
         
             
     def updateAccountTime(self, event, timestamp):
-        self.raw_dump(event, vars())
+        #self.raw_dump(event, vars())
         logging.info('PortfolioMonitor:updateAccountTime %s' % timestamp)
         for port in self.portfolios.values():
             port.calculate_port_pl()
@@ -588,14 +651,35 @@ class PortfolioMonitor(AbstractGatewayListener, AbstractPortfolioTableModelListe
         except:
             logging.error('PortfolioMonitor:event_request_port_summary failed to request port summary for [%s]' % account)
     
+    
+    def find_closest_pos_near_spot(self, account):
+        unpx = []
+        for oc in self.portfolios[account].get_option_chains():
+            px = self.portfolios[account].get_option_chain(oc).get_underlying().get_tick_value(Symbol.LAST)
+            if px == None:
+                px = self.portfolios[account].get_option_chain(oc).get_underlying().get_tick_value(Symbol.CLOSE)
+            if px != None:
+                unpx.append(px)
+        avg_spot = reduce(lambda x,y:x+y, unpx) / len(unpx)
+        pi = filter(lambda x: x.get_quantity() < 0, self.portfolios[account].get_portfolio_port_items().values())
+        strikes = map(lambda x: x.get_strike(), pi)
+        
+        logging.info('find_closest_pos_near_spot: avg_spot %d strikes: %s' % (avg_spot, strikes))
+        max_x = HelperFunctions.nearest_max(strikes, avg_spot)
+        min_x = HelperFunctions.nearest_min(strikes, avg_spot)
+        return [min_x, avg_spot, max_x]
+        
     def notify_port_values_updated(self, account, port):
         try:
+                
+            put_spot_call = self.find_closest_pos_near_spot(account)
+            logging.info('notify_port_values_updated: closest put call pair relative to current spot %s' % put_spot_call)
             self.get_kproducer().send_message(PortfolioMonitor.EVENT_PORT_VALUES_UPDATED,
                                                json.dumps({'account': account,
-                                                     'port_values': self.portfolios[account].get_potfolio_values()}),
+                                                     'data': {'port_values': self.portfolios[account].get_potfolio_values(), 'closest_psc': put_spot_call}}),
                                                )
             logging.info('**** PortfolioMonitor:notify_port_values_updated. %s' % json.dumps({'account': account,
-                                                     'port_values': self.portfolios[account].get_potfolio_values()}) )
+                                                     'data': {'port_values': self.portfolios[account].get_potfolio_values(), 'closest_psc': put_spot_call}}) )
         except:
             logging.error('**** Error PortfolioMonitor:notify_port_values_updated. %s' % traceback.format_exc() )
         

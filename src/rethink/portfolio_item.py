@@ -17,7 +17,10 @@ import pandas as pd
 
 
 
+
 class PortfolioRules():
+    FULL_AVAILABLE_FUNDS = 9051    #FullExcessLiquidity
+    TOTAL_CASH_VALUE = 9052         #TotalCashValue
     rule_map = {
                 'symbol': {'HSI' : 'FUT', 'MHI' : 'FUT', 'QQQ' : 'STK'},
                 'expiry': {'HSI' : 'same_month', 'MHI': 'same_month', 'STK': 'leave_blank'},
@@ -27,7 +30,9 @@ class PortfolioRules():
                                         
                                     },
                 'exchange': {'HSI': 'HKFE', 'MHI': 'HKFE'},              
-                'interested_position_types': {'symbol': ['HSI', 'MHI'], 'instrument_type': ['OPT', 'FUT']}
+                'interested_position_types': {'symbol': ['HSI', 'MHI'], 'instrument_type': ['OPT', 'FUT']},
+                'interested_port_acct_keys': {'FullAvailableFunds': FULL_AVAILABLE_FUNDS, 
+                                              'TotalCashValue': TOTAL_CASH_VALUE}
 
                } 
     
@@ -191,7 +196,7 @@ class PortfolioItem():
                                 
                 pos_theta = 0
                 gamma_percent = 0
-		potential_gain = 0
+                potential_gain = 0
 
                 # (S - X) * pos * multiplier
                 unreal_pl = (spot_px * multiplier - self.get_average_cost() ) * qty 
@@ -260,6 +265,7 @@ class Portfolio(AbstractTableModel):
     NUM_PUTS       = 9032
     TOTAL_GAIN_LOSS = 9040
     TOTAL_POTENTIAL_GAIN = 9041
+
     
      
     
@@ -276,8 +282,8 @@ class Portfolio(AbstractTableModel):
     
     def get_strikes(self):
         strikes = []
-        for x in self.port['port_items'].iteritems():
-            strikes.append(x)
+        for k, v in self.port['port_items'].iteritems():
+            strikes.append(v.get_strike())
         
         return strikes
     
@@ -300,6 +306,7 @@ class Portfolio(AbstractTableModel):
         self.port = {}
         self.port['port_items']=  {}
         self.port['opt_chains']=  {}
+        self.port['port_v']= {}
         
         
         self.port['g_table']=  {'row_index': 0, 'ckey_to_row_index': {}, 'row_to_ckey_index': {}}
@@ -338,7 +345,6 @@ class Portfolio(AbstractTableModel):
         except:
             logging.error('PortfolioItem:calculate_item_pl *** ERROR: port a/c [%s], contract_key [%s]' % (self.get_account(), contract_key))
 
-    
         
     def calculate_port_pl(self):
 
@@ -404,8 +410,13 @@ class Portfolio(AbstractTableModel):
                 
                 
             
-        map(cal_port, p2_items)            
-        self.port['port_v'] = port_v 
+        map(cal_port, p2_items)      
+        # 2019.3
+        # use update instead of assignment as this
+        # dict has been created and 
+        # its keys may have been updated by others      
+        #self.port['port_v'] = port_v
+        self.port['port_v'].update(port_v) 
         return self.port['port_v']
     
     

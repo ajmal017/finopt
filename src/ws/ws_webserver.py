@@ -4,6 +4,7 @@ import logging
 import cherrypy
 import ConfigParser
 import thread
+import requests
 
 
 class PortalServer(object):
@@ -24,7 +25,19 @@ class PortalServer(object):
         return self.ws()
     
  
- 
+    @cherrypy.expose
+    def expr(self):
+        html = '%s%s/jtest2.html' % (cherrypy.request.app.config['/']['tools.staticdir.root'], cherrypy.request.app.config['/static']['tools.staticdir.tmpl'])
+        f = open(html)
+        return f.read()
+
+
+    @cherrypy.expose
+    def rest(self):
+        url = 'http://localhost:6001/TDS'
+        response = requests.get(url)
+        return response.text
+        
     
     @cherrypy.expose
     def ws(self):
@@ -69,11 +82,11 @@ if __name__ == '__main__':
     if len(config.read(cfg_path)) == 0:      
         raise ValueError, "Failed to open config file" 
     
-    logconfig = eval(config.get("opt_serve", "opt_serve.logconfig").strip('"').strip("'"))
+    logconfig = eval(config.get("global", "logconfig").strip('"').strip("'"))
     logconfig['format'] = '%(asctime)s %(levelname)-8s %(message)s'
     logging.basicConfig(**logconfig)            
 
 
-    cherrypy.quickstart(PortalServer(config), '/', cfg_path[0])
+    cherrypy.quickstart(PortalServer(config, None), '/', cfg_path[0])
     
    

@@ -250,12 +250,22 @@ class SubscriptionManager(BaseMessageListener):
 
     def dump(self):
 
-        logging.info('subscription manager table:---------------------\n')
-        logging.info(''.join ('\n[%s]:[%s]' % (str(ic[0]).rjust(4), ic[1]) for ic in self.get_id_contracts(db=False)))
-        logging.info(''.join ('\n[%s]:[%d]' % (k.rjust(20), self.idContractMap['contract_id'][k]) 
-                               for k in sorted(self.idContractMap['contract_id'])))       
-        logging.info( 'Number of instruments subscribed: %d' % self.idContractMap['next_id'])
-        logging.info( '------------------------------------------------')
+        s = 'subscription manager table:---------------------\n'
+        s = s + ''.join ('\n[%s]:[%s]' % (str(ic[0]).rjust(4), ic[1]) for ic in self.get_id_contracts(db=False))
+        s = s + ''.join ('\n[%s]:[%d]' % (k.rjust(20), self.idContractMap['contract_id'][k]) 
+                               for k in sorted(self.idContractMap['contract_id']))       
+        s = s +  'Number of instruments subscribed: %d' % self.idContractMap['next_id']
+        s = s +  '------------------------------------------------'
+
+        logging.info(s)
+        return s
+
+#         logging.info('subscription manager table:---------------------\n')
+#         logging.info(''.join ('\n[%s]:[%s]' % (str(ic[0]).rjust(4), ic[1]) for ic in self.get_id_contracts(db=False)))
+#         logging.info(''.join ('\n[%s]:[%d]' % (k.rjust(20), self.idContractMap['contract_id'][k]) 
+#                                for k in sorted(self.idContractMap['contract_id'])))       
+#         logging.info( 'Number of instruments subscribed: %d' % self.idContractMap['next_id'])
+#         logging.info( '------------------------------------------------')
 
 
     """

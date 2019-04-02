@@ -316,6 +316,29 @@ class HelperFunctions():
     def utf2asc(x):
         return x.encode('ascii') if isinstance(x, unicode) else x
     
+      
+    @staticmethod     
+    def nearest_min(nl, v):
+        min_last = -1
+        min_temp = 9999999
+        for n in nl:
+            if n < v:
+                min_temp = n 
+                if min_last < min_temp:
+                    min_last = min_temp
+        return min_last if min_last != -1 else None
+    
+    @staticmethod    
+    def nearest_max(nl, v):
+        max_last = 99999999 
+        max_temp = -9999999
+        for n in nl:
+            if n > v:
+                max_temp = n 
+                if max_last > max_temp:
+                    max_last = max_temp
+        return max_last if max_last != 9999 else None                
+    
 
 class ConfigMap():
     
@@ -337,6 +360,7 @@ class ConfigMap():
         #logging.debug('ConfigMap: %s' % kwargs)
         return kwargs
     
+
 
 
 class LoggerNoBaseMessagingFilter(logging.Filter):

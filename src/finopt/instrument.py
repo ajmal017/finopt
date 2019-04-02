@@ -42,8 +42,9 @@ class InstrumentIdMap():
                     9031: 'NUMC',
                     9032: 'NUMP',
                     9040: 'T_UNRPL',
-                    9041: 'TPTGAIN'
-    
+                    9041: 'TPTGAIN',
+                    9051: 'AVILFUNDS',
+                    9052: 'T_CASH'
                     
                     }
     

@@ -1,8 +1,8 @@
 <html>
 <head>
-  <title>Simple client</title>
+  <title>Portfolio Monitor</title>
   
-  <script src="https://ajax.googleapis.com/ajax/libs/jquery/2.1.3/jquery.min.js"></script>
+  <script src="js/ajax-libs-jquery-2.1.3/jquery.min.js"></script>
   <script type="text/javascript" src="https://www.google.com/jsapi"></script>  
 
 </head>
@@ -101,14 +101,16 @@ table.minimalistBlack tfoot td {
 				<th>PL / Potential Gain<div class="container"></th>
 				<th>HSIF Curr / Next Mth</th>
 				<th>change %</th>
+				<th>C/P Gap</th>
+				<th>Funds/Net Cash</th>
 			</tr>
 		</thead>
 		
 		<tbody>
 			<tr>
-				<td>(nan)</td><td>(nan)</td><td>(nan)</td><td>(nan)</td><td>(nan)</td><td>(nan)</td><td>(nan)</td><td>(nan)</td></tr>
+				<td>(nan)</td><td>(nan)</td><td>(nan)</td><td>(nan)</td><td>(nan)</td><td>(nan)</td><td>(nan)</td><td>(nan)</td><td>(nan)</td><td>(nan)</td></tr>
 			<tr>
-				<td>(nan)</td><td>(nan)</td><td>(nan)</td><td>(nan)</td><td>(nan)</td><td>(nan)</td><td>(nan)</td><td>(nan)</td></tr>
+				<td>(nan)</td><td>(nan)</td><td>(nan)</td><td>(nan)</td><td>(nan)</td><td>(nan)</td><td>(nan)</td><td>(nan)</td><td>(nan)</td><td>(nan)</td></tr>
 			<tr>
 		</tbody>
 		</tr>
@@ -257,7 +259,35 @@ table.minimalistBlack tfoot td {
 
     var ws;
     //var ws_url = "ws://localhost:9001/";
-    var ws_url = "ws://"+window.location.hostname + ":9001";
+    
+    //
+    // for external access
+    // note: proxy_wstunnel must be enabled
+    // check route69.conf on vsu-jellyfish for details
+    //
+    //
+	/* 	
+	    <VirtualHost *>
+	    ServerName p3.algometic.com
+		
+		    ProxyRequests Off
+		    ProxyVia Off
+		
+		    <Proxy *>
+		        Require all granted
+		    </Proxy>
+		    ProxyPassMatch ^/(ws(/.*)?)$ ws://vsu-longhorn:9001/$1
+		    ProxyPass / http://vsu-longhorn.lan:8091/
+		    ProxyPassReverse / http://vsu-longhorn.lan:8091/
+		</VirtualHost>
+	 */
+	var ws_url = "ws://"+window.location.hostname + ":9001"; 
+    if (window.location.hostname == 'p3.algometic.com'){
+    	ws_url = "ws://p3.algometic.com/ws";	
+    } 
+	 
+    
+
     var tableChart;
 	
 	  function init() {
@@ -321,7 +351,7 @@ table.minimalistBlack tfoot td {
 			  		tableChart.chart = new google.visualization.Table(document.getElementById('table_div'));
 			  		tableChart.chart.draw(tableChart.view, tableChart.options);
 					output('number of rows: ' + tableChart.data.getNumberOfRows());
-					console.log(d1.value);
+					//console.log(d1.value);
 					
 				} else if (d1.source.class == 'PortfolioColumnChartTM'){
 					columnChart.data = new google.visualization.DataTable(d1.value);
@@ -401,7 +431,7 @@ table.minimalistBlack tfoot td {
 		document.querySelector('.overlay-marker').style.left = Math.floor(cli.getXLocation(spot) - 25) + "px";
 	}
 	  
-    function setPortSummaryTableVal(port_values){
+    function setPortSummaryTableVal(data){
     	var val2cellDict = {
     			9000: [1,0], 
     			9001: [1,1],
@@ -413,15 +443,24 @@ table.minimalistBlack tfoot td {
     			9012: [2,2],
     			9013: [2,3],
     			9032: [2,4],
-    			9041: [2,5]
+    			9041: [2,5],
+    			9051: [1,9],
+    			9052: [2,9]
     					}
     	
     	for(var port_id in val2cellDict) {
 		 	//console.log('in setPortSummaryTableVal ' + String(port_id) + ", ");
-			var num = Number(port_values[port_id]);	
+			var num = Number(data['port_values'][port_id]);
+			if (port_id == 9051 || port_id == 9052) num = num / 1000;
 			num = (isFloat(num)) ? num.toFixed(2) : num;
     		setCellValue('port_sum', val2cellDict[port_id][0], val2cellDict[port_id][1], num);
     	}
+    	var p_gap = data['closest_psc'][1] - data['closest_psc'][0];
+    	var c_gap = data['closest_psc'][2] - data['closest_psc'][1];
+    	var p_gap_percent = p_gap / data['closest_psc'][1] * 100;
+    	var c_gap_percent = c_gap / data['closest_psc'][1] * 100;
+    	setCellValue('port_sum', 2, 8, p_gap.toFixed(0).toString() + ' ( ' + p_gap_percent.toFixed(2).toString() + '%)'); 
+    	setCellValue('port_sum', 1, 8, c_gap.toFixed(0).toString() + ' ( ' + c_gap_percent.toFixed(2).toString() + '%)');    	
     }
     
 

@@ -173,12 +173,12 @@ class BaseConsumer(threading.Thread, Publisher):
             clear the offsets in redis by removing the value from redis
             and emptying the internal my_topics dict
             
-            clear offsets is ncessary when the offset in redis was saved 
+            clear offsets is necessary when the offset in redis was saved 
             at a time since kafka manager was shut down
             when kafka restarts, previously buffered 
             messages are no longer available and instead it will restart its offset at 0.
             Reading an old offset by BaseConsumer will cause it to think that it
-            is still receving old buffered messages from Kafa but in fact all the messages 
+            is still receiving old buffered messages from Kafa but in fact all the messages 
             since the last shut down of kafka are all gone
         """
         for t in self.kwargs['topics']:

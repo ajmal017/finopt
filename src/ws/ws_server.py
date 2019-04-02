@@ -221,14 +221,14 @@ class PortfolioTableModelListener(BaseMessageListener):
             
 
     
-    def event_port_values_updated(self, event, account, port_values):
+    def event_port_values_updated(self, event, account, data):
         
-        logging.info("[%s] received %s from %s. content:[%s]" % (self.name, event, account, json.dumps(port_values)))
+        logging.info("[%s] received %s from %s. content:[%s]" % (self.name, event, account, json.dumps(data)))
         
         # broadcast to all subscribed clients
 
         self.mwss.get_server().send_message_to_all( 
-                                        json.dumps({'event': event, 'value': port_values, 'account': account})) 
+                                        json.dumps({'event': event, 'value': data, 'account': account})) 
 
 
 class MainWebSocketServer(BaseWebSocketServerWrapper, AbstractGatewayListener):
