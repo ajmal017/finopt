@@ -1,0 +1,25 @@
+# 
+# contract tuple
+#	symbol, sectype, exchange, currency, expiry, strike, right 
+#
+# order instruction
+# 	order type,account,side,quantity,price,aux_price
+#
+# each line:
+# C:(contract tuple)|O:order instruction
+
+C:('HSI','FUT','HKFE','HKD','20190429',0,'')|O:'LMT','U9050568','BUY',1,28000
+C:('HSI','OPT','HKFE','HKD','20190429',28200,'P')|O:'LMT','U9050568','BUY',1,2
+#
+# 
+C:('GBP','CASH','IDEALPRO','USD')|O:'MKT','DU1460682', 'BUY', 100000, 1.2986
+C:('GBP','CASH','IDEALPRO','USD')|O:'LMT','DU1460682', 'BUY', 100000, 1.1986
+C:('USD','CASH','IDEALPRO','JPY')|O:'LMT','DU1460682', 'SELL', 100000, 119.55
+C:('BA','STK','SMART','USD')|O:'LMT','DU1460682', 'SELL', 100, 380.5
+C:('TSLA','STK','SMART','USD')|O:'MKT','DU1460682', 'SELL', 100, 0
+C:('TSLA', 'OPT', 'SMART', 'USD', '20190426', 270.0, 'C')|O:'MKT','DU1460682', 'SELL', 8, 0 
+#
+# invalid stock code
+# 
+C:('BAF55','STK','SMART','USD')|O:'LMT','DU1460682', 'SELL', 100, 380.5
+C:('USD.JJJ','CASH','IDEALPRO','JPY')|O:'LMT','DU1460682', 'SELL', 100000, 119.55

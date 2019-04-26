@@ -1,90 +1,63 @@
-from flask import Flask
-from flask_restful import Resource, Api, reqparse
+from flask import Flask, jsonify
+
 import json
 import threading
-import time
-from cheroot.server import Gateway
-import sys
+from time import sleep
+from misc2.helpers import ContractHelper, OrderHelper, OrderValidationException
+from misc2.observer import Subscriber
+from flask_restful import Resource, Api, reqparse
+import uuid
+import traceback
+from omrdapi.v1 import apiv1
+from omrdapi.v2 import apiv2
 
 
-class WebConsole():
 
+
+class WebConsole(Subscriber):
+
+    
     app = Flask(__name__)
     api = Api(app)
     parser = reqparse.RequestParser()
     
     def __init__(self, parent=None):
+        Subscriber.__init__(self, 'WebConsole' )
         self.parent = parent
+        self.id_message = {}
 
     def get_parent(self):
         return self.parent
     
     def add_resource(self):
-        WebConsole.api.add_resource(Commands, '/')
-        WebConsole.api.add_resource(ExitApp, '/exit', resource_class_kwargs={'gateway_instance': self.parent})
-        WebConsole.api.add_resource(Subscriptions, '/subscriptions', resource_class_kwargs={'gateway_instance': self.parent})
-        WebConsole.api.add_resource(GatewaySettings, '/settings', resource_class_kwargs={'gateway_instance': self.parent})
+        WebConsole.api.add_resource(apiv1.Commands, '/v1')
+        WebConsole.api.add_resource(apiv1.ExitApp, '/v1/exit', resource_class_kwargs={'webconsole': self})
+        WebConsole.api.add_resource(apiv1.Subscriptions, '/v1/subscriptions', resource_class_kwargs={'gateway_instance': self.parent})
+        WebConsole.api.add_resource(apiv1.GatewaySettings, '/v1/settings', resource_class_kwargs={'gateway_instance': self.parent})
+        WebConsole.api.add_resource(apiv1.AsyncOrderCRUD, '/v1/async_order/<id>', resource_class_kwargs={'webconsole': self})
+        WebConsole.api.add_resource(apiv1.SyncOrderCRUD, '/v1/order', resource_class_kwargs={'webconsole': self})
+        WebConsole.api.add_resource(apiv1.OrderId, '/v1/order_id', resource_class_kwargs={'webconsole': self})
+        WebConsole.api.add_resource(apiv1.OrderStatus, '/v1/order_status/<id>', resource_class_kwargs={'webconsole': self})
+        WebConsole.api.add_resource(apiv1.OpenOrdersStatus, '/v1/open_orders', resource_class_kwargs={'webconsole': self})
         
-
-class Commands(Resource):
-    def get(self):
-        return {'status': True, 'Available REST API' : {'exit': 'shutdown gateway', 
-                                              'subscriptions': 'get a list of subscribed topics',
-                                              'settings': 'get gateway startup settings',
-                                              
-                                              }
-                }
-
-class ExitApp(Resource):
-    def __init__(self, gateway_instance):
-        self.gw = gateway_instance
         
-    def get(self):
-        self.gw.post_shutdown()
-        return {'status': 'please check the log for exit status'}
+        WebConsole.api.add_resource(apiv2.SyncOrderCRUD_v2, '/v2/order', resource_class_kwargs={'webconsole': self})
+        WebConsole.api.add_resource(apiv2.OrderStatus_v2, '/v2/order_status/<id>', resource_class_kwargs={'webconsole': self})
+        WebConsole.api.add_resource(apiv2.OpenOrdersStatus_v2, '/v2/open_orders', resource_class_kwargs={'webconsole': self})
+        WebConsole.api.add_resource(apiv2.QuoteRequest_v2, '/v2/quote', resource_class_kwargs={'webconsole': self})
+
+
+
         
-
-class GatewaySettings(Resource):
-    def __init__(self, gateway_instance):
-        self.gw = gateway_instance
-        
-    def get(self):
-        return json.loads(json.dumps(self.gw.kwargs))
-    
-    
-
-    
-
-
-class Subscriptions(Resource):
-    def __init__(self, gateway_instance):
-        self.gw = gateway_instance
-    
-    def get(self):
-        idc = self.gw.contract_subscription_mgr.get_id_contracts()
-        c2id = self.gw.contract_subscription_mgr.idContractMap['contract_id']
-        return {'status': True, 'subscriptions' : {'id2c': idc, 'c2id': c2id}}
-
-
-# def start_flask():
-#     w = WebConsole()
-#     w.add_resource()
-#     w.app.run(debug=True, use_reloader=False)
-# 
-# if __name__ == '__main__':
-#     
-#     
-#     
-#     t_webApp = threading.Thread(name='Web App', target=start_flask)
-#     t_webApp.setDaemon(True)
-#     t_webApp.start()
-#     
-#     try:
-#         while True:
-#             print 'sleeping...'
-#             time.sleep(1)
-#     
-#     except KeyboardInterrupt:
-#         print("exiting")
-#         exit(0)    
-#     
+    def post_shutdown(self):
+        self.parent.post_shutdown() 
+    '''
+        implement the consumer interface
+        this function gets all tws events
+        forwarded internally from tws_event_handler
+    '''
+    def update(self, event, **param):
+        if event == 'error':
+            print ('webconsole override %s: %s %s %s' % (self.name, event, "<empty param>" if not param else param,
+                                          
+                                         '<none>' if not param else param.__class__))

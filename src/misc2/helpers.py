@@ -7,9 +7,11 @@ import threading
 import ConfigParser
 from ib.ext.Contract import Contract
 from ib.ext.Order import Order
+from ib.ext.OrderState import OrderState
 from ib.ext.Execution import Execution
 from ib.ext.ExecutionFilter import ExecutionFilter
 import copy
+from flask_restful.fields import Price
 
 
 class BaseHelper():
@@ -29,24 +31,109 @@ class BaseHelper():
         map(lambda x: o.__setattr__(x, kv[x].encode('ascii') if type(kv[x]) == unicode else kv[x]), kv.keys())
         return o
         
+class OrderValidationException(Exception):
+    pass    
         
 class OrderHelper(BaseHelper):
+    
+    @staticmethod
+    def order_validation(account, side, quantity, price):
+        if account == None or account == '':
+            raise OrderValidationException("account must not be blank!")
+        elif str(side) not in ['BUY', 'SELL']:
+            raise OrderValidationException("side must be either 'BUY' or 'SELL'")
+        elif quantity == None or type(quantity) == 'str':
+            raise OrderValidationException("quantity must be an integer")
+        elif '.' in str(quantity):
+            raise OrderValidationException("quantity can not be a float")
+        elif price == None or type(price) == 'str':
+            raise OrderValidationException("price must be a float")
+        
+        try:
+            int(quantity)
+            float(price)
+        except ValueError:
+            raise OrderValidationException("price or quantity must be a numeric value")
+        
+        return True
+        
+        
+    @staticmethod
+    def order_validation_ex(order):
+        if order.m_orderType == None:
+            raise OrderValidationException("order type must not be blank")
+        elif order.m_orderType in ['LMT', 'STP LMT']:
+            OrderHelper.order_validation(order.m_account, order.m_action, order.m_totalQuantity, order.m_lmtPrice)
+        elif order.m_orderType =='MKT':
+            OrderHelper.order_validation(order.m_account, order.m_action, order.m_totalQuantity, 0.0)
+        
+            
+        
+    @staticmethod
+    def order2kvstring(order):
+        return json.dumps(order.__dict__)     
+  
+    @staticmethod
+    def kvstring2object(sm_order):
+        return OrderHelper.kv2object(json.loads(sm_order))
+  
+  
+    @staticmethod
+    def kv2object(m_order):   
+        newOrder = Order()
+        map(lambda x: newOrder.__setattr__(x, m_order[x].encode('ascii') if type(m_order[x]) == unicode else m_order[x]), m_order.keys())
+        return newOrder
+
+    @staticmethod
+    def limit_order(account=None, side=None, quantity=None, price=None):
+        OrderHelper.order_validation(account, side, quantity, price)
+        newOrder = Order()
+        newOrder.m_account = account
+        newOrder.m_action = side
+        newOrder.m_totalQuantity = quantity
+        newOrder.m_lmtPrice = price  
+        newOrder.m_orderType = 'LMT'
+        return newOrder
+        
+    @staticmethod
+    def market_order(account=None, side=None, quantity=None, price=None):
+        OrderHelper.order_validation(account, side, quantity, 0.0)
+        newOrder = Order()
+        newOrder.m_account = account
+        newOrder.m_action = side
+        newOrder.m_totalQuantity = quantity
+        newOrder.m_orderType = 'MKT'
+        return newOrder
+        
+    @staticmethod
+    def limit_if_touched(account=None, side=None, quantity=None, limit_price=None, aux_price=None):
+        OrderHelper.order_validation(account, side, quantity, limit_price)
+        newOrder = Order()
+        newOrder.m_account = account
+        newOrder.m_action = side
+        newOrder.m_totalQuantity = quantity
+        newOrder.m_lmtPrice = limit_price
+        newOrder.m_auxPrice = aux_price
+        newOrder.m_orderType = 'LIT'
+        return newOrder  
+
+    @staticmethod
+    def stop_limit(account=None, side=None, quantity=None, limit_price=None, stop_price=None):
+        OrderHelper.order_validation(account, side, quantity, limit_price)
+        newOrder = Order()
+        newOrder.m_account = account
+        newOrder.m_action = side
+        newOrder.m_totalQuantity = quantity
+        newOrder.m_lmtPrice = limit_price
+        newOrder.m_auxPrice = stop_price  
+        newOrder.m_orderType = 'STP LMT'
+        return newOrder
+
+
+  
+
+class OrderStateHelper(BaseHelper):
     pass
-     
-#     @staticmethod
-#     def object2kvstring(contract):
-#         return json.dumps(contract.__dict__)
-#  
-#     @staticmethod
-#     def kvstring2object(sm_order):
-#         return OrderHelper.kv2object(json.loads(sm_order))
-#  
-#  
-#     @staticmethod
-#     def kv2object(m_order):   
-#         newOrder = Order()
-#         map(lambda x: newOrder.__setattr__(x, m_order[x].encode('ascii') if type(m_order[x]) == unicode else m_order[x]), m_order.keys())
-#         return newOrder
 
     
 class ExecutionFilterHelper(BaseHelper):
@@ -115,7 +202,8 @@ class ExecutionHelper(BaseHelper):
 
 class ContractHelper(BaseHelper):
     
-    map_rules = {'exchange': {'HSI': 'HKFE', 'MHI': 'HKFE'}}
+    map_rules = {'exchange': {'HSI': 'HKFE', 'MHI': 'HKFE'},
+                 'secType': {'CASH': 'IDEALPRO'}}
     
     def __init__(self, contractTuple):
         self.makeContract(contractTuple)
@@ -251,7 +339,13 @@ class ContractHelper(BaseHelper):
         try:
             contract.m_exchange = ContractHelper.map_rules['exchange'][contract.m_symbol]
         except:
-            contract.m_exchange = '' 
+            
+            if 'CASH' in contract.m_secType:
+                pass
+            elif 'USD' in contract.m_currency and 'SMART' in contract.m_exchange:
+                pass 
+            else:
+                contract.m_exchange = '' 
             
         
 

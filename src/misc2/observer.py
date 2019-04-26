@@ -14,6 +14,7 @@ class Subscriber:
     def __init__(self, name):
         self.name = name
 
+    
     def update(self, event, param=None):
         #print('{} got message "{}"'.format(self.name, message))
         raise NotImplementedException('update function is not implemented! Override the function by subclassing Subscriber!')
@@ -36,6 +37,7 @@ class Publisher:
     def unregister(self, event, who):
         del self.get_subscribers(event)[who]
     
+        
     def dispatch(self, event, params=None):
         #print 'observer:: subscriber**** %s' % params
         for subscriber, callback in self.get_subscribers(event).items():
@@ -57,12 +59,12 @@ class Consumer(Subscriber):
     def __init__(self, name):
         Subscriber.__init__(self, name)
         
-    def update(self, event, param=None):
+    def update(self, event, **param):
         print('override %s: %s %s %s' % (self.name, event, "<empy param>" if not param else param,
                                          
                                          '<none>' if not param else param.__class__))
 
-    def trigger(self, event, param=None):
+    def trigger(self, event, **param):
         print('trigger %s: %s %s %s' % (self.name, event, "<empy param>" if not param else param,
                                          
                                          '<none>' if not param else param.__class__))

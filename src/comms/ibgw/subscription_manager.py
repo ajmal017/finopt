@@ -161,7 +161,13 @@ class SubscriptionManager(BaseMessageListener):
         return id
 
             
-    #def reqMktData(self, event, message):
+    '''
+     this function gets called whenever a client request for market data
+     check the line below at tws_gateway __init__
+     
+         self.gw_message_handler.add_listener_topics(self.contract_subscription_mgr, self.kwargs['subscription_manager.topics'])
+         
+    ''' 
     def reqMktData(self, event, contract, snapshot):        
                   
 #         contract = ContractHelper.kvstring2object(message['contract'], Contract)

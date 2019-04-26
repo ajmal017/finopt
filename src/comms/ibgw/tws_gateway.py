@@ -19,9 +19,13 @@ from comms.ibgw.client_request_handler import ClientRequestHandler
 from comms.ibgw.subscription_manager import SubscriptionManager
 from comms.tws_protocol_helper import TWS_Protocol
 from comms.ibgw.tws_gateway_restapi import WebConsole 
+from comms.ibgw.order_manager import OrderManager
+from omrdapi.v2.quote_handler import QuoteRESTHandler
 import redis
 import threading
 from threading import Lock
+         
+                   
          
 class TWS_gateway():
 
@@ -69,6 +73,7 @@ class TWS_gateway():
             3. establish TWS gateway connectivity
             
             4. initialize listeners: ClientRequestHandler and SubscriptionManager
+            4a. start order_id_manager
             5. start the prosumer 
             6. run web console
         
@@ -84,6 +89,7 @@ class TWS_gateway():
         
         logging.info('starting up gateway message handler - kafka Prosumer...')        
         self.gw_message_handler = Prosumer(name='tws_gw_prosumer', kwargs=self.kwargs)
+        
         
         logging.info('initializing TWS_event_handler...')        
         self.tws_event_handler = TWS_event_handler(self.gw_message_handler)
@@ -119,6 +125,11 @@ class TWS_gateway():
         self.gw_message_handler.add_listeners([self.cli_req_handler])
         self.gw_message_handler.add_listener_topics(self.contract_subscription_mgr, self.kwargs['subscription_manager.topics'])
 
+        logging.info('initialize order_id_manager and quote_handler for REST API...')
+        self.initialize_order_quote_manager()
+        
+
+
         logging.info('start TWS_event_handler. Start prosumer processing loop...')
         self.gw_message_handler.start_prosumer()
 
@@ -140,6 +151,17 @@ class TWS_gateway():
         
         self.tws_event_handler.set_subscription_manager(self.contract_subscription_mgr)
 
+
+    def initialize_order_quote_manager(self):
+#         self.order_id_mgr = OrderIdManager(self.tws_connection)
+#         self.tws_event_handler.set_order_id_manager(self.order_id_mgr)
+#         self.order_id_mgr.start()
+          self.order_manager = OrderManager('order_manager', self, self.kwargs)
+          self.order_manager.start_order_manager()
+          
+          
+          self.quote_manager = QuoteRESTHandler('quote_manager', self)
+        
     def initialize_redis(self):
 
         self.rs = redis.Redis(self.kwargs['redis_host'], self.kwargs['redis_port'], self.kwargs['redis_db'])
@@ -156,6 +178,12 @@ class TWS_gateway():
         
         def start_flask():
             w = WebConsole(self)
+            
+            # tell tws_event_handler that WebConsole  
+            # is interested to receive all messages
+            for e in TWS_event_handler.PUBLISH_TWS_EVENTS:
+                self.tws_event_handler.register(e, w)
+            
             w.add_resource()
             w.app.run(host=self.kwargs['webconsole.host'], port=self.kwargs['webconsole.port'],
                       debug=self.kwargs['webconsole.debug'], use_reloader=self.kwargs['webconsole.auto_reload'])
@@ -164,8 +192,25 @@ class TWS_gateway():
         t_webApp.setDaemon(True)
         t_webApp.start()
                 
+                
+    def get_order_id_manager(self):
+        return self.order_manager.get_order_id_mgr()
 
-            
+    def get_order_manager(self):
+        return self.order_manager
+    
+    def get_tws_connection(self):
+        return self.tws_connection
+    
+    def get_tws_event_handler(self):
+        return self.tws_event_handler
+    
+    def get_subscription_manager(self):
+        return self.contract_subscription_mgr
+    
+    def get_quote_manager(self):
+        return self.quote_manager
+    
     def get_redis_conn(self):
         return self.rs
 
@@ -227,6 +272,7 @@ class TWS_gateway():
         self.gw_message_handler.join()
         self.ibh.shutdown()
         self.menu_loop_done = True
+        self.get_order_id_manager().set_stop()
         sys.exit(0)
         
 
@@ -311,6 +357,7 @@ if __name__ == '__main__':
                       help="path to the config file")
     
     (options, args) = parser.parse_args()
+    
     
     kwargs = ConfigMap().kwargs_from_file(options.config_file)
     for option, value in options.__dict__.iteritems():

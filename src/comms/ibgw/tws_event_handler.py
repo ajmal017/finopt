@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-from misc2.helpers import ContractHelper, ExecutionHelper
+from misc2.helpers import ContractHelper, ExecutionHelper, OrderHelper, OrderStateHelper
+from misc2.observer import Publisher
 import logging
 import traceback
 from ib.ext.EWrapper import EWrapper
@@ -8,15 +9,28 @@ import json
 
 
         
-class TWS_event_handler(EWrapper):
+class TWS_event_handler(EWrapper, Publisher):
 
     TICKER_GAP = 1000
     producer = None
     
-    def __init__(self, producer):        
+    # Events that will get forwarded to 
+    # any classes that is interested in listening
+    # WebConsole is one such subscriber
+    # it is interested in 
+    PUBLISH_TWS_EVENTS = ['error', 'openOrder', 'openOrderEnd', 'orderStatus', 'openBound', 'tickPrice', 'tickSize']
+    
+    def __init__(self, producer):
         self.producer = producer
+
+        # create an internal publisher to forward tws messages 
+        # to WebConsole class                
+        Publisher.__init__(self, TWS_event_handler.PUBLISH_TWS_EVENTS)
         
- 
+    
+    
+    def set_order_id_manager(self, order_id_manager):
+        self.order_id_manager = order_id_manager
  
     def set_subscription_manager(self, subscription_manager):
         self.subscription_manger = subscription_manager
@@ -26,7 +40,12 @@ class TWS_event_handler(EWrapper):
         try:
             dict = self.pre_process_message(message, mapping)     
             logging.debug('broadcast_event %s:%s' % (message, dict))
-            self.producer.send_message(message, self.producer.message_dumps(dict))    
+            self.producer.send_message(message, self.producer.message_dumps(dict))   
+            
+            # forward message to subscribed consumers,
+            # that is webconsole
+            if message in self.PUBLISH_TWS_EVENTS:
+                self.dispatch(message, dict) 
         except:
             logging.error('broadcast_event: exception while encoding IB event to client:  [%s]' % message)
             logging.error(traceback.format_exc())
@@ -95,15 +114,22 @@ class TWS_event_handler(EWrapper):
         #self.broadcast_event('tickEFP', vars())
         pass
 
-    def orderStatus(self, orderId, status, filled, remaining, avgFillPrice, permId, parentId, lastFillPrice, clientId, whyHeId):
-        pass
+    def orderStatus(self, orderId, status, filled, remaining, avgFillPrice, permId, parentId, lastFillPrice, clientId, whyHeld):
+        self.broadcast_event('orderStatus', {'orderId':orderId, 'status': status, 'filled':filled, 
+                                             'remaining':remaining, 'avgFillPrice':avgFillPrice, 
+                                             'permId':permId, 'parentId':parentId, 'lastFillPrice':lastFillPrice, 
+                                             'clientId':clientId, 'whyHeld':whyHeld})
 
     def openOrder(self, orderId, contract, order, state):
-        pass
+        logging.info('TWS_event_handler: openOrder id:%d contract:%s' % (orderId, ContractHelper.makeRedisKey(contract)))
+        logging.info('TWS_event_handler: openOrder order:%s' % (OrderHelper.object2kvstring(order)))
+        logging.info('TWS_event_handler: openOrder state: %s' % (OrderStateHelper.object2kvstring(state)))
+        self.broadcast_event('openOrder', {'orderId': orderId, 'contract':contract, 'order':order, 'state':state})
+        
 
     def openOrderEnd(self):
-        pass
-
+        logging.info('TWS_event_handler: openOrderEnd')
+        self.broadcast_event('openOrderEnd', {})
 
     def update_portfolio_account(self, items):
         self.broadcast_event('update_portfolio_account', items)
@@ -149,7 +175,10 @@ class TWS_event_handler(EWrapper):
         
         
     def nextValidId(self, orderId):
-        self.broadcast_event('nextValidId', vars())
+        #self.broadcast_event('nextValidId', orderId)
+        self.order_id_manager.update_next_valid_id(orderId)
+        logging.info('TWS_event_handler:nextValidId %d' % orderId)
+        
 
     def contractDetails(self, reqId, contractDetails):
         self.broadcast_event('contractDetails', vars())

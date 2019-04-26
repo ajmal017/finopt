@@ -7,7 +7,12 @@ echo $HOST
 if [ $HOST == 'hkc-larryc-vm1' ]; then
 	FINOPT_HOME=~/ironfly-workspace/finopt/src
 elif [ $HOST == 'astron' ]; then
-	FINOPT_HOME=~/workspace/finopt/src
+	#FINOPT_HOME=~/workspace/finopt/src
+
+	# virtual env
+	FINOPT_HOME=~/workspace/fpydevs/eclipse/finopt/src
+	source /home/laxaurus/workspace/fpydevs/env/bin/activate
+
 elif [ $HOST == 'vsu-longhorn' ]; then
     FINOPT_HOME=~/pyenvs/ironfly/finopt/src
     source /home/vuser-longhorn/pyenvs/finopt/bin/activate

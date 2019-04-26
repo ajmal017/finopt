@@ -1,5 +1,0 @@
-#!/bin/bash
-ROOT=$FINOPT_HOME
-export PYTHONPATH=$FINOPT_HOME/src:$PYTHONPATH
-python $FINOPT_HOMEs/src/comms/alert_bot.py $FINOPT_HOME/config/app.cfg
-
