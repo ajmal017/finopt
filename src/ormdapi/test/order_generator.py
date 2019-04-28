@@ -135,7 +135,7 @@ def read_dat_v2(path, mode, url, version_digit ):
 def api_post(url):
 
     try:
-        
+        print url
         response = requests.post(url) #, data=json.loads(name))
         return response.text
     except:
@@ -146,6 +146,7 @@ def api_post(url):
 def api_delete(url):
     try:
         
+        print url
         response = requests.delete(url) #, data=json.loads(name))
         return response.text
     except:

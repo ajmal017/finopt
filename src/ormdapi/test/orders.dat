@@ -8,8 +8,10 @@
 # each line:
 # C:(contract tuple)|O:order instruction
 
-C:('HSI','FUT','HKFE','HKD','20190429',0,'')|O:'LMT','U9050568','BUY',1,28000
+C:('HSI','FUT','HKFE','HKD','20190429',0,'')|O:'LMT','U9050568','BUY',1,29200
+C:('MHI','FUT','HKFE','HKD','20190429',0,'')|O:'LMT','U9050568','BUY',1,29000
 C:('HSI','OPT','HKFE','HKD','20190429',28200,'P')|O:'LMT','U9050568','BUY',1,2
+C:('HSI','OPT','HKFE','HKD','20190429',29200,'P')|O:'LMT','U9050568','BUY',3,2
 #
 # 
 C:('GBP','CASH','IDEALPRO','USD')|O:'MKT','DU1460682', 'BUY', 100000, 1.2986

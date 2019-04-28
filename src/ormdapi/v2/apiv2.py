@@ -12,11 +12,18 @@ import json
 
 class InterestedTags():
     
-    OrderStatus_tags = {'order': {'m_orderId': 'order_id'},
+    OrderStatus_tags = {'order': {'m_orderId': 'order_id',
+                                  'm_clientId': 'client_id',
+                                  'm_action': 'side',
+                                  'm_totalQuantity': 'quantity',
+                                  'm_orderType': 'order_type',
+                                  'm_lmtPrice': 'price',
+                                  'm_auxPrice': 'aux_price',
+                                  'm_orderRef': 'order_ref'},
                         'ord_status': {'status': 'status',
                                        'filled': 'filled',
                                        'remaining': 'remaining',
-                                       'avgFillPrice': 'avg_fill_price',
+                                       'avgFillPrice': 'avg_fill_price',    
                                        'permId': 'perm_id'},
                         'error': {'errorCode': 'error_code',
                                   'errorMsg': 'error_msg'}
@@ -31,7 +38,7 @@ class InterestedTags():
         for k,v in InterestedTags.OrderStatus_tags['ord_status'].iteritems():
             os[v] = o_status['ord_status'][k]
         try:
-            os['error'] = 'error_code:%d, error_msg:%s' % (o_status['errorCode'], o_status('errorMsg'))
+            os['error'] = 'error_code:%d, error_msg:%s' % (o_status['error']['errorCode'], o_status['error']['errorMsg'])
         except KeyError:
             os['error'] = ''
         
@@ -54,15 +61,32 @@ class OpenOrdersStatus_v2(Resource):
     def __init__(self, webconsole):
         self.wc = webconsole
         self.gw_conn = self.wc.get_parent().get_tws_connection()
+        self.om = self.wc.get_parent().get_order_manager()
         
     
     def get(self):
         try:
+            ob = self.om.get_order_book()
             self.gw_conn.reqAllOpenOrders()
-            return {}, 201
+            res = ob.get_open_orders()
+            
+            def filter_tags(id):
+                try:
+                    order =  ob.get_order_status(id)
+                    if order:
+                        os = InterestedTags.filter_unwanted_tags(order)
+                        return {id:os}
+                except:
+                    pass
+                return None
+
+            open_orders = map(filter_tags, res)
+        
+            
+            return open_orders, 201
         except:
 
-            return {'error': 'no order details found!'}, 404
+            return {'error': 'Error getting open orders!'}, 404
 
 '''
     function to retrieve the status of an order given its order id
@@ -117,7 +141,8 @@ class v2_helper():
                 'side': 'm_action',
                 'quantity': 'm_totalQuantity', 
                 'price':'m_lmtPrice',
-                'aux_price': 'm_auxPrice'
+                'aux_price': 'm_auxPrice',
+                'order_ref': 'm_orderRef'
                 }        
     
         
@@ -227,7 +252,7 @@ class QuoteRequest_v2(Resource, Publisher):
         '''
         def output_result(sym):
             return {'asize': sym.get_tick_value(Symbol.ASKSIZE), 'ask': sym.get_tick_value(Symbol.ASK),
-                    'bsize': sym.get_tick_value(Symbol.BIDSIZE), 'ask': sym.get_tick_value(Symbol.BID),
+                    'bsize': sym.get_tick_value(Symbol.BIDSIZE), 'bid': sym.get_tick_value(Symbol.BID),
                     'last': sym.get_tick_value(Symbol.LAST), 'high': sym.get_tick_value(Symbol.LOW),
                     'close': sym.get_tick_value(Symbol.CLOSE)}
                         

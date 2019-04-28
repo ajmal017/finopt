@@ -20,7 +20,7 @@ from comms.ibgw.subscription_manager import SubscriptionManager
 from comms.tws_protocol_helper import TWS_Protocol
 from comms.ibgw.tws_gateway_restapi import WebConsole 
 from comms.ibgw.order_manager import OrderManager
-from omrdapi.v2.quote_handler import QuoteRESTHandler
+from ormdapi.v2.quote_handler import QuoteRESTHandler
 import redis
 import threading
 from threading import Lock

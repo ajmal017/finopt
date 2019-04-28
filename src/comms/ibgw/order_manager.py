@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 import logging
+import sys, traceback
 import json
 from time import sleep
 from misc2.helpers import ContractHelper
@@ -13,6 +14,9 @@ import uuid
 import numpy as np
 from finopt.test_pattern import Subscriber
 
+
+class OrderManagerException(Exception):
+    pass
 
 
 class OrderIdManager(threading.Thread):
@@ -155,6 +159,9 @@ class OrderIdManagerFake(threading.Thread):
 
 class OrderBook(Subscriber):
     
+    OPEN_ORDER_STATUS = ['PendingSubmit', 'PendingCancel','PreSubmitted','Submitted',
+                                   'Inactive']
+    
     def __init__(self, name):
         '''
             orderbook:
@@ -163,7 +170,8 @@ class OrderBook(Subscriber):
                 
         '''
         Subscriber.__init__(self, name)
-        self.name = name 
+        self.name = name
+        self.open_order = False 
         self.orders = {}
         
     def handle_order_status(self, orderId, status, filled, remaining, avgFillPrice, permId, parentId, lastFillPrice, clientId, whyHeld):
@@ -202,9 +210,10 @@ class OrderBook(Subscriber):
         if event == 'orderStatus':
             self.handle_order_status(**param)
         elif event == 'openOrder':
+            self.open_order = True
             self.handle_open_order(**param)
         elif event == 'openOrderEnd':
-            pass
+            self.open_order = False
         elif event == 'error':
             try:
                 id = param['id']
@@ -220,6 +229,38 @@ class OrderBook(Subscriber):
             return self.orders[orderId]
         except:
             return None
+   
+   
+    def get_open_orders(self):
+        
+        
+        def filter_order_by_type(id_ord):
+            try:
+                if id_ord[1]['ord_status']['status'] in OrderBook.OPEN_ORDER_STATUS:
+                    return id_ord[0] 
+            except:
+                pass
+            return None
+        
+        try:
+            i = 0
+            while self.open_order:
+                sleep(0.5)
+                i += 1
+                logging.warn('OrderBook: waiting open_order status to change to finish: round # %d... ' % i)
+                if i == 10:
+                    raise OrderManagerException
+            res = map(filter_order_by_type, [(id, orders) for id, orders in self.orders.iteritems()])
+            return res
+            
+            
+            
+        except:
+            logging.error('OrderBook: get_open_orders exception %s' % traceback.format_exc())
+            return None
+    
+               
+           
           
 '''
     client side order manager
