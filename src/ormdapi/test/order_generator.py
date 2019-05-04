@@ -132,6 +132,11 @@ def read_dat_v2(path, mode, url, version_digit ):
 
 
 
+def api_test3():
+    headers = ''
+    data = ''
+    r = requests.post(url, data=json.dumps(data), headers=headers)
+
 def api_post(url):
 
     try:
@@ -158,8 +163,10 @@ if __name__ == '__main__':
     kwargs = {
                 'logconfig': {'level': logging.INFO},
                 'mode': 'sync',
-                'url': 'http://localhost:5001/v%s/order?contract=%s&order_condition=%s'
+                'url': 'http://ormd.vortifytech.com/v%s/order?contract=%s&order_condition=%s'
+                
               }
+    #'url': 'http://localhost:5001/v%s/order?contract=%s&order_condition=%s'
     
     usage = "usage: %prog [options]"
     parser = OptionParser(usage=usage)

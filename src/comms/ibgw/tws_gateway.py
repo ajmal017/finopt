@@ -156,11 +156,11 @@ class TWS_gateway():
 #         self.order_id_mgr = OrderIdManager(self.tws_connection)
 #         self.tws_event_handler.set_order_id_manager(self.order_id_mgr)
 #         self.order_id_mgr.start()
-          self.order_manager = OrderManager('order_manager', self, self.kwargs)
-          self.order_manager.start_order_manager()
-          
-          
-          self.quote_manager = QuoteRESTHandler('quote_manager', self)
+        self.order_manager = OrderManager('order_manager', self, self.kwargs)
+        self.order_manager.start_order_manager()
+        
+        
+        self.quote_manager = QuoteRESTHandler('quote_manager', self)
         
     def initialize_redis(self):
 
@@ -213,6 +213,9 @@ class TWS_gateway():
     
     def get_redis_conn(self):
         return self.rs
+
+    def get_config(self):
+        return self.kwargs
 
     def connect_tws(self):
         if type(self.kwargs['tws_app_id']) <> int:
@@ -273,6 +276,7 @@ class TWS_gateway():
         self.ibh.shutdown()
         self.menu_loop_done = True
         self.get_order_id_manager().set_stop()
+        
         sys.exit(0)
         
 

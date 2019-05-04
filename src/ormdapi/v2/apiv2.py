@@ -12,6 +12,22 @@ import json
 
 class InterestedTags():
     
+    '''
+    
+    order state information is not processed at this time.
+        
+        m_status = ""
+        m_initMargin = ""
+        m_maintMargin = ""
+        m_equityWithLoan = ""
+        m_commission = float()
+        m_minCommission = float()
+        m_maxCommission = float()
+        m_commissionCurrency = ""
+        m_warningText = ""
+    
+    '''
+    
     OrderStatus_tags = {'order': {'m_orderId': 'order_id',
                                   'm_clientId': 'client_id',
                                   'm_action': 'side',
@@ -25,9 +41,18 @@ class InterestedTags():
                                        'remaining': 'remaining',
                                        'avgFillPrice': 'avg_fill_price',    
                                        'permId': 'perm_id'},
+                        'contract': {'m_right': 'right', 
+                                     'm_exchange': 'exchange',
+                                     'm_symbol': 'symbol',
+                                     'm_currency': 'currency',
+                                     'm_secType': 'sec_type',
+                                     'm_strike': 'strike',
+                                     'm_expirt': 'expiry'},
+                        
                         'error': {'errorCode': 'error_code',
-                                  'errorMsg': 'error_msg'}
+                                  'errorMsg': 'error_msg'},
                         }
+    
     
     
     @staticmethod
@@ -80,7 +105,7 @@ class OpenOrdersStatus_v2(Resource):
                     pass
                 return None
 
-            open_orders = map(filter_tags, res)
+            open_orders = filter(lambda x: x <> None, map(filter_tags, res))
         
             
             return open_orders, 201
@@ -180,6 +205,9 @@ class SyncOrderCRUD_v2(Resource):
         contract = v2_helper.format_v2_str_to_contract(js_contract)
         js_order_cond = args.get('order_condition')
         clordid = str(uuid.uuid4())
+
+        self.wc.get_api_sink().add_message('/order', 'SyncOrderCRUD_v2:post', 'received new order %s condition: %s' % (js_contract, js_order_cond))
+        
         done = False
         iom = self.wc.get_parent().get_order_id_manager()
         iom.request_id('rest-api', clordid)
@@ -188,7 +216,7 @@ class SyncOrderCRUD_v2(Resource):
             id = iom.assigned_id(clordid)
             if id != None:
                 break
-            sleep(0.5)
+            sleep(0.1)
         
         try:    
             order = v2_helper.format_v2_str_to_order(js_order_cond)
@@ -215,6 +243,10 @@ class SyncOrderCRUD_v2(Resource):
             parser.add_argument('id', required=True, help="order id is required")
             args = parser.parse_args()
             id = int(args['id'])
+            
+            self.wc.get_api_sink().add_message('/order', 'SyncOrderCRUD_v2:delete', 'received delete order %d' % (id))
+            
+            
             if self.wc.get_parent().get_order_manager().is_id_in_order_book(id):
                 self.gw_conn.cancelOrder(int(id))
                 return {'info': 'cancellation request sent. Check order status'}, 200
@@ -268,9 +300,9 @@ class QuoteRequest_v2(Resource, Publisher):
                 sym =  self.quote_mgr.get_symbol_ticks(contract)
                 if sym:
                     break
-                sleep(0.5)
+                sleep(0.1)
                 i += 0.5 
-                if i >= 10:
+                if i >= 15:
                     return 'Not getting any quotes from the server after waited 5 seconds! Contact administrator', 404
                 
             return output_result(sym), 200

@@ -9,7 +9,8 @@ from flask_restful import Resource, Api, reqparse
 import traceback
 from ormdapi.v1 import apiv1
 from ormdapi.v2 import apiv2
-
+from ormdapi.v2.api_utilities import ApiMessagePersistence, ApiMessageSink, TelegramApiMessageAlert
+import logging
 
 
 
@@ -24,9 +25,24 @@ class WebConsole(Subscriber):
         Subscriber.__init__(self, 'WebConsole' )
         self.parent = parent
         self.id_message = {}
+        '''
+            message sink is a message queue that stores any event that the api classes wanted to log down
+            the sink broadcast any received message to interested subscribers: message_store and telegram bot
+            message store is a persistor that 
+        '''
+        self.message_sink = ApiMessageSink(self.parent.get_config())
+        message_store = ApiMessagePersistence(self.parent.get_redis_conn(), self.parent.get_config(), self.message_sink)
+        try:
+            tg_bot = TelegramApiMessageAlert(parent.kwargs['restapi.telegram_tok'], self.message_sink) 
+        except KeyError:
+            logging.error('Webconsole: fail to get access token for telegram bot. ') 
+        self.message_sink.start()
 
     def get_parent(self):
         return self.parent
+    
+    def get_api_sink(self):
+        return self.message_sink
     
     def add_resource(self):
         WebConsole.api.add_resource(apiv1.Commands, '/v1')
@@ -46,10 +62,13 @@ class WebConsole(Subscriber):
         WebConsole.api.add_resource(apiv2.QuoteRequest_v2, '/v2/quote', resource_class_kwargs={'webconsole': self})
 
 
-
+    def set_stop(self):
+        self.message_sink.set_stop()
+        logging.info('WebConsole: setting message sink stop flag to true')
         
     def post_shutdown(self):
-        self.parent.post_shutdown() 
+        self.parent.post_shutdown()
+         
     '''
         implement the consumer interface
         this function gets all tws events

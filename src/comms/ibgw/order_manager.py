@@ -178,7 +178,7 @@ class OrderBook(Subscriber):
         try:
             _ = self.orders[orderId]
         except KeyError:
-            self.orders[orderId]= {'ord_status':{}, 'error':{}, 'order':{}, 'contract': {}}
+            self.orders[orderId]= {'ord_status':{}, 'error':{}, 'order':{}, 'contract': {}, 'state':{}}
              
         self.orders[orderId]['ord_status']['status'] = status
         self.orders[orderId]['ord_status']['filled'] = filled
@@ -199,12 +199,16 @@ class OrderBook(Subscriber):
         self.orders[id]['error'] = {'errorCode': errorCode, 'errorMsg': errorMsg}
         
     def handle_open_order(self, orderId, state, order, contract):
+        
+        
+        
         try:
             _ = self.orders[orderId]
         except KeyError:
-            self.orders[orderId]= {'ord_status':{}, 'error':{}, 'order':{}, 'contract': {}} 
+            self.orders[orderId]= {'ord_status':{}, 'error':{}, 'order':{}, 'contract': {}, 'state':{}} 
         self.orders[orderId]['order'] = order
         self.orders[orderId]['contract'] = contract
+        self.orders[orderId]['state'] = state
         
     def update(self, event, **param): 
         if event == 'orderStatus':

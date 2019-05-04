@@ -17,8 +17,9 @@ from optparse import OptionParser
 #from options_data import ContractHelper
 
 import finopt.options_data as options_data
-from kafka.client import KafkaClient
-from kafka.producer import SimpleProducer
+#from kafka.client import KafkaClient
+#from kafka.producer import SimpleProducer
+from kafka import KafkaConsumer, KafkaProducer
 from comms.alert_bot import AlertHelper
 
 ## 
@@ -53,7 +54,7 @@ class IbKafkaProducer():
 #         port = int(self.config.get("ib_mds", "ib_mds.ib_port"))
 #         appid = int(self.config.get("ib_mds", "ib_mds.appid.id"))  
         kafka_host = self.config.get("cep", "kafka.host").strip('"').strip("'")
-        
+        kafka_port =  self.config.get("cep", "kafka.port").strip('"').strip("'")
         self.persist['is_persist'] = self.config.get("ib_mds", "ib_mds.is_persist")
         self.persist['persist_dir'] =self.config.get("ib_mds", "ib_mds.persist_dir").strip('"').strip("'")
         self.persist['file_exist'] = False
@@ -73,9 +74,21 @@ class IbKafkaProducer():
         logging.info('******* Starting IbKafkaProducer')
         logging.info('IbKafkaProducer: connecting to kafka host: %s...' % kafka_host)
         logging.info('IbKafkaProducer: message mode is async')
+
+
+        kwargs = {
+          'name': 'ib_mds',
+          'bootstrap_host': kafka_host,
+          'bootstrap_port': kafka_port,
+          'group_id': 'mds',
+          'session_timeout_ms': 10000,
+          'clear_offsets':  False,
+          'order_transmit': False
+          }
+
         
-        client = KafkaClient(kafka_host)
-        self.producer = SimpleProducer(client, async=False)
+        #client = KafkaClient(**kwargs)
+        self.producer = KafkaProducer(bootstrap_servers='%s:%s' % (kwargs['bootstrap_host'], kwargs['bootstrap_port']))
         
         if not replay:
             self.start_ib_connection()
@@ -109,14 +122,15 @@ class IbKafkaProducer():
                 msg =  "%s,%d,%d,%s,%s" % (datetime.datetime.now().strftime('%Y%m%d%H%M%S'), tick_id ,\
                                                                 4, v['price'], c_name)
                 print msg
-                self.producer.send_messages('my.price', msg.encode('utf-8'))
+                self.producer.send('my.price', msg.encode('utf-8'))
                 tick_id+=1
 
             sleep(sec)
         
         
-    def add_contract(self, tuple):
-        print tuple
+    def add_contract(self, clist):
+        
+        tuple = map(lambda x: x if x not in [''] else None, clist) 
         c = options_data.ContractHelper.makeContract(tuple)
         self.con.reqMktData(self.id2contract['conId'], c, '', False)
         self.id2contract['id2contracts'][self.id2contract['conId']] = options_data.ContractHelper.makeRedisKeyEx(c)
@@ -181,7 +195,7 @@ class IbKafkaProducer():
             logging.debug(t)   
             if self.toggle:
                 print t
-            self.producer.send_messages(IbKafkaProducer.IB_TICK_PRICE if msg.typeName == 'tickPrice' else IbKafkaProducer.IB_TICK_SIZE, t) 
+            self.producer.send(IbKafkaProducer.IB_TICK_PRICE if msg.typeName == 'tickPrice' else IbKafkaProducer.IB_TICK_SIZE, t) 
             if self.persist['is_persist']:
                 self.write_message_to_file(t)
                 
@@ -240,9 +254,9 @@ class IbKafkaProducer():
         logging.info('load_tickers: attempt to open file %s' % path)
         fr = open(path)
         for l in fr.readlines():
-            if l[0] <> '#':
+            if l[0] not in ['#', '', ' ']:
                  
-                self.add_contract(tuple([t for t in l.strip('\n').split(',')]))
+                self.add_contract([t for t in l.strip('\n').split(',')])
             
 
     def do_work(self):
@@ -286,7 +300,7 @@ class IbKafkaProducer():
                 interval = (msg_ts - (last_record_ts if last_record_ts <> None else msg_ts)).microseconds / 1000000.0
                 
                 print '%s %s %s' % (msg_ts.strftime('%Y-%m-%d %H:%M:%S.%f'), s_msg, fn)
-                self.producer.send_messages(IbKafkaProducer.IB_TICK_PRICE if msg['typeName'] == 'tickPrice' else IbKafkaProducer.IB_TICK_SIZE, s_msg)
+                self.producer.send(IbKafkaProducer.IB_TICK_PRICE if msg['typeName'] == 'tickPrice' else IbKafkaProducer.IB_TICK_SIZE, s_msg)
                  
                 last_record_ts = msg_ts
                 sleep(interval)

@@ -219,7 +219,7 @@ class ContractHelper(BaseHelper):
         newContract.m_expiry = contractTuple[4]
         newContract.m_strike = contractTuple[5]
         newContract.m_right = contractTuple[6]
-        logging.debug( 'Contract Values:%s,%s,%s,%s,%s,%s,%s:' % contractTuple)
+        #logging.debug( 'Contract Values:%s,%s,%s,%s,%s,%s,%s:' % contractTuple)
         return newContract
     
     @staticmethod
@@ -357,6 +357,7 @@ class ContractHelper(BaseHelper):
         '''
         if contract.m_right == None or contract.m_right == '0' or contract.m_right == 0:
             contract.m_right = ''
+            contract.m_strike = 0
             
         if contract.m_expiry == None:
             contract.m_expiry = ''

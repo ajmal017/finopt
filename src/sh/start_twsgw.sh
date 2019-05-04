@@ -19,8 +19,12 @@ elif [ $HOST == 'vsu-longhorn' ]; then
         FINOPT_HOME=~/pyenvs/ironfly/finopt/src
         source /home/vuser-longhorn/pyenvs/finopt/bin/activate
         TWS_GATEWAY_CFG=tws_gateway_prd.cfg
+elif [ $HOST == 'vsu-vortify' ]; then
+        FINOPT_HOME=~/workspace/fpydevs/eclipse/finopt/src
+        source /home/vuser-vortify/workspace/fpydevs/env/bin/activate
+        TWS_GATEWAY_CFG=tws_gateway_avant.cfg
 fi
-					
+									
 						
 export PYTHONPATH=$FINOPT_HOME:$PYTHONPATH
 #  
