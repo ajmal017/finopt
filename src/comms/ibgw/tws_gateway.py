@@ -21,6 +21,7 @@ from comms.tws_protocol_helper import TWS_Protocol
 from comms.ibgw.tws_gateway_restapi import WebConsole 
 from comms.ibgw.order_manager import OrderManager
 from ormdapi.v2.quote_handler import QuoteRESTHandler
+from ormdapi.v2.position_handler import AccountPositionTracker
 import redis
 import threading
 from threading import Lock
@@ -152,15 +153,17 @@ class TWS_gateway():
         self.tws_event_handler.set_subscription_manager(self.contract_subscription_mgr)
 
 
+    '''
+        this group of objects are for handling rest API requests
+    '''
     def initialize_order_quote_manager(self):
 #         self.order_id_mgr = OrderIdManager(self.tws_connection)
 #         self.tws_event_handler.set_order_id_manager(self.order_id_mgr)
 #         self.order_id_mgr.start()
         self.order_manager = OrderManager('order_manager', self, self.kwargs)
         self.order_manager.start_order_manager()
-        
-        
         self.quote_manager = QuoteRESTHandler('quote_manager', self)
+        self.pos_manager = AccountPositionTracker('acctpos_manager', self)
         
     def initialize_redis(self):
 
@@ -210,6 +213,9 @@ class TWS_gateway():
     
     def get_quote_manager(self):
         return self.quote_manager
+    
+    def get_pos_manager(self):
+        return self.pos_manager
     
     def get_redis_conn(self):
         return self.rs

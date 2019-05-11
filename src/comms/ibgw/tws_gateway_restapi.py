@@ -26,9 +26,9 @@ class WebConsole(Subscriber):
         self.parent = parent
         self.id_message = {}
         '''
-            message sink is a message queue that stores any event that the api classes wanted to log down
-            the sink broadcast any received message to interested subscribers: message_store and telegram bot
-            message store is a persistor that 
+            message sink is a message queue that stores any event to be logged by the api classes
+            the sink broadcasts any received message to interested subscribers: message_store and telegram bot
+            message store persists events in redis 
         '''
         self.message_sink = ApiMessageSink(self.parent.get_config())
         message_store = ApiMessagePersistence(self.parent.get_redis_conn(), self.parent.get_config(), self.message_sink)
@@ -60,6 +60,7 @@ class WebConsole(Subscriber):
         WebConsole.api.add_resource(apiv2.OrderStatus_v2, '/v2/order_status/<id>', resource_class_kwargs={'webconsole': self})
         WebConsole.api.add_resource(apiv2.OpenOrdersStatus_v2, '/v2/open_orders', resource_class_kwargs={'webconsole': self})
         WebConsole.api.add_resource(apiv2.QuoteRequest_v2, '/v2/quote', resource_class_kwargs={'webconsole': self})
+        WebConsole.api.add_resource(apiv2.AcctPosition_v2, '/v2/position', resource_class_kwargs={'webconsole': self})
 
 
     def set_stop(self):

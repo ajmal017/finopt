@@ -3,9 +3,11 @@ from misc2.helpers import ContractHelper, OrderHelper, OrderValidationException
 from misc2.observer import Publisher
 from finopt.instrument import Symbol
 from time import sleep
+from ormdapi.v2.position_handler import AccountSummaryTags
 import uuid
 import traceback
 import json
+
 
 
 
@@ -48,9 +50,17 @@ class InterestedTags():
                                      'm_secType': 'sec_type',
                                      'm_strike': 'strike',
                                      'm_expirt': 'expiry'},
-                        
+                        'state':{   'm_initMargin': "init_margin",
+                                    'm_maintMargin': "maint_margin",
+                                    'm_equityWithLoan': "equity_with_loan",
+                                    'm_commission': "commission",
+                                    'm_minCommission': "min_commission",
+                                    'm_maxCommission': "max_commission",
+                                    'm_commissionCurrency': "commission_currency",
+                                    'm_warningText': "warning_text"},
                         'error': {'errorCode': 'error_code',
                                   'errorMsg': 'error_msg'},
+                        
                         }
     
     
@@ -62,6 +72,9 @@ class InterestedTags():
             os[v] = o_status['order'][k]
         for k,v in InterestedTags.OrderStatus_tags['ord_status'].iteritems():
             os[v] = o_status['ord_status'][k]
+        for k,v in InterestedTags.OrderStatus_tags['state'].iteritems():
+            os[v] = o_status['state'][k]
+            
         try:
             os['error'] = 'error_code:%d, error_msg:%s' % (o_status['error']['errorCode'], o_status['error']['errorMsg'])
         except KeyError:
@@ -268,9 +281,9 @@ class QuoteRequest_v2(Resource, Publisher):
     def get(self):
         parser = reqparse.RequestParser()
         parser.add_argument('contract', required=True, help="contract is required.")
+        parser.add_argument('greeks', required=False, help="obtain option greeks")
         args = parser.parse_args()
-        contract = v2_helper.format_v2_str_to_contract(args['contract'])
-        
+
         '''
             if the contract is already in quote_handler
                 just read off the values from quote_handler and return
@@ -282,22 +295,52 @@ class QuoteRequest_v2(Resource, Publisher):
                     
                 
         '''
-        def output_result(sym):
-            return {'asize': sym.get_tick_value(Symbol.ASKSIZE), 'ask': sym.get_tick_value(Symbol.ASK),
+        def output_result(sym, require_greeks):
+            
+            
+            res =  {'asize': sym.get_tick_value(Symbol.ASKSIZE), 'ask': sym.get_tick_value(Symbol.ASK),
                     'bsize': sym.get_tick_value(Symbol.BIDSIZE), 'bid': sym.get_tick_value(Symbol.BID),
                     'last': sym.get_tick_value(Symbol.LAST), 'high': sym.get_tick_value(Symbol.LOW),
                     'close': sym.get_tick_value(Symbol.CLOSE)}
-                        
-        sym = self.quote_mgr.get_symbol_ticks(contract)
+            
+            if require_greeks:
+                opt_fields = [(Symbol.BID_OPTION, 'bid_option'),
+                              (Symbol.ASK_OPTION, 'ask_option'),
+                              (Symbol.LAST_OPTION, 'last_option')]
+                              
+                for ofld in opt_fields:
+                    option_greeks = {}
+                    try:
+                        option_greeks[ofld[1]] = sym.get_ib_option_greeks(ofld[0])
+                        res.update(option_greeks) 
+                    except:
+                        continue                
+                
+                
+            return res
+        
+        
+
+
+        contract = v2_helper.format_v2_str_to_contract(args['contract'])
+        require_greeks = False
+        try:
+            if contract.m_secType in ['OPT']:
+                if args['greeks'].upper() == 'TRUE':
+                    require_greeks = True
+        except:
+            pass
+                                    
+        sym = self.quote_mgr.get_symbol(contract)
         if sym:
-            return output_result(sym), 200
+            return output_result(sym, require_greeks), 200
                     
         else:
             print ContractHelper.contract2kvstring(contract)
             self.dispatch(self.event, {'contract': ContractHelper.contract2kvstring(contract), 'snapshot': False})
             i = 0
             while 1:
-                sym =  self.quote_mgr.get_symbol_ticks(contract)
+                sym =  self.quote_mgr.get_symbol(contract)
                 if sym:
                     break
                 sleep(0.1)
@@ -305,4 +348,40 @@ class QuoteRequest_v2(Resource, Publisher):
                 if i >= 15:
                     return 'Not getting any quotes from the server after waited 5 seconds! Contact administrator', 404
                 
-            return output_result(sym), 200
+            return output_result(sym, require_greeks), 200
+        
+        
+        
+
+'''
+    function to ....
+    
+'''
+class AcctPosition_v2(Resource, Publisher):
+    def __init__(self, webconsole):
+        self.wc = webconsole
+        self.gw_conn = self.wc.get_parent().get_tws_connection()
+        self.pm = self.wc.get_parent().get_pos_manager()
+        self.reqId = 4567
+    
+    def get(self):
+        parser = reqparse.RequestParser()
+        parser.add_argument('account', required=False, help="specify account name or leave blank to return all accounts")
+        args = parser.parse_args()        
+        try:
+            
+            # reqPositions must be called as the get_positions method
+            # in AccountPositionTracker relies on the positionEnd flag to be 
+            # set True 
+            self.gw_conn.reqPositions()
+            self.gw_conn.reqAccountSummary(self.reqId, "All", AccountSummaryTags.get_all_tags())
+            return self.pm.get_positions(args['account']), 201
+            
+        except KeyError:
+            return self.pm.get_positions(), 201
+
+        except:
+            
+            return {'error': 'AcctPosition_v2: %s' % traceback.format_exc()}, 409
+        
+        

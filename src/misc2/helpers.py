@@ -339,8 +339,9 @@ class ContractHelper(BaseHelper):
         try:
             contract.m_exchange = ContractHelper.map_rules['exchange'][contract.m_symbol]
         except:
-            
-            if 'CASH' in contract.m_secType:
+            if contract.m_exchange == None:
+                contract.m_exchange = ''  
+            elif 'CASH' in contract.m_secType:
                 pass
             elif 'USD' in contract.m_currency and 'SMART' in contract.m_exchange:
                 pass 

@@ -32,7 +32,7 @@ def read_dat_v1(path, mode, url ):
         contract = [None, None, None, None, None, None, None]
         read_vals = list(eval(vals[1]))
         contract = read_vals + contract[len(read_vals):]
-        print contract
+        #print contract
         c = ContractHelper.makeContract(tuple(contract))
         cs = ContractHelper.contract2kvstring(c)
         
@@ -85,7 +85,7 @@ def format_order_to_v2_str(order):
     return json.dumps(odict)
     
 
-def read_dat_v2(path, mode, url, version_digit ):
+def read_dat_v2(path, mode, url, quote_url, version_digit ):
     results = []
     f = open(path)
     lns = f.readlines()
@@ -102,7 +102,7 @@ def read_dat_v2(path, mode, url, version_digit ):
         contract = read_vals + contract[len(read_vals):]
         c = ContractHelper.makeContract(tuple(contract))
         del c.__dict__['m_includeExpired']
-        print c.__dict__
+        #print c.__dict__
         
         cs = format_contract_to_v2_str(c)
         
@@ -126,7 +126,7 @@ def read_dat_v2(path, mode, url, version_digit ):
         
         if mode == 'sync':
             results.append(url % (version_digit, cs, os))
-        
+            results.append(quote_url % (version_digit, cs))
     
     return results   
 
@@ -163,7 +163,9 @@ if __name__ == '__main__':
     kwargs = {
                 'logconfig': {'level': logging.INFO},
                 'mode': 'sync',
-                'url': 'http://ormd.vortifytech.com/v%s/order?contract=%s&order_condition=%s'
+                #'url': 'http://ormd.vortifytech.com/v%s/order?contract=%s&order_condition=%s'
+                'url': 'http://localhost:5001/v%s/order?contract=%s&order_condition=%s',
+                'quote_url': 'http://localhost:5001/v%s/quote?contract=%s'
                 
               }
     #'url': 'http://localhost:5001/v%s/order?contract=%s&order_condition=%s'
@@ -207,7 +209,7 @@ if __name__ == '__main__':
     if kwargs['version'] == '1':
         results= read_dat_v1(kwargs['dat_file'], kwargs['mode'], kwargs['url'], kwargs['version'])
     else:
-        results= read_dat_v2(kwargs['dat_file'], kwargs['mode'], kwargs['url'], kwargs['version'])
+        results= read_dat_v2(kwargs['dat_file'], kwargs['mode'], kwargs['url'], kwargs['quote_url'], kwargs['version'])
     if kwargs['case_no'] == '1':
         print '\n'.join(s for s in results)
     elif kwargs['case_no'] == '2':

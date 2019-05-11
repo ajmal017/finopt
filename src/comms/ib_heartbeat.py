@@ -26,7 +26,7 @@ class IbHeartBeat():
     
     def __init__(self, config):
         self.config = config
-        self.chat_handle = AlertHelper(config)              
+        #self.chat_handle = AlertHelper(config)              
         
         # ensure the message will get printed right away when the connection is first broken
         self.last_broken_time =  datetime.datetime.now() - datetime.timedelta(seconds=90)  
@@ -47,11 +47,11 @@ class IbHeartBeat():
         self.quit = True
         
     def keep_trying(self):
-        host = self.config.get("ib_heartbeat", "ib_heartbeat.gateway").strip('"').strip("'")
-        port = int(self.config.get("ib_heartbeat", "ib_heartbeat.ib_port"))
-        appid = int(self.config.get("ib_heartbeat", "ib_heartbeat.appid.id"))      
-        try_interval = int(self.config.get("ib_heartbeat", "ib_heartbeat.try_interval"))
-        suppress_msg_interval = int(self.config.get("ib_heartbeat", "ib_heartbeat.suppress_msg_interval"))
+        host = self.config["ib_heartbeat.gateway"]
+        port = int(self.config["ib_heartbeat.ib_port"])
+        appid = int(self.config["ib_heartbeat.appid.id"])      
+        try_interval = int(self.config["ib_heartbeat.try_interval"])
+        suppress_msg_interval = int(self.config["ib_heartbeat.suppress_msg_interval"])
         logging.info('ib gateway->%s:%d, appid->%d, try_interval->%d, suppress msg interval->%d' % \
                      (host, port, appid, try_interval, suppress_msg_interval))
         while not self.quit:
@@ -60,7 +60,7 @@ class IbHeartBeat():
             if rc:
                 if self.prev_state == 'broken':
                     msg = '*** Connection restored at %s **********' % datetime.datetime.now().strftime('%H:%M:%S')
-                    self.chat_handle.post_msg(msg)
+                    #self.chat_handle.post_msg(msg)
                     self.alert_listeners(msg)
                     self.prev_state = ''
                     # reset to a much earlier time
@@ -72,7 +72,7 @@ class IbHeartBeat():
                 self.prev_state = 'broken' 
                 #print now, self.last_broken_time, (now - self.last_broken_time).seconds
                 if (now - self.last_broken_time).seconds > suppress_msg_interval:
-                    self.chat_handle.post_msg(msg)
+                    #self.chat_handle.post_msg(msg)
                     self.alert_listeners(msg)
                     self.last_broken_time = now 
                     logging.error(msg)

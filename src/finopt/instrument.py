@@ -79,9 +79,20 @@ class Symbol():
     OPEN_TICK =14
     
     
+    #https://interactivebrokers.github.io/tws-api/tick_types.html
+    BID_OPTION= 10
+    ASK_OPTION= 11
+    LAST_OPTION=12
+    #def tickOptionComputation(self, tickerId, field, impliedVol, delta, optPrice, pvDividend, gamma, vega, theta, undPrice):
+    
     def __init__(self, contract):
         self.contract = contract
         self.tick_values = {}
+        '''
+            ib_option_greeks:
+            key in 10,11,12 and value is a dict of impliedVol, delta, optPrice, pvDividend, gamma, vega, theta, undPrice
+        '''
+        self.ib_option_greeks = {} 
         self.extra = {}
         self.key = ContractHelper.makeRedisKeyEx(contract)    
     
@@ -111,6 +122,16 @@ class Symbol():
     
     def get_key(self):
         return self.key
+    
+    def set_ib_option_greeks(self, id, greeks):
+        for k, v in greeks.iteritems():
+            # overflow 9223372036854775808
+            if v > 9223372036854700000:
+                greeks[k] = float('nan')
+        self.ib_option_greeks[id] = greeks
+        
+    def get_ib_option_greeks(self, id):
+        return self.ib_option_greeks[id]
     
 class Option(Symbol):
     """

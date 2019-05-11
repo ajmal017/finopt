@@ -6,7 +6,7 @@ import logging
 import traceback
 from ib.ext.EWrapper import EWrapper
 import json
-
+from copy import deepcopy
 
         
 class TWS_event_handler(EWrapper, Publisher):
@@ -18,7 +18,9 @@ class TWS_event_handler(EWrapper, Publisher):
     # any classes that is interested in listening
     # WebConsole is one such subscriber
     # it is interested in 
-    PUBLISH_TWS_EVENTS = ['error', 'openOrder', 'openOrderEnd', 'orderStatus', 'openBound', 'tickPrice', 'tickSize']
+    PUBLISH_TWS_EVENTS = ['error', 'openOrder', 'openOrderEnd', 'orderStatus', 'openBound', 'tickPrice', 'tickSize',
+                          'tickOptionComputation', 'position', 'accountSummary'
+                          ]
     
     def __init__(self, producer):
         self.producer = producer
@@ -43,7 +45,7 @@ class TWS_event_handler(EWrapper, Publisher):
             self.producer.send_message(message, self.producer.message_dumps(dict))   
             
             # forward message to subscribed consumers,
-            # that is webconsole
+            # that is webconsole / RESTAPI interfaces
             if message in self.PUBLISH_TWS_EVENTS:
                 self.dispatch(message, dict) 
         except:
@@ -91,16 +93,19 @@ class TWS_event_handler(EWrapper, Publisher):
         #pass
     
     def tickSize(self, tickerId, field, size):
-         logging.debug('TWS_event_handler:tickSize. %d<->%s' % (tickerId,self.subscription_manger.get_contract_by_id(tickerId) ))
-         self.broadcast_event('tickSize', {'contract_key': self.subscription_manger.get_contract_by_id(tickerId), 
+        logging.debug('TWS_event_handler:tickSize. %d<->%s' % (tickerId,self.subscription_manger.get_contract_by_id(tickerId) ))
+        self.broadcast_event('tickSize', {'contract_key': self.subscription_manger.get_contract_by_id(tickerId), 
                                             'field': field, 'size': size})
         #pass
     
     
     def tickOptionComputation(self, tickerId, field, impliedVol, delta, optPrice, pvDividend, gamma, vega, theta, undPrice):
+        greeks = vars().copy()
+        del greeks['tickerId']
+        del greeks['self']
+        self.broadcast_event('tickOptionComputation', {'contract_key': self.subscription_manger.get_contract_by_id(tickerId), 
+                                                       'greeks': greeks}) 
         
-        #self.broadcast_event('tickOptionComputation', self.pre_process_message(vars())) #vars())
-        pass
 
     def tickGeneric(self, tickerId, tickType, value):
         #self.broadcast_event('tickGeneric', vars())
@@ -304,15 +309,16 @@ class TWS_event_handler(EWrapper, Publisher):
 
 
     def position(self, account, contract, pos, avgCost):
+        
         contract_key= ContractHelper.makeRedisKeyEx(contract)
         logging.info('TWS_event_handler:position. [%s]:position= %d' % (contract_key, pos))
         self.broadcast_event('position', {
-                                'account': account,
-                                'contract_key': contract_key, 
-                                'position': pos, 'average_cost': avgCost,
-                                'end_batch': False
-                                
-                                })        
+                                 'account': account,
+                                 'contract_key': contract_key, 
+                                 'position': pos, 'average_cost': avgCost,
+                                 'end_batch': False
+                                 
+                                 })        
 
     def positionEnd(self):
         '''
@@ -337,7 +343,9 @@ class TWS_event_handler(EWrapper, Publisher):
 
 
     def accountSummary(self, reqId, account, tag, value, currency):
-        self.broadcast_event('accountSummary', vars())
+        v = {'reqId': reqId, 'account': account, 'tag': tag, 'value': value, 'currency': currency, 'end_batch': False}
+        self.broadcast_event('accountSummary', v)
 
     def accountSummaryEnd(self, reqId):
-        self.broadcast_event('accountSummaryEnd', vars())
+        v = {'reqId': reqId, 'end_batch': True}
+        self.broadcast_event('accountSummary', v)

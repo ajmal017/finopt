@@ -5,6 +5,7 @@ import sys, traceback
 import json
 from time import sleep
 from misc2.helpers import ContractHelper
+from misc2.observer import Subscriber
 from ib.ext.Contract import Contract
 from comms.ibgw.base_messaging import BaseMessageListener
 from comms.ibgw.tws_event_handler import TWS_event_handler
@@ -12,7 +13,7 @@ from Queue import Queue
 import threading
 import uuid
 import numpy as np
-from finopt.test_pattern import Subscriber
+
 
 
 class OrderManagerException(Exception):
