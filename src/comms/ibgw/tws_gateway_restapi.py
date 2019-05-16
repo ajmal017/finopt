@@ -1,11 +1,12 @@
 from flask import Flask, jsonify
 
 import json
+import redis
 import threading
 from time import sleep
 from misc2.observer import Subscriber
 from flask_restful import Resource, Api, reqparse
-
+from datetime import datetime
 import traceback
 from ormdapi.v1 import apiv1
 from ormdapi.v2 import apiv2
@@ -16,6 +17,8 @@ import logging
 
 class WebConsole(Subscriber):
 
+    TWS_LOG_REDIS_HANDLE = 'api_log'
+    TWS_LOG_DEFAULT_RETRIEVE_SIZE = 100
     
     app = Flask(__name__)
     api = Api(app)
@@ -37,6 +40,12 @@ class WebConsole(Subscriber):
         except KeyError:
             logging.error('Webconsole: fail to get access token for telegram bot. ') 
         self.message_sink.start()
+        
+        '''
+            create a dedicated rs for rest api use
+        '''
+        kwargs = self.parent.kwargs
+        self.rs = redis.Redis(kwargs['redis_host'], kwargs['redis_port'], kwargs['redis_db'])
 
     def get_parent(self):
         return self.parent
@@ -61,7 +70,8 @@ class WebConsole(Subscriber):
         WebConsole.api.add_resource(apiv2.OpenOrdersStatus_v2, '/v2/open_orders', resource_class_kwargs={'webconsole': self})
         WebConsole.api.add_resource(apiv2.QuoteRequest_v2, '/v2/quote', resource_class_kwargs={'webconsole': self})
         WebConsole.api.add_resource(apiv2.AcctPosition_v2, '/v2/position', resource_class_kwargs={'webconsole': self})
-
+        WebConsole.api.add_resource(apiv2.SystemStatus, '/v2/system', resource_class_kwargs={'webconsole': self})
+        
 
     def set_stop(self):
         self.message_sink.set_stop()
@@ -80,3 +90,17 @@ class WebConsole(Subscriber):
             print ('webconsole override %s: %s %s %s' % (self.name, event, "<empty param>" if not param else param,
                                           
                                          '<none>' if not param else param.__class__))
+            '''
+                insert log into redis using lpush 
+                last-in-first-out 
+            '''
+            param.update({'ts':datetime.today().strftime('%Y%m%d %H:%M:%S')})
+            self.rs.lpush(WebConsole.TWS_LOG_REDIS_HANDLE, param)
+            
+    def retrieve_logs(self, num_lines=None):
+        num_lines = num_lines if num_lines <> None else WebConsole.TWS_LOG_DEFAULT_RETRIEVE_SIZE
+        len = min(self.rs.llen(WebConsole.TWS_LOG_REDIS_HANDLE), num_lines)
+        return self.rs.lrange(WebConsole.TWS_LOG_REDIS_HANDLE, 0, len - 1)
+         
+        
+            

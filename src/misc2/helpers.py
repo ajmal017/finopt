@@ -55,6 +55,8 @@ class OrderHelper(BaseHelper):
         except ValueError:
             raise OrderValidationException("price or quantity must be a numeric value")
         
+        if price == 0:
+            raise OrderValidationException("price must not be zero")
         return True
         
         

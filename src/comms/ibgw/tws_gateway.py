@@ -222,6 +222,9 @@ class TWS_gateway():
 
     def get_config(self):
         return self.kwargs
+    
+    def get_ib_conn_status(self):
+        return self.ib_conn_status
 
     def connect_tws(self):
         if type(self.kwargs['tws_app_id']) <> int:

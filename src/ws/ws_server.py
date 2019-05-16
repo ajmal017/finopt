@@ -206,6 +206,12 @@ class PortfolioTableModelListener(BaseMessageListener):
         except KeyError:
             self.simple_caching[row] = {'count': 1, 'ts': curr_ts, 'row_values': row_values}
             notify_client()    
+        except:
+            '''
+                trap cases when notify_client fails, probably due to the other side
+                closed the connection but the server still thinks that the connection still alives
+            '''
+            logging.error('PortfolioTableModelListener: %s' % traceback.format_exc())
     
     def event_tm_table_structure_changed(self, event, source, origin_request_id, account, data_table_json):
         try:

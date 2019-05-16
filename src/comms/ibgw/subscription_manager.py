@@ -72,13 +72,13 @@ class SubscriptionManager(BaseMessageListener):
         '''
             the function retrieves a json string representation of a list of {id:contracts}
             from redis.
-            next, get rid of the contracts that are expired and of type of either fut or opt
-            next, rebuild the internal dict idContractMap['id_contract'] and reverse dict
+            next it gets rid of fut and opt contracts that have expired
+            next, it rebuilds the internal dict idContractMap['id_contract'] and reverse dict
             idContractMap['contract_id']
-            gather all the ids in the newly populated dict (which may contain holes due to
-            expired contracts and thus not necessarily a sequence), determine the max id
-            add 1 to it to form the next_id
-            request snapshot and fresh market data from the TWS gateway
+            it then gathers all the ids in the newly populated dict (which may contain holes due to
+            expired contracts) and determine the max id
+            add 1 to it to get the next_id
+            request snapshot and new market data from the TWS gateway
             
         '''
         def is_outstanding(ic):

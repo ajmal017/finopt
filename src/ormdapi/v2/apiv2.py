@@ -239,8 +239,10 @@ class SyncOrderCRUD_v2(Resource):
         
         except OrderValidationException as e:
             return {'error': e.args[0]}, 409
-        except ValueError:
+        except:
             return {'error': 'check the format of the order message! %s' % traceback.format_exc()}, 409
+        
+            
     
     def get(self):
         pass
@@ -383,5 +385,39 @@ class AcctPosition_v2(Resource, Publisher):
         except:
             
             return {'error': 'AcctPosition_v2: %s' % traceback.format_exc()}, 409
+   
+   
+   
+class SystemStatus(Resource):        
+
+    def __init__(self, webconsole):
+        self.wc = webconsole
+        
+        
+
+    def get(self):
+        parser = reqparse.RequestParser()
+        parser.add_argument('last_error', required=False)
+        parser.add_argument('num_lines', required=False)
+        args = parser.parse_args()
+        try:        
+            if args['last_error'] != None:
+                try:
+                    nl = int(args['num_lines'])
+                except:
+                    nl = None
+                return self.wc.retrieve_logs(nl), 200
+                
+            else:
+                '''
+                    return connectivity status
+                '''
+                return {'TWS connection status: [%s]': 'Connected' if self.wc.get_parent().get_ib_conn_status() else 'Disconnected. Wait for retry...'}, 200
+
+        except:
+            
+            return {'error': 'SystemStatus: %s' % traceback.format_exc()}, 404
+        
+        return self.wc.retrieve_logs(), 200
         
         

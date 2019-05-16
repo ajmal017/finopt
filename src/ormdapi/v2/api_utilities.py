@@ -2,12 +2,7 @@
 # -*- coding: utf-8 -*-
 import logging
 from misc2.observer import Publisher, Subscriber
-import sys, traceback
 import json
-from time import sleep
-from misc2.helpers import ContractHelper
-from misc2.observer import Publisher
-from ib.ext.Contract import Contract
 from Queue import Queue
 import threading
 from datetime import datetime
