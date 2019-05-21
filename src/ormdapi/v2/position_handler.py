@@ -8,6 +8,7 @@ from misc2.helpers import ContractHelper
 from misc2.observer import Subscriber
 from copy import deepcopy
 import threading
+from urllib3.packages.six import _MovedItems
 
 
 class AccountSummaryTags():
@@ -56,14 +57,18 @@ class AccountPositionTrackerException(Exception):
 
 class AccountPositionTracker(Subscriber):
     
-    POSITION_EVENTS = ['position', 'accountSummary']
+    POSITION_EVENTS = ['position', 'accountSummary', 'update_portfolio_account']
     
     def __init__(self, name, gw_parent):
 
         Subscriber.__init__(self, name)
         self.name = name
+        # indicate end of position download
         self.pos_end = False 
+        # indicate end of acct summary download
         self.acct_end = False
+        # indicate end of port acct download
+        self.port_acct_end = {}
         self.account_position = {}
         self.gw_parent = gw_parent
         self.tws_event_handler = gw_parent.get_tws_event_handler()
@@ -73,10 +78,80 @@ class AccountPositionTracker(Subscriber):
              this class
              
         '''
-        for e in ['position', 'accountSummary']:
+        for e in AccountPositionTracker.POSITION_EVENTS:
             self.tws_event_handler.register(e, self)                  
     
+    def handle_portfolio_account(self, **items):
+        '''
+            
+            in tws_event_handler, the update_portfolio_account message is used for handling the four types 
+            of tws events below, all these events are sent as "update_portfolio_account" event 
+            to find out which event is being sent by update_portfolio_account, look into 
+            the param for the key "tws_event"
+             
+            refer to line 142 in the source file:
+                self.update_portfolio_account(
+                              {'tws_event': 'updatePortfolio'....
+                              
+            Note that each tws event carried different params, as such for different event
+            the **items will contain different things
         
+            def updatePortfolio(self, contract, position, marketPrice, marketValue, averageCost, unrealizedPNL, realizedPNL, account):
+            def updateAccountValue(self, key, value, currency, account):
+            def updateAccountTime(self, timeStamp):
+            def accountDownloadEnd(self, account):
+            
+            the variables are stored as below:
+                retrieve the accountName in the event
+                
+                self.account_position[accountName]['lastUpdated'] = timeStamp
+                
+            
+        '''
+        ev = items['tws_event']
+            
+          
+        if ev == 'accountDownloadEnd':
+            self.port_acct_end[items['account']] = True
+        elif ev == 'updateAccountTime':
+            try:
+                for a in self.account_position.keys():
+                    self.account_position[a]['portfolio_account']['timestamp'] = items['timestamp']
+                #map(lambda x: x['portfolio_account'].__setitem__('timestamp', items['timeStamp']), self.account_position)
+            except:
+                #pass
+                logging.error(traceback.format_exc())
+
+        else:
+            try:
+                account = items['account']
+                _ = self.account_position[account]
+            except:
+                self.account_position[account] = {'acct_position': {}, 
+                                                               'account_summary': {'tags':{}},
+                                                               'portfolio_account': {'tags':{}, 'contracts':[]}
+                                                               }
+                
+            if ev == 'updateAccountValue':
+                self.account_position[account]['portfolio_account']['tags'][items['key']] = items['value'] 
+                self.account_position[account]['portfolio_account']['tags']['currency'] = items['currency']
+            elif ev == 'updatePortfolio':
+                try:
+                    contract_key = items['contract_key']
+                    self.account_position[account]['portfolio_account']
+                    ckv = ContractHelper.contract2kv(ContractHelper.makeContractfromRedisKeyEx(contract_key)) 
+                    self.account_position[account]['portfolio_account'][contract_key] = {'contract': ckv,
+                                                                  'position': items['position'], 
+                                                                  'market_price': items['market_price'],
+                                                                  'market_value': items['market_value'],
+                                                                  'average_cost': items['average_cost'],
+                                                                  'unrealized_PNL': items['unrealized_PNL'],
+                                                                  'realized_PNL': items['realized_PNL'],
+                                                                  
+                                                                  }
+                except:
+                    logging.error(traceback.format_exc())
+       
     def handle_position(self, account, contract_key, position, average_cost, end_batch):
         logging.info('AccountPositionTracker:position account[%s] contract[%s]', account, contract_key)
         if not end_batch:
@@ -87,7 +162,9 @@ class AccountPositionTracker(Subscriber):
             except:
                 #logging.error(traceback.format_exc())
                 self.account_position[account] = {'acct_position': {contract_key: {'contract': ckv, 'position': position, 'average_cost': average_cost}},
-                                                  'account_summary': {'tags':{}}}
+                                                  'account_summary': {'tags':{}},
+                                                  'portfolio_account':{'tags':{}, 'contracts':[]}
+                                                 }
             
             
 
@@ -105,7 +182,10 @@ class AccountPositionTracker(Subscriber):
             try:
                 _ = self.account_position[items['account']]
             except KeyError:
-                self.account_position[items['account']]= {'acct_position': {}, 'account_summary': {'tags':{}}}
+                self.account_position[items['account']]= {'acct_position': {}, 
+                                                          'account_summary': {'tags':{}},
+                                                          'portfolio_account': {'tags':{}, 'contracts':[]}
+                                                           }
                 
             for k, v in items.iteritems():
                 if k == 'tag':
@@ -122,7 +202,8 @@ class AccountPositionTracker(Subscriber):
             self.handle_position(**param)
         elif event == 'accountSummary':
             self.handle_account_summary(**param)
-
+        elif event == 'update_portfolio_account':
+            self.handle_portfolio_account(**param)
    
    
     def get_positions(self, account=None):
@@ -148,4 +229,7 @@ class AccountPositionTracker(Subscriber):
         finally:
             lock.release()
             return result     
+        
+    def get_accounts(self):
+        return self.account_position.keys()
            

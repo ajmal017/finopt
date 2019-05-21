@@ -22,6 +22,7 @@ from comms.ibgw.tws_gateway_restapi import WebConsole
 from comms.ibgw.order_manager import OrderManager
 from ormdapi.v2.quote_handler import QuoteRESTHandler
 from ormdapi.v2.position_handler import AccountPositionTracker
+from ormdapi.v2.contract_handler import ContractHandler
 import redis
 import threading
 from threading import Lock
@@ -74,7 +75,7 @@ class TWS_gateway():
             3. establish TWS gateway connectivity
             
             4. initialize listeners: ClientRequestHandler and SubscriptionManager
-            4a. start order_id_manager
+            4a. start a bunch of services for the REST API
             5. start the prosumer 
             6. run web console
         
@@ -164,6 +165,7 @@ class TWS_gateway():
         self.order_manager.start_order_manager()
         self.quote_manager = QuoteRESTHandler('quote_manager', self)
         self.pos_manager = AccountPositionTracker('acctpos_manager', self)
+        self.contract_info_manager = ContractHandler('contract_info_mgr', self)
         
     def initialize_redis(self):
 
@@ -216,6 +218,9 @@ class TWS_gateway():
     
     def get_pos_manager(self):
         return self.pos_manager
+    
+    def get_contract_info_manager(self):
+        return self.contract_info_manager
     
     def get_redis_conn(self):
         return self.rs

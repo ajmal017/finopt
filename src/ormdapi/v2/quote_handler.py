@@ -1,8 +1,5 @@
 import logging
-import json
-from threading import RLock
 from misc2.observer import Subscriber
-from misc2.observer import NotImplementedException
 from misc2.helpers import ContractHelper
 from copy import deepcopy
 import traceback

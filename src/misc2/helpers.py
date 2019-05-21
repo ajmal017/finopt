@@ -37,7 +37,7 @@ class OrderValidationException(Exception):
 class OrderHelper(BaseHelper):
     
     @staticmethod
-    def order_validation(account, side, quantity, price):
+    def order_validation(account, side, quantity, price, order_type):
         if account == None or account == '':
             raise OrderValidationException("account must not be blank!")
         elif str(side) not in ['BUY', 'SELL']:
@@ -55,7 +55,7 @@ class OrderHelper(BaseHelper):
         except ValueError:
             raise OrderValidationException("price or quantity must be a numeric value")
         
-        if price == 0:
+        if order_type <> 'MKT' and price == 0:
             raise OrderValidationException("price must not be zero")
         return True
         
@@ -65,9 +65,9 @@ class OrderHelper(BaseHelper):
         if order.m_orderType == None:
             raise OrderValidationException("order type must not be blank")
         elif order.m_orderType in ['LMT', 'STP LMT']:
-            OrderHelper.order_validation(order.m_account, order.m_action, order.m_totalQuantity, order.m_lmtPrice)
+            OrderHelper.order_validation(order.m_account, order.m_action, order.m_totalQuantity, order.m_lmtPrice, order.m_orderType)
         elif order.m_orderType =='MKT':
-            OrderHelper.order_validation(order.m_account, order.m_action, order.m_totalQuantity, 0.0)
+            OrderHelper.order_validation(order.m_account, order.m_action, order.m_totalQuantity, 0.0, order.m_orderType)
         
             
         

@@ -70,7 +70,8 @@ class WebConsole(Subscriber):
         WebConsole.api.add_resource(apiv2.OpenOrdersStatus_v2, '/v2/open_orders', resource_class_kwargs={'webconsole': self})
         WebConsole.api.add_resource(apiv2.QuoteRequest_v2, '/v2/quote', resource_class_kwargs={'webconsole': self})
         WebConsole.api.add_resource(apiv2.AcctPosition_v2, '/v2/position', resource_class_kwargs={'webconsole': self})
-        WebConsole.api.add_resource(apiv2.SystemStatus, '/v2/system', resource_class_kwargs={'webconsole': self})
+        WebConsole.api.add_resource(apiv2.SystemStatus_v2, '/v2/system', resource_class_kwargs={'webconsole': self})
+        WebConsole.api.add_resource(apiv2.ContractInfo_v2, '/v2/contract', resource_class_kwargs={'webconsole': self})
         
 
     def set_stop(self):

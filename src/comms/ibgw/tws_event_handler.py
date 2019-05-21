@@ -19,7 +19,7 @@ class TWS_event_handler(EWrapper, Publisher):
     # WebConsole is one such subscriber
     # it is interested in 
     PUBLISH_TWS_EVENTS = ['error', 'openOrder', 'openOrderEnd', 'orderStatus', 'openBound', 'tickPrice', 'tickSize',
-                          'tickOptionComputation', 'position', 'accountSummary'
+                          'tickOptionComputation', 'position', 'accountSummary', 'contractDetails', 'update_portfolio_account'
                           ]
     
     def __init__(self, producer):
@@ -186,10 +186,35 @@ class TWS_event_handler(EWrapper, Publisher):
         
 
     def contractDetails(self, reqId, contractDetails):
-        self.broadcast_event('contractDetails', vars())
+        '''
+            ContractDetails (Contract summary, String marketName, double minTick, String orderTypes, 
+                String validExchanges, int underConId, String longName, String contractMonth, String industry, 
+                String category, String subcategory, String timeZoneId, String tradingHours, 
+                String liquidHours, String evRule, double evMultiplier, int aggGroup)
+        '''
+        # the next few lines serialize the class object into dict
+        cd = deepcopy(contractDetails.__dict__)
+        contract = deepcopy(cd['m_summary'].__dict__)
+        cd.pop('m_summary')
+        cd['m_summary']= contract
+        try:
+            cd.pop('m_secIdList')
+        except:
+            pass
+        self.broadcast_event('contractDetails', {
+                                'req_id': reqId, 
+                                'contract_info': cd, 
+                                'end_batch': False
+                                })  
+
 
     def contractDetailsEnd(self, reqId):
-        self.broadcast_event('contractDetailsEnd', vars())
+        self.broadcast_event('contractDetails', {
+                                'req_id': reqId, 
+                                'contract_info': None, 
+                                'end_batch': True
+                                
+                                })  
 
     def bondContractDetails(self, reqId, contractDetails):
         self.broadcast_event('bondContractDetails', vars())

@@ -50,6 +50,9 @@ class ClientRequestHandler(BaseMessageListener):
         self.tws_connect.reqExecutions(0, ef)
     
     
+    def reqContractDetails(self, event, contract_key):
+        pass
+    
     def reqIds(self, event, value=None):
         self.tws_connect.reqIds(1)
     

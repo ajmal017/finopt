@@ -16,6 +16,7 @@ from kafka import KafkaProducer
 from misc2.observer import Publisher
 from ib.opt import ibConnection
 import importlib
+import copy
 ## 
 ## to run, start kafka server on vsu-01 <administrator, password>
 ## start ibgw or tws
@@ -31,13 +32,28 @@ class IbKafkaProducer(Publisher):
     
     EVENT_READ_FILE_LINE = 'event_read_file_line'
     PUBLISH_EVENTS = [EVENT_READ_FILE_LINE, IB_TICK_PRICE, IB_TICK_SIZE, IB_TICK_OPTION_COMPUTATION]
-    
-    def __init__(self, config, replay = False):
+    DEFAULT_CONFIG = {
+      'name': 'ib_mds',
+      'group_id': 'mds',
+      'session_timeout_ms': 10000,
+      'clear_offsets':  False,
+      'order_transmit': False
+    }    
+    def __init__(self, config):
         
         Publisher.__init__(self, IbKafkaProducer.PUBLISH_EVENTS)
         
+
         
-        self.config = config
+        
+        temp_kwargs = copy.copy(config)
+        self.config = copy.copy(IbKafkaProducer.DEFAULT_CONFIG)
+        for key in self.config:
+            if key in temp_kwargs:
+                self.config[key] = temp_kwargs.pop(key)        
+        self.config.update(temp_kwargs)            
+        
+
         self.tlock = Lock()
         self.persist = {}
         self.quit = False
@@ -45,30 +61,30 @@ class IbKafkaProducer(Publisher):
         self.id2contract = {'conId': 1, 'id2contracts': {} }
         kafka_host = self.config["kafka.host"]
         kafka_port =  self.config["kafka.port"]
-        self.persist['is_persist'] = config["ib_mds.is_persist"]
-        self.persist['persist_dir'] =config["ib_mds.persist_dir"]
+        self.persist['is_persist'] = self.config["ib_mds.is_persist"]
+        self.persist['persist_dir'] =self.config["ib_mds.persist_dir"]
         self.persist['file_exist'] = False
-        self.persist['spill_over_limit'] = int(config["ib_mds.spill_over_limit"])
-        self.load_processors(config['ib_mds.processors'])       
-        IbKafkaProducer.IB_TICK_PRICE = config["kafka.ib.topic.tick_price"]
-        IbKafkaProducer.IB_TICK_SIZE = config["kafka.ib.topic.tick_size"]
+        self.persist['spill_over_limit'] = int(self.config["ib_mds.spill_over_limit"])
+        #self.load_processors(config['ib_mds.processors'])       
+        IbKafkaProducer.IB_TICK_PRICE = self.config["kafka.ib.topic.tick_price"]
+        IbKafkaProducer.IB_TICK_SIZE = self.config["kafka.ib.topic.tick_size"]
         logging.info('******* Starting IbKafkaProducer')
         logging.info('IbKafkaProducer: connecting to kafka host: %s...' % kafka_host)
         logging.info('IbKafkaProducer: message mode is async')
 
-        kwargs = {
-          'name': 'ib_mds',
-          'bootstrap_host': kafka_host,
-          'bootstrap_port': kafka_port,
-          'group_id': 'mds',
-          'session_timeout_ms': 10000,
-          'clear_offsets':  False,
-          'order_transmit': False
-          }
 
-        self.producer = KafkaProducer(bootstrap_servers='%s:%s' % (kwargs['bootstrap_host'], kwargs['bootstrap_port']))
+
+        self.producer = KafkaProducer(bootstrap_servers='%s:%s' % (kafka_host, kafka_port))
+        try:
+            replay = True if self.config['replay_dir'] <> None else False
+        except:
+            replay = False 
         if not replay:
+            
             self.start_ib_connection()
+            self.load_tickers() 
+        else:
+            self.replay(self.config['replay_dir'])
         
 #from cep.ib_mds.processor.us_stkopt import StockOptionsSnapshot
         self.main_loop()
@@ -320,7 +336,7 @@ class IbKafkaProducer(Publisher):
                 s_msg = line.split('|')[1]
                 msg = json.loads(s_msg)
                 msg_ts = datetime.datetime.fromtimestamp(msg['ts'])
-                interval = (msg_ts - (last_record_ts if last_record_ts <> None else msg_ts)).microseconds / 1000000.0
+                interval = (msg_ts - (last_record_ts if last_record_ts <> None else msg_ts)).microseconds / 500000.0   #100000.0
                 
                 print '%s %s %s' % (msg_ts.strftime('%Y-%m-%d %H:%M:%S.%f'), s_msg, fn)
                 self.producer.send(IbKafkaProducer.IB_TICK_PRICE if msg['typeName'] == 'tickPrice' else IbKafkaProducer.IB_TICK_SIZE, s_msg)
@@ -328,7 +344,7 @@ class IbKafkaProducer(Publisher):
                 last_record_ts = msg_ts
                 sleep(interval)
 
-        files = sorted([ join(dir_loc,f) for f in listdir(dir_loc) if isfile(join(dir_loc,f)) ])   
+        files = sorted([ join(dir_loc,f) for f in listdir(dir_loc) if (isfile(join(dir_loc,f)) and f.endswith('.txt')) ])   
                  
         for f in files:
             process_msg(f)
@@ -420,7 +436,8 @@ if __name__ == '__main__':
         
         if value <> None:
             kwargs[option] = value
-    cfg_path= options.config_file
+
+    #cfg_path= options.config_file
 
     if options.symbols_file:
         kwargs['ib_mds.subscription.fileloc']= options.symbols_file
@@ -430,13 +447,13 @@ if __name__ == '__main__':
     logging.basicConfig(**logconfig)        
 
     logging.info('config settings: %s' % kwargs)
-    replay = True if options.replay_dir <> None else False 
-    ik = IbKafkaProducer(kwargs, replay)
+    #replay = True if options.replay_dir <> None else False 
+    ik = IbKafkaProducer(kwargs)
     
-    if not replay:
-        ik.load_tickers()    
-    else:
-        ik.replay(options.replay_dir)
+#     if not replay:
+#         ik.load_tickers()    
+#     else:
+#         ik.replay(options.replay_dir)
         
-    ik.run_forever()
+#    ik.run_forever()
     

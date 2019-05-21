@@ -13,7 +13,8 @@ elif [ $HOST == 'astron' ]; then
 	# virtual env
 	FINOPT_HOME=~/workspace/fpydevs/eclipse/finopt/src
 	source /home/laxaurus/workspace/fpydevs/env/bin/activate
-        SYMBOLS_PATH=/home/laxaurus/workspace/fpydevs/dat/symbols/goog.txt
+    SYMBOLS_PATH=/home/laxaurus/workspace/fpydevs/dat/symbols/goog.txt
+    REPLAY_PATH=/home/laxaurus/workspace/fpydevs/dat/mds_files
 
 
 elif [ $HOST == 'vsu-longhorn' ]; then
@@ -33,7 +34,8 @@ export PYTHONPATH=$FINOPT_HOME:$PYTHONPATH
 # clear all topic offsets and erased saved subscriptions
 
 
-python $FINOPT_HOME/cep/ib_mds.py -s $SYMBOLS_PATH -f $FINOPT_HOME/config/$MDS_CFG 
+#python $FINOPT_HOME/cep/ib_mds.py -s $SYMBOLS_PATH -f $FINOPT_HOME/config/$MDS_CFG 
+python $FINOPT_HOME/cep/ib_mds.py -r $REPLAY_PATH -f $FINOPT_HOME/config/$MDS_CFG
 
 
 #

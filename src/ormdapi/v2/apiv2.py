@@ -7,28 +7,14 @@ from ormdapi.v2.position_handler import AccountSummaryTags
 import uuid
 import traceback
 import json
-
+from threading import RLock    
 
 
 
 
 class InterestedTags():
     
-    '''
-    
-    order state information is not processed at this time.
-        
-        m_status = ""
-        m_initMargin = ""
-        m_maintMargin = ""
-        m_equityWithLoan = ""
-        m_commission = float()
-        m_minCommission = float()
-        m_maxCommission = float()
-        m_commissionCurrency = ""
-        m_warningText = ""
-    
-    '''
+
     
     OrderStatus_tags = {'order': {'m_orderId': 'order_id',
                                   'm_clientId': 'client_id',
@@ -53,10 +39,10 @@ class InterestedTags():
                         'state':{   'm_initMargin': "init_margin",
                                     'm_maintMargin': "maint_margin",
                                     'm_equityWithLoan': "equity_with_loan",
-                                    'm_commission': "commission",
-                                    'm_minCommission': "min_commission",
-                                    'm_maxCommission': "max_commission",
-                                    'm_commissionCurrency': "commission_currency",
+#                                     'm_commission': "commission",
+#                                     'm_minCommission': "min_commission",
+#                                     'm_maxCommission': "max_commission",
+#                                     'm_commissionCurrency': "commission_currency",
                                     'm_warningText': "warning_text"},
                         'error': {'errorCode': 'error_code',
                                   'errorMsg': 'error_msg'},
@@ -65,22 +51,82 @@ class InterestedTags():
     
     
     
+    ContractDetails_tags = {'contract_info': {
+                                        'm_industry':'industry',
+                                        'm_liquidHours':'liquid_hours',
+                                        'm_marketName':'market_name',
+#                                        'm_evMultiplier':'ev_multiplier',
+#                                        'm_evRule':'ev_rule',
+                                        'm_summary':'summary',
+                                        'm_minTick':'min_tick',
+                                        'm_contractMonth':'contract_month',
+                                        'm_longName':'long_name',
+                                        'm_timeZoneId':'time_zoneId',
+#                                        'm_orderTypes':'order_types',
+#                                        'm_category':'category',
+                                        'm_tradingHours':'trading_hours',
+#                                        'm_validExchanges':'valid_exchanges',
+#                                        'm_underConId':'under_conId',
+#                                        'm_subcategory':'subcategory',
+                                        'm_priceMagnifier':'price_magnifier',   
+                                },
+                            'summary': {
+                                        'm_tradingClass':'trading_class',
+                                        'm_right':'right',
+                                        'm_symbol':'symbol',
+#                                        'm_conId':'con_id',
+                                        'm_secType':'sec_type',
+#                                        'm_includeExpired':'include_expired',
+                                        'm_primaryExch':'primary_exch',
+                                        'm_multiplier':'multiplier',
+                                        'm_expiry':'expiry',
+                                        'm_currency':'currency',
+                                        'm_localSymbol':'local_symbol',
+                                        'm_exchange':'exchange',
+                                        'm_strike':'strike',                                
+                                }
+                                        
+        }
+    
     @staticmethod
     def filter_unwanted_tags(o_status):
         os = {}
-        for k,v in InterestedTags.OrderStatus_tags['order'].iteritems():
-            os[v] = o_status['order'][k]
-        for k,v in InterestedTags.OrderStatus_tags['ord_status'].iteritems():
-            os[v] = o_status['ord_status'][k]
-        for k,v in InterestedTags.OrderStatus_tags['state'].iteritems():
-            os[v] = o_status['state'][k]
-            
+        try:
+            for k,v in InterestedTags.OrderStatus_tags['order'].iteritems():
+                os[v] = o_status['order'][k]
+            for k,v in InterestedTags.OrderStatus_tags['ord_status'].iteritems():
+                os[v] = o_status['ord_status'][k]
+        except:
+            pass
+        try:
+            for k,v in InterestedTags.OrderStatus_tags['state'].iteritems():
+                os[v] = o_status['state'][k]
+        except:
+            pass
+        
         try:
             os['error'] = 'error_code:%d, error_msg:%s' % (o_status['error']['errorCode'], o_status['error']['errorMsg'])
         except KeyError:
             os['error'] = ''
         
         return os
+    
+    @staticmethod
+    def filter_unwanted_ci_tags(c_info_list):
+        def process_tags(c_info):
+            ci = {}
+            try:
+                for k,v in InterestedTags.ContractDetails_tags['contract_info'].iteritems():
+                    ci[v] = c_info[k]
+                ci.pop('summary')
+                ci['summary'] = {}
+                for k,v in InterestedTags.ContractDetails_tags['summary'].iteritems():
+                    ci['summary'][v] = c_info['m_summary'][k]
+                
+            except:
+                pass
+            return ci
+        return map(process_tags, c_info_list['contract_info'])
     
 '''
     function to force tws to return all open orders status
@@ -168,19 +214,19 @@ class v2_helper():
         js_v2 = json.loads(contract_v2str)
         for k,v in js_v2.iteritems():
             if k in mmap:
-                 cdict[mmap[k]] = v
+                cdict[mmap[k]] = v
         return ContractHelper.kv2contract(cdict)
     
 
     @staticmethod
-    def format_v2_str_to_order(order_v2str):
+    def format_v2_str_to_order(order_v2str, margin_check=False):
         omap = {'order_type': 'm_orderType',
                 'account': 'm_account',
                 'side': 'm_action',
                 'quantity': 'm_totalQuantity', 
                 'price':'m_lmtPrice',
                 'aux_price': 'm_auxPrice',
-                'order_ref': 'm_orderRef'
+                'order_ref': 'm_orderRef',
                 }        
     
         
@@ -188,7 +234,13 @@ class v2_helper():
         js_v2 = json.loads(order_v2str)
         for k,v in js_v2.iteritems():
             if k in omap:
-                 odict[omap[k]] = v
+                odict[omap[k]] = v
+                
+        try:
+            if margin_check:
+                odict['m_whatIf'] = True
+        except:
+            pass
         return OrderHelper.kv2object(odict)
     
 
@@ -200,8 +252,6 @@ class SyncOrderCRUD_v2(Resource):
         self.wc = webconsole
         self.gw_conn = self.wc.get_parent().get_tws_connection()
         
-        
-    
     '''
         
         create order
@@ -367,17 +417,20 @@ class AcctPosition_v2(Resource, Publisher):
         self.reqId = 4567
     
     def get(self):
+        
         parser = reqparse.RequestParser()
         parser.add_argument('account', required=False, help="specify account name or leave blank to return all accounts")
         args = parser.parse_args()        
         try:
             
-            # reqPositions must be called as the get_positions method
+            # reqPositions must be called first as the get_positions method
             # in AccountPositionTracker relies on the positionEnd flag to be 
             # set True 
             self.gw_conn.reqPositions()
             self.gw_conn.reqAccountSummary(self.reqId, "All", AccountSummaryTags.get_all_tags())
-            return self.pm.get_positions(args['account']), 201
+            self.gw_conn.reqAccountUpdates(True, '') #args['account']) 
+#            return self.pm.get_positions(args['account']), 201 
+            return self.pm.get_positions(), 201  ### the API doesn't support passing account as a param
             
         except KeyError:
             return self.pm.get_positions(), 201
@@ -388,12 +441,10 @@ class AcctPosition_v2(Resource, Publisher):
    
    
    
-class SystemStatus(Resource):        
+class SystemStatus_v2(Resource):        
 
     def __init__(self, webconsole):
         self.wc = webconsole
-        
-        
 
     def get(self):
         parser = reqparse.RequestParser()
@@ -412,12 +463,122 @@ class SystemStatus(Resource):
                 '''
                     return connectivity status
                 '''
-                return {'TWS connection status: [%s]': 'Connected' if self.wc.get_parent().get_ib_conn_status() else 'Disconnected. Wait for retry...'}, 200
+                return {'TWS connection status:': 'Connected' if self.wc.get_parent().get_ib_conn_status() else 'Disconnected. Wait for retry...'}, 200
 
         except:
             
             return {'error': 'SystemStatus: %s' % traceback.format_exc()}, 404
         
         return self.wc.retrieve_logs(), 200
+        
+
+class PreOrderMarginCheck_v2(Resource):
+
+
+    def __init__(self, webconsole):
+        self.wc = webconsole
+        self.gw_conn = self.wc.get_parent().get_tws_connection()
+        self.om = self.wc.get_parent().get_order_manager()
+    '''
+        
+
+    '''    
+    def get(self):
+        parser = reqparse.RequestParser()
+        parser.add_argument('contract', required=True, help="contract is required.")
+        parser.add_argument('order_condition', required=True, help="order_condition is required.")
+        args = parser.parse_args()
+        js_contract = args.get('contract')
+        '''
+            set the margin check flag to true
+        '''
+        contract = v2_helper.format_v2_str_to_contract(js_contract, True)
+        js_order_cond = args.get('order_condition')
+        clordid = str(uuid.uuid4())
+
+        self.wc.get_api_sink().add_message('/order', 'PreOrderMarginCheck_v2:get', 'received new order %s condition: %s' % (js_contract, js_order_cond))
+        
+        done = False
+        iom = self.wc.get_parent().get_order_id_manager()
+        iom.request_id('rest-api', clordid)
+        id = None
+        while not done:
+            id = iom.assigned_id(clordid)
+            if id != None:
+                break
+            sleep(0.1)
+        
+        try:    
+            order = v2_helper.format_v2_str_to_order(js_order_cond)
+            OrderHelper.order_validation_ex(order)
+            self.gw_conn.placeOrder(id['next_valid_id'], contract, order)
+            i = 0
+            while 1:
+                 
+                ob = self.om.get_order_book()
+                status =  ob.get_order_status(id)
+                if status:
+                    return status, 201
+                sleep(0.1)
+                i += 0.5 
+                if i >= 15:
+                    return 'Not getting any margin information from the server after waited 5 seconds! Contact administrator', 404            
+            
+        except OrderValidationException as e:
+            return {'error': e.args[0]}, 409
+        except:
+            return {'error': 'check the format of the margin check message! %s' % traceback.format_exc()}, 409
+        
+            
+   
+
+
+class ContractInfo_v2(Resource):
+    req_id = 0
+    def __init__(self, webconsole):
+        self.wc = webconsole    
+        self.gw_conn = self.wc.get_parent().get_tws_connection()
+        self.contract_info_mgr = self.wc.get_parent().get_contract_info_manager()
+        self.lock = RLock()
+
+    def get_req_id(self):
+        try:
+            dispatch = True
+            self.lock.acquire()
+            ContractInfo_v2.req_id += 1
+        except:
+            pass 
+        finally:            
+            self.lock.release()        
+        return ContractInfo_v2.req_id
+                    
+    
+    
+    def get(self):
+        parser = reqparse.RequestParser()
+        parser.add_argument('contract_info', required=True, help="contract is required.")
+        args = parser.parse_args()
+        js_contract = args.get('contract_info')
+        c = v2_helper.format_v2_str_to_contract(js_contract)
+        id = self.get_req_id()
+        self.gw_conn.reqContractDetails(id, c)
+        done = False
+        i=0
+        try:
+            while not done:
+                sleep(0.1)
+                i += 0.5 
+                if i >= 15:
+                    return 'Not getting any contract information from the server after waited 5 seconds! Contact administrator', 404
+                cd = self.contract_info_mgr.get_contract_details(id)
+                if cd <> None:
+                    return {'contract_info': InterestedTags.filter_unwanted_ci_tags(cd)}, 200
+                
+        except:
+            return {'error': 'check the format of the contract message! %s' % traceback.format_exc()}, 409 
+        
+
+
+        
         
         
