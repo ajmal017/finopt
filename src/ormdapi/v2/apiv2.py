@@ -492,7 +492,7 @@ class PreOrderMarginCheck_v2(Resource):
         '''
             set the margin check flag to true
         '''
-        contract = v2_helper.format_v2_str_to_contract(js_contract, True)
+        contract = v2_helper.format_v2_str_to_contract(js_contract)
         js_order_cond = args.get('order_condition')
         clordid = str(uuid.uuid4())
 
@@ -509,14 +509,14 @@ class PreOrderMarginCheck_v2(Resource):
             sleep(0.1)
         
         try:    
-            order = v2_helper.format_v2_str_to_order(js_order_cond)
+            order = v2_helper.format_v2_str_to_order(js_order_cond, True)
             OrderHelper.order_validation_ex(order)
             self.gw_conn.placeOrder(id['next_valid_id'], contract, order)
             i = 0
             while 1:
                  
                 ob = self.om.get_order_book()
-                status =  ob.get_order_status(id)
+                status =  ob.get_order_status(id['next_valid_id'])
                 if status:
                     return status, 201
                 sleep(0.1)
