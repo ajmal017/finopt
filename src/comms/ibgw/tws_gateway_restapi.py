@@ -73,7 +73,7 @@ class WebConsole(Subscriber):
         WebConsole.api.add_resource(apiv2.SystemStatus_v2, '/v2/system', resource_class_kwargs={'webconsole': self})
         WebConsole.api.add_resource(apiv2.ContractInfo_v2, '/v2/contract', resource_class_kwargs={'webconsole': self})
         WebConsole.api.add_resource(apiv2.PreOrderMarginCheck_v2, '/v2/margin', resource_class_kwargs={'webconsole': self})
-        
+        WebConsole.api.add_resource(apiv2.HistoricalData_v2, '/v2/historical_data', resource_class_kwargs={'webconsole': self})
         
 
     def set_stop(self):

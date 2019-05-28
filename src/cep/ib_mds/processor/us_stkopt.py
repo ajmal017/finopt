@@ -16,13 +16,12 @@ class StockOptionsSnapshot(threading.Thread, Subscriber):
         threading.Thread.__init__(self)
         Subscriber.__init__(self, 'StockOptionsSnapshot')
         self.symbols = {}
-        self.run_forever()
         self.persist={}
         self.persist['is_persist'] = config["stkopt.is_persist"]
         self.persist['persist_dir'] =config["stkopt.persist_dir"]
         self.persist['file_exist'] = False
         self.persist['spill_over_limit'] = int(config["stkopt.spill_over_limit"])
-        
+        self.run_forever()
         
     def run_forever(self):
         self.start()

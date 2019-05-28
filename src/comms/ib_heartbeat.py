@@ -54,6 +54,16 @@ class IbHeartBeat():
         suppress_msg_interval = int(self.config["ib_heartbeat.suppress_msg_interval"])
         logging.info('ib gateway->%s:%d, appid->%d, try_interval->%d, suppress msg interval->%d' % \
                      (host, port, appid, try_interval, suppress_msg_interval))
+        def smart_sleep(sleep_duration):
+            num_steps = 20
+            short_break = sleep_duration / num_steps
+            for i in range(num_steps):
+                if self.quit:
+                    break
+                else:
+                    sleep(short_break)
+                    
+                            
         while not self.quit:
             con = ibConnection(host, port, appid)
             rc = con.connect()
@@ -77,7 +87,7 @@ class IbHeartBeat():
                     self.last_broken_time = now 
                     logging.error(msg)
                 
-            sleep(try_interval)
+            smart_sleep(try_interval)
             
 
 

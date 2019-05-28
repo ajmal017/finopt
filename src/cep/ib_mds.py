@@ -30,6 +30,8 @@ class IbKafkaProducer(Publisher):
     IB_TICK_SIZE = 'tickSize'
     IB_TICK_OPTION_COMPUTATION = 'tickOptionComputation'
     
+
+    
     EVENT_READ_FILE_LINE = 'event_read_file_line'
     PUBLISH_EVENTS = [EVENT_READ_FILE_LINE, IB_TICK_PRICE, IB_TICK_SIZE, IB_TICK_OPTION_COMPUTATION]
     DEFAULT_CONFIG = {
@@ -65,9 +67,17 @@ class IbKafkaProducer(Publisher):
         self.persist['persist_dir'] =self.config["ib_mds.persist_dir"]
         self.persist['file_exist'] = False
         self.persist['spill_over_limit'] = int(self.config["ib_mds.spill_over_limit"])
-        #self.load_processors(config['ib_mds.processors'])       
-        IbKafkaProducer.IB_TICK_PRICE = self.config["kafka.ib.topic.tick_price"]
-        IbKafkaProducer.IB_TICK_SIZE = self.config["kafka.ib.topic.tick_size"]
+        if self.config['ib_mds.load_processor'] == True:
+            self.load_processors(config['ib_mds.processors'])       
+
+        
+        #IbKafkaProducer.IB_TICK_PRICE = self.config["kafka.ib.topic.tick_price"]
+        #IbKafkaProducer.IB_TICK_SIZE = self.config["kafka.ib.topic.tick_size"]
+        self.mds_topic_map = {
+            IbKafkaProducer.IB_TICK_PRICE: self.config["kafka.ib.topic.tick_price"],
+            IbKafkaProducer.IB_TICK_SIZE: self.config["kafka.ib.topic.tick_size"],
+            IbKafkaProducer.IB_TICK_OPTION_COMPUTATION: self.config["kafka.ib.topic.tick_opt"]
+            }
         logging.info('******* Starting IbKafkaProducer')
         logging.info('IbKafkaProducer: connecting to kafka host: %s...' % kafka_host)
         logging.info('IbKafkaProducer: message mode is async')
@@ -82,6 +92,7 @@ class IbKafkaProducer(Publisher):
         if not replay:
             
             self.start_ib_connection()
+            time.sleep(1)
             self.load_tickers() 
         else:
             self.replay(self.config['replay_dir'])
@@ -100,8 +111,8 @@ class IbKafkaProducer(Publisher):
             class_ = getattr(module, class_name)
             return class_(self.config)
                 
-        processors = map(instantiate_processor, plist)
-        for p in processors:
+        self.processors = map(instantiate_processor, plist)
+        for p in self.processors:
             map(lambda e: self.register(e, p, getattr(p, e)), IbKafkaProducer.PUBLISH_EVENTS)
         
         
@@ -192,11 +203,14 @@ class IbKafkaProducer(Publisher):
         def create_tick_kmessage(msg):
             d = {}
             for t in msg.items():
-                d[t[0]] = t[1]
+                if t[0] == 'size':
+                    d['tsize'] = t[1]
+                else:
+                    d[t[0]] = t[1]
             d['ts'] = time.time()
             d['contract'] = self.id2contract['id2contracts'][msg.tickerId]
             d['typeName'] = msg.typeName
-            d['source'] = 'IB'
+            #d['source'] = 'IB'
             return json.dumps(d)
 
         
@@ -206,7 +220,10 @@ class IbKafkaProducer(Publisher):
             logging.debug(t)   
             if self.toggle:
                 print t
-            self.producer.send(IbKafkaProducer.IB_TICK_PRICE if msg.typeName == 'tickPrice' else IbKafkaProducer.IB_TICK_SIZE, t) 
+            
+            #self.producer.send(IbKafkaProducer.IB_TICK_PRICE if msg.typeName == 'tickPrice' else IbKafkaProducer.IB_TICK_SIZE, t)
+            self.producer.send(self.mds_topic_map[msg.typeName], t['contract'], t)
+             
             if self.persist['is_persist']:
                 self.write_message_to_file(t)
                 
@@ -224,8 +241,8 @@ class IbKafkaProducer(Publisher):
         elif msg.typeName in ['error']:
             logging.error('on_ib_message: %s %s' % (msg.errorMsg, self.id2contract['id2contracts'][msg.id] if msg.errorCode == 200 else str(msg.errorCode)) )
         else:
-           if self.toggle:
-               print msg
+            if self.toggle:
+                print msg
                 
          
     def write_message_to_file(self, t):
@@ -298,19 +315,6 @@ class IbKafkaProducer(Publisher):
             
             self.dispatch(IbKafkaProducer.EVENT_READ_FILE_LINE, {'record': l})
 
-    def do_work(self):
-        while not self.quit:
-            sleep(1)
-            pass
-        
-    def run_forever(self):
-        t = threading.Thread(target = self.do_work, args=())
-        t.start()
-        self.console()
-        print 'pending ib connection to shut down...'
-        self.disconnect()
-        t.join()
-        print 'shutdown complete.'
 
         
     def disconnect(self):
@@ -393,8 +397,10 @@ class IbKafkaProducer(Publisher):
                         self.toggle = False if self.toggle else True
                     elif selection == '9': 
                         print 'quit command received...'
-                        self.quit = True                        
-                        sys.exit(0)
+                        self.quit = True        
+                        self.menu_loop_done = True
+                        self.ibh.shutdown()                
+                        
                         break
                     else: 
                         pass                        
@@ -402,9 +408,11 @@ class IbKafkaProducer(Publisher):
                     print_menu()                
                 
         except (KeyboardInterrupt, SystemExit):
+                self.quit = True
                 logging.error('ib_mds: caught user interrupt. Shutting down...')
                 sys.exit(0)   
-            
+        
+        logging.info('quit console thread.')   
 
 if __name__ == '__main__':
            

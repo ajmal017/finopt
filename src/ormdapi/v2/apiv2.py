@@ -518,7 +518,7 @@ class PreOrderMarginCheck_v2(Resource):
                 ob = self.om.get_order_book()
                 status =  ob.get_order_status(id['next_valid_id'])
                 if status:
-                    return status, 201
+                    return InterestedTags.filter_unwanted_tags(status), 201
                 sleep(0.1)
                 i += 0.5 
                 if i >= 15:
@@ -534,7 +534,8 @@ class PreOrderMarginCheck_v2(Resource):
 
 
 class ContractInfo_v2(Resource):
-    req_id = 0
+    CONTRACTINFO_REQID_START = 3000
+    req_id = CONTRACTINFO_REQID_START
     def __init__(self, webconsole):
         self.wc = webconsole    
         self.gw_conn = self.wc.get_parent().get_tws_connection()
@@ -568,17 +569,79 @@ class ContractInfo_v2(Resource):
             while not done:
                 sleep(0.1)
                 i += 0.5 
-                if i >= 15:
-                    return 'Not getting any contract information from the server after waited 5 seconds! Contact administrator', 404
+                if i >= 20:
+                    return 'Not getting any contract information from the server after waited 10 seconds! Contact administrator', 404
                 cd = self.contract_info_mgr.get_contract_details(id)
                 if cd <> None:
-                    return {'contract_info': InterestedTags.filter_unwanted_ci_tags(cd)}, 200
+                    try:
+                        _ = cd['contract_info']
+                        return {'contract_info': InterestedTags.filter_unwanted_ci_tags(cd)}, 200
+                    except:
+                        return cd, 409
                 
         except:
             return {'error': 'check the format of the contract message! %s' % traceback.format_exc()}, 409 
         
 
 
+
+class HistoricalData_v2(Resource):
+    HISTDATA_REQID_START = 4000
+    req_id = HISTDATA_REQID_START
+    def __init__(self, webconsole):
+        self.wc = webconsole    
+        self.gw_conn = self.wc.get_parent().get_tws_connection()
+        self.contract_info_mgr = self.wc.get_parent().get_contract_info_manager()
+        self.lock = RLock()
+
+    def get_req_id(self):
+        try:
+            dispatch = True
+            self.lock.acquire()
+            HistoricalData_v2.req_id += 1
+        except:
+            pass 
+        finally:            
+            self.lock.release()        
+        return HistoricalData_v2.req_id
+                    
+    
+    
+    def get(self):
+        parser = reqparse.RequestParser()
+        parser.add_argument('contract', required=True, help="contract is required.")
+        parser.add_argument('range', required=True, help="range is required.")
+        args = parser.parse_args()
+        js_contract = args.get('contract')
+        range = json.loads(args.get('range'))
+        c = v2_helper.format_v2_str_to_contract(js_contract)
+        id = self.get_req_id()
+        #
+        #def reqHistoricalData(self, tickerId, contract, endDateTime, durationStr, barSizeSetting, whatToShow, useRTH, formatDate)
+        self.gw_conn.reqHistoricalData(id, 
+                                        c, 
+                                        range['end_date'].encode('ascii'), 
+                                        range['duration'].encode('ascii'), 
+                                        range['bar_size'].encode('ascii'),
+                                        range['what_to_show'].encode('ascii'), 
+                                        range['incl_off_mkt_data'], 
+                                        1)
+            
+        done = False
+        i=0
+        try:
+            while not done:
+                sleep(0.1)
+                i += 0.5 
+                if i >= 60:
+                    return 'Not getting any contract information from the server after waited 10 seconds! Check for last errors', 404
+                hd = self.contract_info_mgr.get_historical_data(id)
+                if hd <> None:
+                    return {'historical_data': hd}, 200
+                
+        except:
+            return {'error': 'check the format of the contract message! %s' % traceback.format_exc()}, 409 
+        
         
         
         

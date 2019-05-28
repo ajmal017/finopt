@@ -19,7 +19,8 @@ class TWS_event_handler(EWrapper, Publisher):
     # WebConsole is one such subscriber
     # it is interested in 
     PUBLISH_TWS_EVENTS = ['error', 'openOrder', 'openOrderEnd', 'orderStatus', 'openBound', 'tickPrice', 'tickSize',
-                          'tickOptionComputation', 'position', 'accountSummary', 'contractDetails', 'update_portfolio_account'
+                          'tickOptionComputation', 'position', 'accountSummary', 'contractDetails', 'update_portfolio_account',
+                          'historicalData'
                           ]
     
     def __init__(self, producer):

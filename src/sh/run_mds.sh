@@ -13,7 +13,8 @@ elif [ $HOST == 'astron' ]; then
 	# virtual env
 	FINOPT_HOME=~/workspace/fpydevs/eclipse/finopt/src
 	source /home/laxaurus/workspace/fpydevs/env/bin/activate
-    SYMBOLS_PATH=/home/laxaurus/workspace/fpydevs/dat/symbols/goog.txt
+    #SYMBOLS_PATH=/home/laxaurus/workspace/fpydevs/dat/symbols/goog.txt
+        SYMBOLS_PATH=$FINOPT_HOME/../../../dat/symbols/instruments.txt
     REPLAY_PATH=/home/laxaurus/workspace/fpydevs/dat/mds_files
 
 
@@ -26,6 +27,7 @@ elif [ $HOST == 'vsu-vortify' ]; then
         source /home/vuser-vortify/workspace/fpydevs/env/bin/activate
         MDS_CFG=mds_avant.cfg
         SYMBOLS_PATH=$FINOPT_HOME/../../../dat/symbols/goog.txt
+        #SYMBOLS_PATH=$FINOPT_HOME/../../../dat/symbols/instruments.txt
 fi
 									
 						
@@ -33,9 +35,11 @@ export PYTHONPATH=$FINOPT_HOME:$PYTHONPATH
 #  
 # clear all topic offsets and erased saved subscriptions
 
+# record and publish ticks
+python $FINOPT_HOME/cep/ib_mds.py -s $SYMBOLS_PATH -f $FINOPT_HOME/config/$MDS_CFG 
 
-#python $FINOPT_HOME/cep/ib_mds.py -s $SYMBOLS_PATH -f $FINOPT_HOME/config/$MDS_CFG 
-python $FINOPT_HOME/cep/ib_mds.py -r $REPLAY_PATH -f $FINOPT_HOME/config/$MDS_CFG
+# replay ticks
+#python $FINOPT_HOME/cep/ib_mds.py -r $REPLAY_PATH -f $FINOPT_HOME/config/$MDS_CFG
 
 
 #
