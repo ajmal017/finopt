@@ -62,6 +62,14 @@ class SubscriptionManager(BaseMessageListener):
 
         
         raise
+    
+    # this routine is used by REST_API quote_handler ONLY
+    def get_contract_key_by_id(self, id):
+        try:
+            return self.idContractMap['id_contract'][id]
+        except:
+            return None
+        
             
     def reset_subscriptions(self, reset_db):
         if reset_db:

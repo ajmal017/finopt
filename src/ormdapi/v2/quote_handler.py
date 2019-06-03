@@ -20,6 +20,7 @@ class QuoteRESTHandler(Subscriber):
         self.name = name
         self.gw_parent = gw_parent
         self.tws_event_handler = gw_parent.get_tws_event_handler()
+        self.sub_mgr = gw_parent.get_subscription_manager()
         
         Subscriber.__init__(self, self.name)
         
@@ -28,7 +29,7 @@ class QuoteRESTHandler(Subscriber):
              this class
              
         '''
-        for e in ['tickPrice', 'tickSize', 'tickOptionComputation']:
+        for e in ['tickPrice', 'tickSize', 'tickOptionComputation', 'error']:
             self.tws_event_handler.register(e, self)           
         
 
@@ -73,7 +74,16 @@ class QuoteRESTHandler(Subscriber):
             self.handle_ticksize(**param)
         elif event == 'tickOptionComputation':
             self.handle_tickgreeks(**param)
-        
+        elif event == 'error':            
+            try:
+                
+                if param['id'] >= 1000 and param['id'] < 1999:
+                    ckey = self.sub_mgr.get_contract_key_by_id(param['id']-1000)
+                    self.symbols[ckey] = {'error': param['errorMsg']}
+                    
+            except:
+                pass
+            
     
     def get_symbol(self, contract):
         try:

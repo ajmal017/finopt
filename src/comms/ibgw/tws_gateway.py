@@ -9,8 +9,7 @@ import json
 
 from ib.ext.Contract import Contract
 from ib.ext.EClientSocket import EClientSocket
-
-from misc2.helpers import ContractHelper, ConfigMap
+from misc2.helpers import ContractHelper, ConfigMap, LoggerNoBaseMessagingFilter  
 from optparse import OptionParser
 from comms.ibgw.base_messaging import Prosumer
 from comms.ibgw.tws_event_handler import TWS_event_handler
@@ -23,6 +22,7 @@ from comms.ibgw.order_manager import OrderManager
 from ormdapi.v2.quote_handler import QuoteRESTHandler
 from ormdapi.v2.position_handler import AccountPositionTracker
 from ormdapi.v2.contract_handler import ContractHandler
+from ormdapi.v2.ws.ws_api_server import ApiSocketServer
 import redis
 import threading
 from threading import Lock
@@ -166,6 +166,10 @@ class TWS_gateway():
         self.quote_manager = QuoteRESTHandler('quote_manager', self)
         self.pos_manager = AccountPositionTracker('acctpos_manager', self)
         self.contract_info_manager = ContractHandler('contract_info_mgr', self)
+        self.ws_manager = ApiSocketServer('api_ws_manager', self, self.kwargs['restapi.web_socket_host'], self.kwargs['restapi.web_socket_port'])
+        t = threading.Thread(name='websocket server', target=self.ws_manager.run_forever)
+        t.setDaemon(True)
+        t.start()
         
     def initialize_redis(self):
 
@@ -221,6 +225,9 @@ class TWS_gateway():
     
     def get_contract_info_manager(self):
         return self.contract_info_manager
+    
+    def get_ws_manager(self):
+        return self.ws_manager
     
     def get_redis_conn(self):
         return self.rs
@@ -387,7 +394,7 @@ if __name__ == '__main__':
     logconfig = kwargs['logconfig']
     logconfig['format'] = '%(asctime)s %(levelname)-8s %(message)s'    
     logging.basicConfig(**logconfig)        
-
+    logging.getLogger().addFilter(LoggerNoBaseMessagingFilter())
     logging.info('config settings: %s' % kwargs)
     
     app = TWS_gateway(kwargs)

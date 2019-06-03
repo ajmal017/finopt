@@ -4,7 +4,8 @@ from misc2.observer import Publisher
 from finopt.instrument import Symbol
 from time import sleep
 from ormdapi.v2.position_handler import AccountSummaryTags
-import uuid
+from ormdapi.v2.ws.ws_api_server import ApiSocketServer
+import uuid, logging
 import traceback
 import json
 from threading import RLock    
@@ -263,13 +264,26 @@ class SyncOrderCRUD_v2(Resource):
         parser = reqparse.RequestParser()
         parser.add_argument('contract', required=True, help="contract is required.")
         parser.add_argument('order_condition', required=True, help="order_condition is required.")
+        parser.add_argument('live_update', required=False, help="obtain live udpates via the websocket")
         args = parser.parse_args()
         js_contract = args.get('contract')
-        contract = v2_helper.format_v2_str_to_contract(js_contract)
+        try:
+            contract = v2_helper.format_v2_str_to_contract(js_contract)
+        except:
+            return {'error': 'check the format of the contract string! %s' % traceback.format_exc()}, 409
         js_order_cond = args.get('order_condition')
         clordid = str(uuid.uuid4())
 
         self.wc.get_api_sink().add_message('/order', 'SyncOrderCRUD_v2:post', 'received new order %s condition: %s' % (js_contract, js_order_cond))
+        logging.info('SyncOrderCRUD_v2:post received new order %s condition: %s' % (js_contract, js_order_cond))
+        '''
+           to do FIX error handling above ^^^ 
+        '''
+        if args['live_update']:
+            handle_id = args['live_update'].strip('"').strip("'")
+            result = self.wc.get_parent().get_ws_manager().register_request(handle_id, ApiSocketServer.RS_ORDER_STATUS)
+            
+
         
         done = False
         iom = self.wc.get_parent().get_order_id_manager()
@@ -285,7 +299,7 @@ class SyncOrderCRUD_v2(Resource):
             order = v2_helper.format_v2_str_to_order(js_order_cond)
             OrderHelper.order_validation_ex(order)
             self.gw_conn.placeOrder(id['next_valid_id'], contract, order)
-            return {'order id': id['next_valid_id']}, 201
+            return {'order_id': id['next_valid_id']}, 201
         
         except OrderValidationException as e:
             return {'error': e.args[0]}, 409
@@ -326,14 +340,16 @@ class QuoteRequest_v2(Resource, Publisher):
         self.wc = webconsole
         self.contract_mgr = self.wc.get_parent().get_subscription_manager()
         self.quote_mgr = self.wc.get_parent().get_quote_manager()
-        self.event = 'reqMktData'
-        Publisher.__init__(self, [self.event])
-        self.register(self.event, self.contract_mgr, callback=getattr(self.contract_mgr, self.event))
+        self.e_mkt_data = 'reqMktData'
+        Publisher.__init__(self, [self.e_mkt_data])
+        self.register(self.e_mkt_data, self.contract_mgr, callback=getattr(self.contract_mgr, self.e_mkt_data))
+    
     
     def get(self):
         parser = reqparse.RequestParser()
         parser.add_argument('contract', required=True, help="contract is required.")
         parser.add_argument('greeks', required=False, help="obtain option greeks")
+        parser.add_argument('live_update', required=False, help="obtain live udpates via the websocket")
         args = parser.parse_args()
 
         '''
@@ -382,27 +398,55 @@ class QuoteRequest_v2(Resource, Publisher):
                     require_greeks = True
         except:
             pass
-                                    
+        
+        if args['live_update']:
+            handle_id = args['live_update'].strip('"').strip("'")
+            result = self.wc.get_parent().get_ws_manager().register_request(handle_id, ApiSocketServer.RS_QUOTE)
+        '''
+           to do FIX error handling above ^^^ 
+        '''
+        
+                          
         sym = self.quote_mgr.get_symbol(contract)
         if sym:
-            return output_result(sym, require_greeks), 200
+            try:
+                return output_result(sym, require_greeks), 200
+            except:
+                return 'invalid request! The supplied contract is found in the database but its definition could be invalid and rejected by the server!', 404
                     
         else:
-            print ContractHelper.contract2kvstring(contract)
-            self.dispatch(self.event, {'contract': ContractHelper.contract2kvstring(contract), 'snapshot': False})
+            logging.info('QuoteRequest_v2: contract %s' %  ContractHelper.contract2kvstring(contract))
+            self.dispatch(self.e_mkt_data, {'contract': ContractHelper.contract2kvstring(contract), 'snapshot': False})
             i = 0
-            while 1:
-                sym =  self.quote_mgr.get_symbol(contract)
-                if sym:
-                    break
-                sleep(0.1)
-                i += 0.5 
-                if i >= 15:
-                    return 'Not getting any quotes from the server after waited 5 seconds! Contact administrator', 404
-                
-            return output_result(sym, require_greeks), 200
+#             while 1:
+#                 sym =  self.quote_mgr.get_symbol(contract)
+#                 if sym:
+#                     break
+#                 sleep(0.1)
+#                 i += 0.5 
+#                 if i >= 15:
+#                     return 'Not getting any quotes from the server after waited 5 seconds! Contact administrator', 404
+#                 
+#             return output_result(sym, require_greeks), 200
         
-        
+            
+            done = False       
+            try:
+                while not done:
+                    sleep(0.1)
+                    i += 0.5 
+                    if i >= 15:
+                        return 'Not getting any quotes  from the server after waited 10 seconds! Contact administrator', 404
+                    sym =  self.quote_mgr.get_symbol(contract)
+                    if sym <> None:
+                        try:
+                            _ = sym.get_contract()
+                            return output_result(sym, require_greeks), 200
+                        except:
+                            return sym, 409
+                    
+            except:
+                return {'error': 'check the format of the contract message! %s' % traceback.format_exc()}, 409         
         
 
 '''
