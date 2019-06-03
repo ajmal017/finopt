@@ -64,8 +64,9 @@ class RestStream():
     RS_ACCEPTED = 'rs_accepted'
     EVENTS = [RS_ORDER_STATUS, RS_QUOTE, RS_ACCEPTED]
     
-    def __init__(self, host, port):
-        self.url = 'ws://%s:%d' % (host, port)
+    def __init__(self, host, port=None):
+        connect_str = 'ws://%s' % host if (port == '' or port == None) else 'ws://%s:%d' % (host, port)
+        self.url = connect_str
         self.events = { event : []
                           for event in RestStream.EVENTS }
         

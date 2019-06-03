@@ -50,9 +50,10 @@ if __name__ == "__main__":
     level=logging.INFO
     )
     
-    rest_server = 'localhost:5001' # ormd.vortifytech.com
-    ws_server = 'localhost'
-    rs = RestStream(ws_server, 9005)
+    rest_server = 'ormd.vortifytech.com'
+    ws_server = 'ws-ormd.vortifytech.com/ws'
+
+    rs = RestStream(ws_server) 
     try:
         
         '''
@@ -68,7 +69,7 @@ if __name__ == "__main__":
         test_new_order(rest_server, handle)
 
         # run a few seconds and quit 
-        time.sleep(5)
+        time.sleep(2)
         
     except KeyboardInterrupt:
         logging.warn('Received CTRL-C...terminating')
