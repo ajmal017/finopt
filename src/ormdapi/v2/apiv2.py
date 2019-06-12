@@ -213,6 +213,31 @@ class v2_helper():
         
         cdict ={}
         js_v2 = json.loads(contract_v2str)
+        
+        
+        
+        symbol = js_v2['symbol'] if 'symbol' in js_v2 else None
+        currency= js_v2['currency'] if 'currency' in js_v2 else None
+        sec_type = js_v2['sec_type'] if 'sec_type' in js_v2 else None
+        exchange = js_v2['exchange'] if 'exchange' in js_v2 else None
+        expiry= js_v2['expiry'] if 'expiry' in js_v2 else None
+        right= js_v2['right'] if 'right' in js_v2 else None
+        strike= js_v2['strike'] if 'strike' in js_v2 else None
+        
+        if symbol == None or currency == None or sec_type == None or exchange == None:
+            raise ('one or more of the values in symbol, currency, duration, sec_type, exchange, end_date contains null value!')
+        if sec_type.upper() in ['OPT']:
+            if expiry == None or right == None or strike == None:
+                raise('expiry or right or strike can not be null for options!')
+            try:
+                _ = float(strike)
+            except:
+                raise('parameter strike must be a number!')
+        if sec_type.upper() in ['FUT'] and expiry == None:
+            print 'expiry can not be null for futures'
+        
+        
+        
         for k,v in js_v2.iteritems():
             if k in mmap:
                 cdict[mmap[k]] = v
@@ -390,14 +415,15 @@ class QuoteRequest_v2(Resource, Publisher):
         
 
 
-        contract = v2_helper.format_v2_str_to_contract(args['contract'])
-        require_greeks = False
         try:
+            contract = v2_helper.format_v2_str_to_contract(args['contract'])
+            require_greeks = False
+            
             if contract.m_secType in ['OPT']:
-                if args['greeks'].upper() == 'TRUE':
+                if args['greeks'] <> None and args['greeks'].upper() == 'TRUE':
                     require_greeks = True
         except:
-            pass
+            return {'error': 'check the format of the contract message! %s' % traceback.format_exc()}, 409
         
         if args['live_update']:
             handle_id = args['live_update'].strip('"').strip("'")
@@ -681,6 +707,9 @@ class HistoricalData_v2(Resource):
                     return 'Not getting any contract information from the server after waited 10 seconds! Check for last errors', 404
                 hd = self.contract_info_mgr.get_historical_data(id)
                 if hd <> None:
+                    if 'error' in hd:
+                        return {'historical_data': hd}, 404
+    
                     return {'historical_data': hd}, 200
                 
         except:

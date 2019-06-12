@@ -37,6 +37,17 @@ class QuoteRESTHandler(Subscriber):
         logging.debug('QuoteHandler:tickPrice')
         try:
             s = self.symbols[contract_key]
+            '''
+                a contract may have already existed in the self.symbols dictionary
+                from a previous subscription attempt that was unsuccessful,
+                resulting in no Symbol created but an error message stored
+                as a dict and assigned to self.symbols (check the code in update
+                function below)
+                the following if condition deals with such a case by recreating a
+                new symbol and getting rid of the error dict
+            '''
+            if not isinstance(s, Symbol):
+                raise KeyError            
         except KeyError:
             s = Symbol(ContractHelper.makeContractfromRedisKeyEx(contract_key))
             self.symbols[contract_key] = s
@@ -46,9 +57,11 @@ class QuoteRESTHandler(Subscriber):
         
     
     def handle_ticksize(self, contract_key, field, size):
-        logging.debug('QuoteHandler:ticksize')
+        logging.info('QuoteHandler:ticksize %s' % contract_key)
         try:
             s = self.symbols[contract_key]
+            if not isinstance(s, Symbol):
+                raise KeyError
         except KeyError:
             s = Symbol(ContractHelper.makeContractfromRedisKeyEx(contract_key))
             self.symbols[contract_key] = s
@@ -59,6 +72,8 @@ class QuoteRESTHandler(Subscriber):
         try:
             contract_key = params['contract_key']
             s = self.symbols[contract_key]
+            if not isinstance(s, Symbol):
+                raise KeyError            
         except KeyError:
             s = Symbol(ContractHelper.makeContractfromRedisKeyEx(contract_key))
             self.symbols[contract_key] = s

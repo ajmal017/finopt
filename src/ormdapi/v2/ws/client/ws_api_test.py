@@ -19,7 +19,8 @@ def accepted(event, handle):
     test api
 '''
 def test_quote(rest_server, handle):
-    url = 'http://%s/v2/quote?contract={"currency": "USD", "symbol": "EUR", "sec_type": "CASH", "exchange": "IDEALPRO"}&live_update=%s' % (rest_server, handle)
+    #url = 'http://%s/v2/quote?contract={"currency": "USD", "symbol": "EUR", "sec_type": "CASH", "exchange": "IDEALPRO"}&live_update=%s' % (rest_server, handle)
+    url = 'http://%s/v2/quote?contract={"currency": "USD", "symbol": "GOOG", "sec_type": "OPT", "strike": 1077.5, "exchange": "SMART", "right": "C", "expiry":"20190614"}&live_update=%s' % (rest_server, handle)
     print url
     r = requests.get(url)
     print r.content
